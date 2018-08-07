@@ -5,7 +5,7 @@ Description
 --------------
 
 **mihifepe** is a library that implements Model Interpretability via Hierarchical Feature Perturbation (more details forthcoming).
-**mihifepe** requires python 3.6+.
+**mihifepe** works with python 3.6+.
 
 Installation
 ---------------
@@ -19,6 +19,12 @@ Use pip to install directly from GitHub.
 Add '-e' for an editable install:
 
     pip install -e git+https://github.com/cloudbopper/mihifepe.git@master#egg=mihifepe
+
+
+Usage
+-----
+
+    [TODO]
 
 License
 -------
