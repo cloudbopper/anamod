@@ -5,21 +5,26 @@ Description
 --------------
 
 **mihifepe** is a library that implements Model Interpretability via Hierarchical Feature Perturbation (more details forthcoming).
-**mihifepe** works with python 3.6+.
+**mihifepe** works with python 3.5+.
 
 Installation
 ---------------
 
 Recommended installation method is via [virtual environments](https://python-guide-cn.readthedocs.io/en/latest/dev/virtualenvs.html) and [pip](https://pip.pypa.io/).
 
+When making the virtual environment, specify python3 as the python executable (python3 version must be 3.5+)
+
+    mkvirtualenv -p python3 mihifepe_env
+
 Use pip to install directly from GitHub.
 
     pip install git+https://github.com/cloudbopper/mihifepe.git@master#egg=mihifepe
 
-Add '-e' for an editable install:
+Or, to install in editable mode:
 
-    pip install -e git+https://github.com/cloudbopper/mihifepe.git@master#egg=mihifepe
-
+    git clone https://github.com/cloudbopper/mihifepe.git
+    cd mihifepe
+    pip install -e .
 
 Usage
 -----
