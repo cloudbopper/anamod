@@ -13,7 +13,7 @@ setup(
     packages=find_packages(),
 
     # Requirements
-    python_requires=">= 3.6",
+    python_requires=">= 3.5",
     install_requires=[
         "anytree>=2.4.3",
         "numpy>=1.12.1",
