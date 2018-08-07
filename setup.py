@@ -15,7 +15,7 @@ setup(
     # Requirements
     python_requires=">= 3.6",
     install_requires=[
-        "anytree>=2.4.3"
+        "anytree>=2.4.3",
         "numpy>=1.12.1",
         "scikit-learn>=0.18.1"
     ]
