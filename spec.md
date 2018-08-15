@@ -19,33 +19,56 @@ Client API
 ### Data types
 The library deals with models that accept one or both of the following types of input:
 - **Static input**: Represented as a single vector per instance of length *L*
-- **Dynamic input**: Represented as an input sequence of variable length *V*, each element of which is a vector of fixed length *W*.
+- **Temporal input**: Represented as an input sequence of variable length *V*, each element of which is a vector of fixed length *W*.
 
 Models commonly take only static input, but models such as Recurrent Neural Networks (RNNs) work with input sequences. Models comprising bigger networks with RNN sub-networks may take both kinds of inputs.
 
-### Test Data
-[TODO]
+### Data representation
+The data must be in [HDF5](https://support.hdfgroup.org/HDF5/) format, which (among other things) allows easy storage and access of a combination of static and variable-length temporal data. The recommended method of generating HDF5 inputs is via [h5py](http://docs.h5py.org/en/latest/index.html).
+
+HDF5 data is organized into a hierarchy comprising groups (containers) and datasets (data collections).
+The input data for **mihifepe** must be organized as follows (see [TODO] for examples).
+
+Groups:
+
+    /records
+    /records/<record_id>
+
+Datasets:
+
+    /records/<record_id>/temporal (2-D array)
+    /records/<record_id>/static (1-D array)
+    /records/<record_id>/target (scalar)
+
+Sparse representations may be used for both temporal and static data, in which case the attribute 'sparse' must be specified (see above example).
 
 ### Trained model
 The client must create a model object that implements the following method:
 
     model.predict(target, input_vector=None, input_sequence=None)
+
 which must return a tuple (loss, prediction) representing the model's output loss and prediction
 for the given (target, instance) pair.
 
-The test data type must match the data type of the *predict* function (e.g. if the model requires both static and dynamic input, the input test data must provide both for every instance).
+The test data type must match the data type of the *predict* function (e.g. if the model requires both static and temporal input, the input test data must provide both for every instance).
 
 ### Hierarchy over features
-[REVISE] The client must provide a hierarchy whose nodes implement the following methods:
+The client must provide a hierarchy over features as a CSV file. Each node (including leaf nodes) may correspond to a single feature or a group of features. If both static and temporal data exist, they cannot be part of the same leaf node.
 
-    node.is_leaf (returns true if node is a leaf node, else false)
-    node.children (returns list of children if internal node, else empty list)
+    *node_name*: unique identifier string
+    *parent_name*: node_name of parent if it exists, else '' (root node)
+    *description*: node description
+    *data_type*: [only required for leaf nodes] 'static' or 'temporal'
+    *indices*:   [only required for leaf nodes] list of tab-separated indices corresponding to the indices of these features in the data
 
-### Binding interface
-These binding functions must be invoked to pass the created objects to the library:
+mihifepe API
+------------
 
-    mihifepe.bind_model(model)
-    mihifepe.bind_hierarchy(hierarchy_root)
+These functions must be invoked to pass the required data/objects to **mihifepe**:
+
+    mihifepe.bind_model(model)                      # binds model for subsequent callbacks to model.predict
+    mihifepe.load_hierarchy(hierarchy_filename)     # hierarchy CSV
+    mihifepe.load_data(data_filename)               # Test data in HDF5 format with specified architecture
 
 Examples
 --------
