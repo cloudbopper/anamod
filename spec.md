@@ -60,8 +60,9 @@ The test data type must match the data type of the *predict* function (e.g. if t
 ### Hierarchy over features
 The client must provide a hierarchy over features as a CSV file. Each node (including leaf nodes) may correspond to a single feature or a group of features. If both static and temporal data exist, they cannot be part of the same leaf node.
 
-    *name*:             unique identifier string
-    *parent_name*:      node_name of parent if it exists, else '' (root node)
+    *name*:             feature name
+    *category*:         feature category - acts a namespace. The pair (category, name) must be unique for each feature.
+    *parent_name*:      name of parent if it exists, else '' (root node)
     *description*:      node description
     *data_type*:        [only required for leaf nodes] 'static' or 'temporal'
     *indices*:          [only required for leaf nodes] list of tab-separated indices
