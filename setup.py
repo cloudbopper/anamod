@@ -15,8 +15,10 @@ setup(
     # Requirements
     python_requires=">= 3.5",
     install_requires=[
-        "anytree>=2.4.3",
-        "numpy>=1.12.1",
-        "scikit-learn>=0.18.1"
+        "anytree~=2.4.3",
+        "h5py~=2.8.0",
+        "numpy~=1.12.1",
+        "scikit-learn~=0.18.1",
+        "scipy~=1.1.0"
     ]
 )

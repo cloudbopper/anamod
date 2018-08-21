@@ -1,0 +1,13 @@
+# Condor submit file template for feature importance subtask
+
+executable                  = python3
+arguments                   = -m mihifepe.worker ARGS_FILENAME
+universe                    = vanilla
+rank                        = memory
+request_memory              = 16 GB
+requirements                = (OpSys == "LINUX" && arch == "X86_64")
+log                         = LOG_FILENAME
+output                      = OUTPUT_FILENAME
+error                       = ERROR_FILENAME
+getenv                      = True
+queue
