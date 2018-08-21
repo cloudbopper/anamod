@@ -60,22 +60,19 @@ The test data type must match the data type of the *predict* function (e.g. if t
 ### Hierarchy over features
 The client must provide a hierarchy over features as a CSV file. Each node (including leaf nodes) may correspond to a single feature or a group of features. If both static and temporal data exist, they cannot be part of the same leaf node.
 
-    *node_name*:        unique identifier string
+    *name*:             unique identifier string
     *parent_name*:      node_name of parent if it exists, else '' (root node)
     *description*:      node description
     *data_type*:        [only required for leaf nodes] 'static' or 'temporal'
     *indices*:          [only required for leaf nodes] list of tab-separated indices
                         corresponding to the indices of these features in the data
 
-mihifepe API
-------------
+Input files
+-----
 
-These functions must be invoked to pass the required data/objects to *mihifepe*:
-
-    mihifepe.load_model(model_generator_filename)   # python script that generates model object for
-                                                    # subsequent callbacks to model.predict
-    mihifepe.load_hierarchy(hierarchy_filename)     # hierarchy CSV
-    mihifepe.load_data(data_filename)               # Test data in HDF5 format with specified architecture
+- (Test data): *data_filename*: Test data in HDF5 format
+- (Trained model): *model_generator_filename*: Python script that generates model object for subsequent callbacks to model.predict
+- (Hierarchy over features): *hierarchy_filename*: CSV specifying hierarchy over features
 
 Examples
 --------
