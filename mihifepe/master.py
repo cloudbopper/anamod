@@ -33,6 +33,7 @@ def main():
     parser.add_argument("-data_filename", help="Test data in HDF5 format", required=True)
     parser.add_argument("-output_dir", help="Output directory", required=True)
     # Optional arguments
+    # TODO: type of perturbation; note: current parallel setup cannot handle shuffling involving multiple features
     parser.add_argument("-features_per_worker", type=int, default=10, help="worker load")
     parser.add_argument("-eviction_timeout", type=int, default=14400, help="time in seconds to allow condor jobs"
                         " to run before evicting and restarting")
@@ -82,8 +83,8 @@ def load_hierarchy(hierarchy_filename):
         reader = csv.DictReader(hierarchy_file)
         for row in reader:
             node = Feature(row[constants.NODE_NAME], category=row[constants.CATEGORY], parent_name=row[constants.PARENT_NAME],
-                           description=row[constants.DESCRIPTION], data_type=row[constants.DATA_TYPE],
-                           indices={int(idx) for idx in "\t".split(row[constants.INDICES])})
+                           description=row[constants.DESCRIPTION], static_indices=list_idx(row[constants.STATIC_INDICES]),
+                           temporal_indices=list_idx(row[constants.TEMPORAL_INDICES]))
             assert node.identifier not in nodes, "(category, name) tuple must be unique across all features: %s" % node.identifier
             nodes[node.identifier] = node
     # Construct tree
@@ -96,22 +97,22 @@ def load_hierarchy(hierarchy_filename):
             node.parent = nodes[node.parent_name]
     assert root, "Invalid tree structure: root node missing (every node has a parent)"
     # Checks
-    valid_data_types = [constants.STATIC, constants.TEMPORAL, constants.MIXED]
+    all_static_indices = set()
+    all_temporal_indices = set()
     for node in anytree.PostOrderIter(root):
         if node.is_leaf:
-            assert node.data_type in valid_data_types, "Leaf node %s must have a valid data type from %s" % (node.name, str(valid_data_types))
-            assert len(node.indices) >= 1, "Leaf node %s must have at least one index" % node.name
+            assert node.static_indices or node.temporal_indices, "Leaf node %s must have at least one index of either type" % node.name
+            assert not all_static_indices.intersection(node.static_indices), "Leaf node %s has static index overlap with other leaf nodes" % node.name
+            assert not all_temporal_indices.intersection(node.temporal_indices), "Leaf node %s has temporal index overlap with other leaf nodes" % node.name
+        else:
+            # Ensure non-leaf nodes have empty initial indices
+            assert not node.static_indices, "Non-leaf node %s has non-empty initial indices" % node.name
+            assert not node.temporal_indices, "Non-leaf node %s has non-empty initial indices" % node.name
     # Populate data structures
     for node in anytree.PostOrderIter(root):
         for child in node.children:
-            # Feature indices
-            node.indices.update(child.indices)
-            # Data type
-            if node.data_type != constants.MIXED:
-                if not node.data_type:
-                    node.data_type = child.data_type
-                elif node.data_type != child.data_type:
-                    node.data_type = constants.MIXED
+            node.static_indices += child.static_indices
+            node.temporal_indices += child.temporal_indices
     return root
 
 
@@ -186,8 +187,8 @@ class Feature(anytree.Node):
         self.category = kwargs.get(constants.CATEGORY, "")
         self.parent_name = kwargs.get(constants.PARENT_NAME, "")
         self.description = kwargs.get(constants.DESCRIPTION, "")
-        self.data_type = kwargs.get(constants.DATA_TYPE, "")
-        self.indices = kwargs.get(constants.INDICES, set())
+        self.static_indices = kwargs.get(constants.STATIC_INDICES, [])
+        self.temporal_indices = kwargs.get(constants.TEMPORAL_INDICES, [])
         self.identifier = self.get_identifier(self.category, name)
 
     @staticmethod
@@ -225,10 +226,12 @@ class CondorPipeline():
         targs.all_features = False
         with open(features_filename, "w") as features_file:
             writer = csv.writer(features_file)
-            writer.writerow([constants.CATEGORY, constants.NODE_NAME, constants.INDICES])
+            writer.writerow([constants.CATEGORY, constants.NODE_NAME,
+                             constants.STATIC_INDICES, constants.TEMPORAL_INDICES])
             for feature_node in task_features:
                 writer.writerow([feature_node.category_name, feature_node.name,
-                                 "\t".join([str(idx) for idx in feature_node.indices])])
+                                 unlist_idx(feature_node.static_indices),
+                                 unlist_idx(feature_node.temporal_indices)])
 
     def write_arguments(self, targs):
         """Write task-specific arguments"""
@@ -408,6 +411,16 @@ class CondorPipeline():
         targets, losses, predictions = self.compile_results()
         self.logger.info("End condor pipeline")
         return targets, losses, predictions
+
+
+def list_idx(str_indices):
+    """Converts tab-separated string of indices to int list"""
+    return [int(idx) for idx in "\t".split(str_indices)]
+
+
+def unlist_idx(int_indices):
+    """Converts int list of indices to tab-separated string"""
+    return "\t".join([str(idx) for idx in int_indices])
 
 
 if __name__ == "__main__":

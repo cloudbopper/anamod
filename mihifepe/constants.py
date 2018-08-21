@@ -4,11 +4,8 @@
 NODE_NAME = "name"
 PARENT_NAME = "parent_name"
 DESCRIPTION = "description"
-DATA_TYPE = "data_type"
-INDICES = "indices"
-STATIC = "static"
-TEMPORAL = "temporal"
-MIXED = "mixed"
+STATIC_INDICES = "static_indices"
+TEMPORAL_INDICES = "temporal_indices"
 CATEGORY = "category"
 
 # Condor
@@ -39,3 +36,5 @@ WILCOXON_TEST = "wilcoxon-test"
 # Miscellaneous
 BASELINE = u"baseline"
 SEED = 13997
+RECORDS = "records" # HDF5 structure
+TARGET = "target"
