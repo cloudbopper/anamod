@@ -17,11 +17,13 @@ import subprocess
 import time
 
 import anytree
+import h5py
 import numpy as np
 import sklearn
 
 from compute_p_values import compute_p_value
 import constants
+from feature import Feature
 
 def main():
     """Parse arguments"""
@@ -82,9 +84,10 @@ def load_hierarchy(hierarchy_filename):
     with open(hierarchy_filename) as hierarchy_file:
         reader = csv.DictReader(hierarchy_file)
         for row in reader:
-            node = Feature(row[constants.NODE_NAME], category=row[constants.CATEGORY], parent_name=row[constants.PARENT_NAME],
-                           description=row[constants.DESCRIPTION], static_indices=list_idx(row[constants.STATIC_INDICES]),
-                           temporal_indices=list_idx(row[constants.TEMPORAL_INDICES]))
+            node = Feature(row[constants.NODE_NAME], category=row[constants.CATEGORY],
+                           parent_name=row[constants.PARENT_NAME], description=row[constants.DESCRIPTION],
+                           static_indices=Feature.unpack_indices(row[constants.STATIC_INDICES]),
+                           temporal_indices=Feature.unpack_indices(row[constants.TEMPORAL_INDICES]))
             assert node.identifier not in nodes, "(category, name) tuple must be unique across all features: %s" % node.identifier
             nodes[node.identifier] = node
     # Construct tree
@@ -180,32 +183,6 @@ def evaluate(args, feature_nodes, targets, losses, predictions):
     outfile.close()
 
 
-class Feature(anytree.Node):
-    """Class representing feature/feature group"""
-    def __init__(self, name, **kwargs):
-        super().__init__(name)
-        self.category = kwargs.get(constants.CATEGORY, "")
-        self.parent_name = kwargs.get(constants.PARENT_NAME, "")
-        self.description = kwargs.get(constants.DESCRIPTION, "")
-        self.static_indices = kwargs.get(constants.STATIC_INDICES, [])
-        self.temporal_indices = kwargs.get(constants.TEMPORAL_INDICES, [])
-        self.identifier = self.get_identifier(self.category, name)
-
-    @staticmethod
-    def get_identifier(category, name):
-        """
-        Construct feature identifier for given (category, name) tuple
-
-        Args:
-            category: feature category, acts as namespace
-            name: feature name
-
-        Returns:
-            identifier
-        """
-        return "%s:%s" % (category, name)
-
-
 class CondorPipeline():
     """Class managing condor pipeline for distributing load across workers"""
 
@@ -230,8 +207,8 @@ class CondorPipeline():
                              constants.STATIC_INDICES, constants.TEMPORAL_INDICES])
             for feature_node in task_features:
                 writer.writerow([feature_node.category_name, feature_node.name,
-                                 unlist_idx(feature_node.static_indices),
-                                 unlist_idx(feature_node.temporal_indices)])
+                                 Feature.pack_indices(feature_node.static_indices),
+                                 Feature.pack_indices(feature_node.temporal_indices)])
 
     def write_arguments(self, targs):
         """Write task-specific arguments"""
@@ -385,18 +362,22 @@ class CondorPipeline():
         all_predictions = {}
         targets = None
         for results_filename in os.listdir(self.master_args.output_dir):
-            match = re.match("results_worker_([0-9]+).pkl", results_filename)
+            match = re.match("results_worker_([0-9]+).hdf5", results_filename)
             if match:
                 self.logger.info("Processing %s" % results_filename)
+                root = h5py.File("%s/%s" % (self.master_args.output_dir, results_filename), "r")
+
+                def load_data(group):
+                    """Helper function to load data"""
+                    for feature_id, feature_data in group.items():
+                        return {feature_id: feature_data.value} # TODO: verify this is the right data type, matches expectations
+
+                all_losses.update(load_data(root[constants.LOSSES]))
+                all_predictions.update(load_data(root[constants.PREDICTIONS])) # Predictions non-empty if task is binary classification
                 idx = int(match.group(1))
-                with open("%s/%s" % (self.master_args.output_dir, results_filename), "rb") as results_file:
-                    losses = pickle.load(results_file)
-                    all_losses.update(losses)
-                    # Predictions non-empty if task is binary classification
-                    predictions = pickle.load(results_file)
-                    all_predictions.update(predictions)
-                    if idx == 0:
-                        targets = pickle.load(results_file) # Only first worker outputs labels since they're common
+                if idx == 0:
+                    # Only first worker outputs labels since they're common
+                    targets = root[constants.TARGETS].value
         assert targets is not None
         return targets, all_losses, all_predictions
 
@@ -411,16 +392,6 @@ class CondorPipeline():
         targets, losses, predictions = self.compile_results()
         self.logger.info("End condor pipeline")
         return targets, losses, predictions
-
-
-def list_idx(str_indices):
-    """Converts tab-separated string of indices to int list"""
-    return [int(idx) for idx in "\t".split(str_indices)]
-
-
-def unlist_idx(int_indices):
-    """Converts int list of indices to tab-separated string"""
-    return "\t".join([str(idx) for idx in int_indices])
 
 
 if __name__ == "__main__":

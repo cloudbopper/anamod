@@ -6,6 +6,8 @@ PARENT_NAME = "parent_name"
 DESCRIPTION = "description"
 STATIC_INDICES = "static_indices"
 TEMPORAL_INDICES = "temporal_indices"
+STATIC = "static"
+TEMPORAL = "temporal"
 CATEGORY = "category"
 
 # Condor
@@ -33,8 +35,13 @@ PVALUE_LOSSES = "p-value-losses"
 PAIRED_TTEST = "paired-t-test"
 WILCOXON_TEST = "wilcoxon-test"
 
+# HDF5
+RECORDS = "records"
+TARGET = "target"
+LOSSES = "losses"
+PREDICTIONS = "predictions"
+TARGETS = "targets"
+
 # Miscellaneous
 BASELINE = u"baseline"
 SEED = 13997
-RECORDS = "records" # HDF5 structure
-TARGET = "target"
