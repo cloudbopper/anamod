@@ -43,7 +43,7 @@ def main():
 
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
-
+    np.random.seed(constants.SEED)
     logging.basicConfig(level=logging.INFO, filename="%s/master.log" % args.output_dir,
                         format="%(asctime)s: %(message)s")
     logger = logging.getLogger(__name__)
@@ -81,12 +81,11 @@ def load_hierarchy(hierarchy_filename):
     with open(hierarchy_filename) as hierarchy_file:
         reader = csv.DictReader(hierarchy_file)
         for row in reader:
-            node_name = row[constants.NODE_NAME]
-            assert node_name not in nodes, "Node name must be unique: %s" % node_name # TODO: have 'category' act as namespace
-            indices = {int(idx) for idx in "\t".split(row[constants.INDICES])}
-            nodes[node_name] = Feature(node_name, parent_name=row[constants.PARENT_NAME],
-                                       description=row[constants.DESCRIPTION], data_type=row[constants.DATA_TYPE],
-                                       indices=indices)
+            node = Feature(row[constants.NODE_NAME], category=row[constants.CATEGORY], parent_name=row[constants.PARENT_NAME],
+                           description=row[constants.DESCRIPTION], data_type=row[constants.DATA_TYPE],
+                           indices={int(idx) for idx in "\t".split(row[constants.INDICES])})
+            assert node.identifier not in nodes, "(category, name) tuple must be unique across all features: %s" % node.identifier
+            nodes[node.identifier] = node
     # Construct tree
     for node in nodes:
         if not node.parent_name:
@@ -166,15 +165,15 @@ def evaluate(args, feature_nodes, targets, losses, predictions):
     outfile = open("%s/outputs.csv" % args.output_dir, "wb")
     writer = csv.writer(outfile, delimiter=",")
     writer.writerow([constants.CATEGORY, constants.NODE_NAME, constants.DESCRIPTION, constants.AUROC, constants.MEAN_LOSS, constants.PVALUE_LOSSES])
-    baseline_loss = losses["%s:%s" % (constants.BASELINE, constants.BASELINE)]
+    baseline_loss = losses[Feature.get_identifier(constants.BASELINE, constants.BASELINE)]
     for node in feature_nodes:
         name = node.name
         category = node.category
-        loss = losses["%s:%s" % (category, name)]
+        loss = losses[node.identifier]
         mean_loss = np.mean(loss)
         pvalue_loss = compute_p_value(baseline_loss, loss)
         # Compute AUROC depending on whether task is binary classification or not:
-        prediction = predictions["%s:%s" % (category, name)]
+        prediction = predictions[node.identifier]
         auroc = sklearn.metrics.roc_auc_score(targets, prediction) if prediction else ""
         writer.writerow([category, name, node.description.encode('utf8'), auroc, mean_loss, pvalue_loss])
     outfile.close()
@@ -184,11 +183,26 @@ class Feature(anytree.Node):
     """Class representing feature/feature group"""
     def __init__(self, name, **kwargs):
         super().__init__(name)
+        self.category = kwargs.get(constants.CATEGORY, "")
         self.parent_name = kwargs.get(constants.PARENT_NAME, "")
         self.description = kwargs.get(constants.DESCRIPTION, "")
         self.data_type = kwargs.get(constants.DATA_TYPE, "")
         self.indices = kwargs.get(constants.INDICES, set())
-        self.category = kwargs.get(constants.CATEGORY, "")
+        self.identifier = self.get_identifier(self.category, name)
+
+    @staticmethod
+    def get_identifier(category, name):
+        """
+        Construct feature identifier for given (category, name) tuple
+
+        Args:
+            category: feature category, acts as namespace
+            name: feature name
+
+        Returns:
+            identifier
+        """
+        return "%s:%s" % (category, name)
 
 
 class CondorPipeline():

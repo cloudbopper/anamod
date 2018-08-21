@@ -38,3 +38,4 @@ WILCOXON_TEST = "wilcoxon-test"
 
 # Miscellaneous
 BASELINE = u"baseline"
+SEED = 13997
