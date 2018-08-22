@@ -68,8 +68,7 @@ The test data type must match the data type of the *predict* function (e.g. if t
 ### Hierarchy over features
 The client must provide a hierarchy over features as a CSV file. Each node (including leaf nodes) may correspond to a single feature or a group of features. Two sets of indices must be specified for each leaf node, at least one of which must be non-empty. Indices of the same data type must be mutually exclusive across leaf nodes.
 
-    *name*:             feature name
-    *category*:         feature category - acts a namespace. The pair (category, name) must be unique for each feature.
+    *name*:             feature name, unique across features
     *parent_name*:      name of parent if it exists, else '' (root node)
     *description*:      node description
     *static_indices*:   [only required for leaf nodes] list of tab-separated indices corresponding to the indices
