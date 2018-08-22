@@ -42,6 +42,13 @@ LOSSES = "losses"
 PREDICTIONS = "predictions"
 TARGETS = "targets"
 
+# Simulation
+RELEVANT = "relevant"
+IRRELEVANT = "irrelevant"
+MODEL_FILENAME = "model.npy"
+GEN_MODEL_CONFIG_FILENAME = "gen_model_config.pkl"
+GEN_MODEL_FILENAME = "gen_model.py"
+
 # Miscellaneous
 BASELINE = u"baseline"
 SEED = 13997
