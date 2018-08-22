@@ -14,6 +14,8 @@ from scipy.cluster.hierarchy import linkage
 
 from . import constants
 
+# TODO maybe: write arguments to separate readme.txt for documentating runs
+
 def main():
     """Main"""
     parser = argparse.ArgumentParser()
