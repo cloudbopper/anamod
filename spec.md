@@ -36,19 +36,18 @@ Groups:
 
 Datasets:
 
-    /records/<record_id>/temporal (2-D array)
-    /records/<record_id>/static (1-D array)
+    /records/<record_id>/temporal (2-D array) (may be empty)
+    /records/<record_id>/static (1-D array) (may be empty)
     /records/<record_id>/target (scalar)
 
-Sparse representations may be used for both temporal and static data, in which case the attribute 'sparse' must be specified (see above example).
+Sparse representations may be used for both temporal and static data, in which case the attribute 'sparse' must be specified (see above example). [TODO]
 
 ### Trained model
 The client must create a *model* object, corresponding to the trained model, that implements the following method:
 
-    model.predict(target, static data=[], temporal_data=[])
+    model.predict(target, static data, temporal_data)
     
     Predicts the model's output (loss, prediction) for the given target and instance.
-    At least one of static_data and temporal_data must be non-empty.
     
     Args:
         target:         classification label or regression output (scalar value)
