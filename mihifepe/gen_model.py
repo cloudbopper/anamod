@@ -5,13 +5,13 @@ import pickle
 
 import numpy as np
 
-from . import constants
+GEN_MODEL_CONFIG_FILENAME = "gen_model_config.pkl" # TODO: check if possible to source this from constants
 
 class Model():
     """Class encapsulating model API required by mihifepe"""
     # pylint: disable = too-few-public-methods, unused-argument
     def __init__(self):
-        config_filename = "%s/%s" % (os.path.dirname(os.path.abspath(__file__)), constants.GEN_MODEL_CONFIG_FILENAME)
+        config_filename = "%s/%s" % (os.path.dirname(os.path.abspath(__file__)), GEN_MODEL_CONFIG_FILENAME)
         with open(config_filename, "rb") as config_file:
             model_filename = pickle.load(config_file)
             self.poly_coeff = np.load(model_filename)
@@ -32,7 +32,7 @@ class Model():
             prediction:     model's output prediction, only used for classifiers
         """
         prediction = np.dot(static_data, self.poly_coeff)
-        loss = np.sqrt(np.pow(prediction - target, 2)) # RMSE
+        loss = np.sqrt(np.power(prediction - target, 2)) # RMSE
         return (loss, prediction)
 
 

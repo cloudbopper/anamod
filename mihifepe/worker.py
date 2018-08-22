@@ -100,9 +100,10 @@ def load_model(logger, gen_model_filename):
     logger.info("Begin loading model")
     if not os.path.exists(gen_model_filename):
         raise FileNotFoundError("Model-generating file not found")
-    basename, dirname = os.path.split(gen_model_filename)
+    dirname, basename = os.path.split(gen_model_filename)
     sys.path.insert(0, dirname)
-    module = importlib.import_module(basename)
+    module_name, _ = os.path.splitext(basename)
+    module = importlib.import_module(module_name)
     model = getattr(module, "model")
     logger.info("End loading model")
     return model
@@ -134,27 +135,28 @@ def perturb_features(logger, features, records, model):
     targets = {}
     losses = {feature.name: {} for feature in features}
     predictions = {feature.name: {} for feature in features}
-    for record_idx, record in enumerate(records):
+    for record_idx, record in enumerate(records.values()):
         if record_idx % 100 == 0:
             logger.info("Begin processing record index %d of %d" % (record_idx, num_records))
-        static_data = record[constants.STATIC]
-        temporal_data = record[constants.TEMPORAL]
-        target = record[constants.TARGET]
-        targets[record.name] = target
+        record_id = record.name.split("/")[-1]
+        static_data = record[constants.STATIC].value
+        temporal_data = record[constants.TEMPORAL].value
+        target = record[constants.TARGET].value
+        targets[record_id] = target
         # Perturb each feature
         for feature in features:
             # TODO: configurable perturbations
             sdata = static_data
             tdata = temporal_data
-            if static_data:
+            if static_data.size:
                 sdata = np.copy(static_data)
                 sdata[feature.static_indices] = 0
-            if temporal_data:
+            if temporal_data.size:
                 tdata = np.copy(temporal_data)
                 tdata[feature.temporal_indices] = 0
             (loss, prediction) = model.predict(target, static_data=sdata, temporal_data=tdata)
-            losses[feature.name][record.name] = loss
-            predictions[feature.name][record.name] = prediction
+            losses[feature.name][record_id] = loss
+            predictions[feature.name][record_id] = prediction
     logger.info("End perturbing features")
     return targets, losses, predictions
 

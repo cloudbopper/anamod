@@ -8,7 +8,6 @@ STATIC_INDICES = "static_indices"
 TEMPORAL_INDICES = "temporal_indices"
 STATIC = "static"
 TEMPORAL = "temporal"
-CATEGORY = "category"
 
 # Condor
 SUBMIT_FILENAME = "SUBMIT_FILENAME"
@@ -52,3 +51,6 @@ GEN_MODEL_FILENAME = "gen_model.py"
 # Miscellaneous
 BASELINE = u"baseline"
 SEED = 13997
+BINARY_CLASSIFIER = "binary_classifier"
+CLASSIFIER = "classifier"
+REGRESSION = "regression"

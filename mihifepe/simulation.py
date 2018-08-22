@@ -49,7 +49,7 @@ def pipeline(args):
     # Synthesize polynomial that generates ground truth
     relevant_features, poly_coeff = gen_polynomial(args)
     # Update hierarchy to contain relevance information
-    update_hierarchy_relevance(hierarchy_root, relevant_features)
+    update_hierarchy_relevance(hierarchy_root, relevant_features, poly_coeff)
     # Generate targets (ground truth)
     targets = gen_targets(poly_coeff, data)
     # Synthesize model (perturbed version of polynomial)
@@ -118,7 +118,7 @@ def gen_polynomial(args):
     return relevant_features, coefficients
 
 
-def update_hierarchy_relevance(hierarchy_root, relevant_features):
+def update_hierarchy_relevance(hierarchy_root, relevant_features, poly_coeff):
     """
     Tag nodes of hierarchy as relevant or not
     based on whether they contain any relevant feature
@@ -128,10 +128,10 @@ def update_hierarchy_relevance(hierarchy_root, relevant_features):
         if node.is_leaf:
             idx = int(node.name)
             if relevant_features[idx]:
-                node.description = constants.RELEVANT
+                node.description = "%s: %f" % (constants.RELEVANT, poly_coeff[idx])
         else:
             for child in node.children:
-                if child.description == constants.RELEVANT:
+                if child.description != constants.IRRELEVANT:
                     node.description = constants.RELEVANT
 
 
@@ -189,7 +189,7 @@ def write_outputs(args, data, hierarchy_root, targets, model):
             for node in anytree.PreOrderIter(hierarchy_root):
                 static_indices = node.static_indices if node.is_leaf else ""
                 parent_name = node.parent.name if node.parent else ""
-                writer.writerow([node.name, parent_name, "", static_indices, ""])
+                writer.writerow([node.name, parent_name, node.description, static_indices, ""])
         return hierarchy_filename
 
     def write_model():
@@ -205,7 +205,8 @@ def write_outputs(args, data, hierarchy_root, targets, model):
         gen_model_config_filename = "%s/%s" % (os.path.dirname(os.path.abspath(__file__)), constants.GEN_MODEL_CONFIG_FILENAME)
         with open(gen_model_config_filename, "wb") as gen_model_config_file:
             pickle.dump(model_filename, gen_model_config_file)
-        return constants.GEN_MODEL_FILENAME
+        gen_model_filename = "%s/%s" % (os.path.dirname(os.path.abspath(__file__)), constants.GEN_MODEL_FILENAME)
+        return gen_model_filename
 
     args.logger.info("Begin writing simulation files")
     data_filename = write_data()

@@ -19,7 +19,7 @@ import time
 import anytree
 import h5py
 import numpy as np
-import sklearn
+from sklearn.metrics import roc_auc_score
 
 from .compute_p_values import compute_p_value
 from . import constants
@@ -48,6 +48,9 @@ def main():
                         " to run before evicting and restarting")
     parser.add_argument("-compile_results_only", help="only compile results (assuming they already exist), "
                         "skipping actually launching jobs", action="store_true")
+    parser.add_argument("-model_type", default=constants.REGRESSION,
+                        help="Model type - output includes perturbed AUROCs for binary classifiers",
+                        choices=[constants.BINARY_CLASSIFIER, constants.CLASSIFIER, constants.REGRESSION],)
 
     args = parser.parse_args()
 
@@ -138,8 +141,9 @@ def flatten_hierarchy(hierarchy_root):
         Flattened hierarchy comprising list of features/feature groups
     """
     nodes = list(anytree.PreOrderIter(hierarchy_root))
-    nodes += Feature(constants.BASELINE, description="No perturbation") # Baseline corresponds to no perturbation
-    return np.random.shuffle(nodes) # To balance load across workers
+    nodes.append(Feature(constants.BASELINE, description="No perturbation")) # Baseline corresponds to no perturbation
+    np.random.shuffle(nodes) # To balance load across workers
+    return nodes
 
 
 def perturb_features(args, logger, feature_nodes):
@@ -165,20 +169,20 @@ def round_vectors(losses, predictions):
 
     def round_vectordict(vectordict):
         """Round dictionary of vectors"""
-        return {key: np.around(value, decimals=4) for (key, value) in vectordict.iteritems()}
+        return {key: np.around(value, decimals=4) for (key, value) in vectordict.items()}
 
     losses = round_vectordict(losses)
-    if predictions and next(iter(predictions.values())): # predictions has actual data (only for binary classification)
-        predictions = round_vectordict(predictions)
+    predictions = round_vectordict(predictions)
     return losses, predictions
 
 
 def evaluate(args, feature_nodes, targets, losses, predictions):
     """Evaluates and compares different feature erasures"""
     # pylint: disable = too-many-locals
-    outfile = open("%s/outputs.csv" % args.output_dir, "wb")
+    outfile = open("%s/outputs.csv" % args.output_dir, "w")
     writer = csv.writer(outfile, delimiter=",")
-    writer.writerow([constants.NODE_NAME, constants.DESCRIPTION, constants.AUROC, constants.MEAN_LOSS, constants.PVALUE_LOSSES])
+    writer.writerow([constants.NODE_NAME, constants.DESCRIPTION, constants.AUROC,
+                     constants.MEAN_LOSS, constants.PVALUE_LOSSES])
     baseline_loss = losses[constants.BASELINE]
     for node in feature_nodes:
         name = node.name
@@ -186,8 +190,10 @@ def evaluate(args, feature_nodes, targets, losses, predictions):
         mean_loss = np.mean(loss)
         pvalue_loss = compute_p_value(baseline_loss, loss)
         # Compute AUROC depending on whether task is binary classification or not:
-        prediction = predictions[node.name]
-        auroc = sklearn.metrics.roc_auc_score(targets, prediction) if prediction else ""
+        auroc = ""
+        if args.model_type == constants.BINARY_CLASSIFIER:
+            prediction = predictions[node.name]
+            auroc = roc_auc_score(targets, prediction)
         writer.writerow([name, node.description.encode('utf8'), auroc, mean_loss, pvalue_loss])
     outfile.close()
 
@@ -203,7 +209,7 @@ class SerialPipeline():
     def run(self):
         """Run serial pipeline"""
         self.logger.info("Begin running serial pipeline")
-        condor_helper = CondorPipeline(self.args, None, None)
+        condor_helper = CondorPipeline(self.args, self.logger, None)
         if not self.args.compile_results_only:
             # Write all features to file
             self.args.features_filename = "%s/%s" % (self.args.output_dir, "all_features.csv")
@@ -401,8 +407,10 @@ class CondorPipeline():
 
                 def load_data(group):
                     """Helper function to load data"""
+                    results = {}
                     for feature_id, feature_data in group.items():
-                        return {feature_id: feature_data.value} # TODO: verify this is the right data type, matches expectations
+                        results[feature_id] = feature_data.value
+                    return results
 
                 all_losses.update(load_data(root[constants.LOSSES]))
                 all_predictions.update(load_data(root[constants.PREDICTIONS])) # Predictions non-empty if task is binary classification
