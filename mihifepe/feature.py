@@ -32,7 +32,9 @@ class Feature(anytree.Node):
     @staticmethod
     def unpack_indices(str_indices):
         """Converts tab-separated string of indices to int list"""
-        return [int(idx) for idx in "\t".split(str_indices)]
+        if not str_indices:
+            return []
+        return [int(idx) for idx in str_indices.split("\t")]
 
     @staticmethod
     def pack_indices(int_indices):
