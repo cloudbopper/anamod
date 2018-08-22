@@ -24,6 +24,9 @@ import sklearn
 from .compute_p_values import compute_p_value
 from . import constants
 from .feature import Feature
+from . import worker
+
+# TODO maybe: write arguments to separate readme.txt for documentating runs
 
 def main():
     """Parse arguments"""
@@ -36,6 +39,10 @@ def main():
     parser.add_argument("-output_dir", help="Output directory", required=True)
     # Optional arguments
     # TODO: type of perturbation; note: current parallel setup cannot handle shuffling involving multiple features
+    parser.add_argument("-condor", dest="condor", action="store_true",
+                        help="Enable parallelization using condor (default disabled)")
+    parser.add_argument("-no-condor", dest="condor", action="store_false", help="Disable parallelization using condor")
+    parser.set_defaults(condor=False)
     parser.add_argument("-features_per_worker", type=int, default=10, help="worker load")
     parser.add_argument("-eviction_timeout", type=int, default=14400, help="time in seconds to allow condor jobs"
                         " to run before evicting and restarting")
@@ -51,6 +58,7 @@ def main():
                         format="%(asctime)s: %(message)s")
     logger = logging.getLogger(__name__)
     pipeline(args, logger)
+
 
 def pipeline(args, logger):
     """Master pipeline"""
@@ -146,7 +154,9 @@ def perturb_features(args, logger, feature_nodes):
         Aggregated results from workers
     """
     # Partition features, Launch workers, Aggregate results
-    worker_pipeline = CondorPipeline(args, logger, feature_nodes) # TODO: non-condor pipeline?
+    worker_pipeline = SerialPipeline(args, logger, feature_nodes)
+    if args.condor:
+        worker_pipeline = CondorPipeline(args, logger, feature_nodes)
     return worker_pipeline.run()
 
 
@@ -183,11 +193,34 @@ def evaluate(args, feature_nodes, targets, losses, predictions):
     outfile.close()
 
 
+class SerialPipeline():
+    """Serial (non-condor) implementation"""
+    # pylint: disable=too-few-public-methods
+    def __init__(self, args, logger, feature_nodes):
+        self.args = copy.deepcopy(args)
+        self.logger = logger
+        self.feature_nodes = feature_nodes
+
+    def run(self):
+        """Run serial pipeline"""
+        self.logger.info("Begin running serial pipeline")
+        condor_helper = CondorPipeline(self.args, None, None)
+        if not self.args.compile_results_only:
+            # Write all features to file
+            self.args.features_filename = "%s/%s" % (self.args.output_dir, "all_features.csv")
+            self.args.task_idx = 0
+            condor_helper.write_features(self.args, self.feature_nodes)
+            # Run worker pipeline
+            worker.pipeline(self.args, self.logger)
+        # Aggregate results
+        return condor_helper.compile_results()
+
+
 class CondorPipeline():
     """Class managing condor pipeline for distributing load across workers"""
 
-    def __init__(self, master_args, logger, feature_nodes):
-        self.master_args = master_args
+    def __init__(self, args, logger, feature_nodes):
+        self.master_args = copy.deepcopy(args)
         self.logger = logger
         self.feature_nodes = feature_nodes
 
