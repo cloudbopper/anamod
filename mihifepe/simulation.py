@@ -4,6 +4,7 @@ import argparse
 import csv
 import logging
 import os
+import pdb
 import pickle
 import subprocess
 
@@ -23,7 +24,7 @@ def main():
     parser.add_argument("-num_instances", type=int, default=10000)
     parser.add_argument("-num_features", type=int, default=500)
     parser.add_argument("-output_dir", required=True)
-    parser.add_argument("-percent_relevant_features", type=float, default=5)
+    parser.add_argument("-fraction_relevant_features", type=float, default=.05)
 
     args = parser.parse_args()
     if not os.path.exists(args.output_dir):
@@ -111,9 +112,9 @@ def gen_hierarchy(args, clusters):
 def gen_polynomial(args):
     """Generate polynomial which decides the ground truth"""
     # Decide relevant features
-    relevant_features = np.random.binomial(1, [args.percent_relevant_features] * args.num_features)
+    relevant_features = np.random.binomial(1, [args.fraction_relevant_features] * args.num_features)
     # Generate coefficients
-    # TODO: higher powers, interaction terms
+    # TODO: higher powers, interaction terms, negative coefficients
     coefficients = np.multiply(relevant_features, np.random.uniform(size=args.num_features))
     return relevant_features, coefficients
 
@@ -163,7 +164,7 @@ def write_outputs(args, data, hierarchy_root, targets, model):
         data_filename = "%s/%s" % (args.output_dir, "data.hdf5")
         root = h5py.File(data_filename, "w")
         records = root.create_group(constants.RECORDS)
-        record_ids = [records.create_group(idx) for idx in range(args.num_instances)]
+        record_ids = [records.create_group(str(idx)) for idx in range(args.num_instances)]
         for idx, record_id in enumerate(record_ids):
             record_id.create_dataset(constants.TEMPORAL, data=[])
             record_id.create_dataset(constants.STATIC, data=data[idx])
@@ -190,9 +191,10 @@ def write_outputs(args, data, hierarchy_root, targets, model):
             writer.writerow([constants.NODE_NAME, constants.CATEGORY, constants.PARENT_NAME,
                              constants.DESCRIPTION, constants.STATIC_INDICES, constants.TEMPORAL_INDICES])
             for node in anytree.PreOrderIter(hierarchy_root):
+                static_indices = node.static_indices if node.is_leaf else ""
                 parent_name = node.parent.name if node.parent else ""
                 writer.writerow([node.name, node.category, parent_name,
-                                 "", node.static_indices, ""])
+                                 "", static_indices, ""])
         return hierarchy_filename
 
     def write_model():
@@ -221,8 +223,9 @@ def write_outputs(args, data, hierarchy_root, targets, model):
 def run_mihifepe(args, data_filename, hierarchy_filename, gen_model_filename):
     """Run mihifepe algorithm"""
     args.logger.info("Begin running mihifepe")
-    cmd = ("python -m mihifepe.master -data_filename '%s' -hierarchy_filename '%s' -model_filename '%s' -output_dir '%s'" %
+    cmd = ("python -m mihifepe.master -data_filename '%s' -hierarchy_filename '%s' -model_generator_filename '%s' -output_dir '%s'" %
            (data_filename, hierarchy_filename, gen_model_filename, args.output_dir))
+    args.logger.info("Running cmd: %s" % cmd)
     output = subprocess.check_output(cmd, shell=True)
     args.logger.info("mihifepe stdout: %s" % output)
     args.logger.info("End running mihifepe")
