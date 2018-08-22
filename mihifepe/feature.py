@@ -2,7 +2,7 @@
 
 import anytree
 
-import constants
+from . import constants
 
 class Feature(anytree.Node):
     """Class representing feature/feature group"""

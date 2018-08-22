@@ -15,8 +15,8 @@ import sys
 import h5py
 import numpy as np
 
-import constants
-from feature import Feature
+from . import constants
+from .feature import Feature
 
 def main():
     """Main"""
