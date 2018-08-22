@@ -4,7 +4,6 @@ import argparse
 import csv
 import logging
 import os
-import pdb
 import pickle
 import subprocess
 
@@ -125,17 +124,15 @@ def update_hierarchy_relevance(hierarchy_root, relevant_features):
     based on whether they contain any relevant feature
     """
     for node in anytree.PostOrderIter(hierarchy_root):
+        node.description = constants.IRRELEVANT
         if node.is_leaf:
             idx = int(node.name)
             if relevant_features[idx]:
-                node.category = constants.RELEVANT
-            else:
-                node.category = constants.IRRELEVANT
+                node.description = constants.RELEVANT
         else:
-            node.category = constants.IRRELEVANT
             for child in node.children:
-                if child.category == constants.RELEVANT:
-                    node.category = constants.RELEVANT
+                if child.description == constants.RELEVANT:
+                    node.description = constants.RELEVANT
 
 
 def gen_targets(poly_coeff, data):
@@ -176,8 +173,7 @@ def write_outputs(args, data, hierarchy_root, targets, model):
         """
         Write hierarchy in CSV format.
 
-        Columns:    *name*:             feature name
-                    *category*:         feature category - acts a namespace. The pair (category, name) must be unique for each feature.
+        Columns:    *name*:             feature name, must be unique across features
                     *parent_name*:      name of parent if it exists, else '' (root node)
                     *description*:      node description
                     *static_indices*:   [only required for leaf nodes] list of tab-separated indices corresponding to the indices
@@ -188,13 +184,12 @@ def write_outputs(args, data, hierarchy_root, targets, model):
         hierarchy_filename = "%s/%s" % (args.output_dir, "hierarchy.csv")
         with open(hierarchy_filename, "w") as hierarchy_file:
             writer = csv.writer(hierarchy_file, delimiter=",")
-            writer.writerow([constants.NODE_NAME, constants.CATEGORY, constants.PARENT_NAME,
+            writer.writerow([constants.NODE_NAME, constants.PARENT_NAME,
                              constants.DESCRIPTION, constants.STATIC_INDICES, constants.TEMPORAL_INDICES])
             for node in anytree.PreOrderIter(hierarchy_root):
                 static_indices = node.static_indices if node.is_leaf else ""
                 parent_name = node.parent.name if node.parent else ""
-                writer.writerow([node.name, node.category, parent_name,
-                                 "", static_indices, ""])
+                writer.writerow([node.name, parent_name, "", static_indices, ""])
         return hierarchy_filename
 
     def write_model():

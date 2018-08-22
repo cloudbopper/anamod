@@ -36,20 +36,7 @@ def main():
 def pipeline(args, logger):
     """Worker pipeline"""
     logger.info("Begin mihifepe worker pipeline")
-
-    # categories = load_category_metadata(args, cur, logger)
-    # map_codes(cur, logger, categories)
-    # hierarchies = build_hierarchies(logger, categories)
-    # codegroups = get_codegroups_from_file(args, logger, categories, hierarchies)
-    # records, labels = load_data(args, cur, logger, categories)
-    # test_fns, networks = build_networks(args, records, logger)
-    # load_models(args, networks, logger)
-    # get_num_int_codes(cur, categories)
-    # get_embedding_functions(args, categories)
-    # predictions, losses = get_predictions(logger, codegroups, records, test_fns)
-    # write_outputs(args, labels, predictions, losses)
-
-    # TODO: handle dynamic features
+    # TODO: handle temporal features
     # Load features to perturb from file
     features = load_features(args.features_filename)
     # Load data
@@ -77,7 +64,7 @@ def load_features(features_filename):
     with open(features_filename, "r") as features_file:
         reader = csv.DictReader(features_file)
         for row in reader:
-            node = Feature(row[constants.NODE_NAME], category=row[constants.CATEGORY],
+            node = Feature(row[constants.NODE_NAME],
                            static_indices=Feature.unpack_indices(row[constants.STATIC_INDICES]),
                            temporal_indices=Feature.unpack_indices(row[constants.TEMPORAL_INDICES]))
             features.append(node)
@@ -135,18 +122,18 @@ def perturb_features(logger, features, records, model):
                         mapping of record id's to target values
                         (classification labels or regression outputs, always scalars)
         losses:         (feature_id-> (record_id -> loss))
-                        mapping of feature identifiers to a mapping of record id's to losses,
+                        mapping of feature names to a mapping of record id's to losses,
                         describing the losses of the model over the data with that feature perturbed
         predictions:    (feature_id -> (record_id -> prediction))
-                        mapping feature identifiers to a mapping of record id's to predictions,
+                        mapping feature names to a mapping of record id's to predictions,
                         describing the predictions of the model over the data with that feature perturbed
     """
     # pylint: disable = too-many-locals
     logger.info("Begin perturbing features")
     num_records = len(records)
     targets = {}
-    losses = {feature.identifier: {} for feature in features}
-    predictions = {feature.identifier: {} for feature in features}
+    losses = {feature.name: {} for feature in features}
+    predictions = {feature.name: {} for feature in features}
     for record_idx, record in enumerate(records):
         if record_idx % 100 == 0:
             logger.info("Begin processing record index %d of %d" % (record_idx, num_records))
@@ -166,8 +153,8 @@ def perturb_features(logger, features, records, model):
                 tdata = np.copy(temporal_data)
                 tdata[feature.temporal_indices] = 0
             (loss, prediction) = model.predict(target, static_data=sdata, temporal_data=tdata)
-            losses[feature.identifier][record.name] = loss
-            predictions[feature.identifier][record.name] = prediction
+            losses[feature.name][record.name] = loss
+            predictions[feature.name][record.name] = prediction
     logger.info("End perturbing features")
     return targets, losses, predictions
 

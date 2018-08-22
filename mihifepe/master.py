@@ -92,14 +92,14 @@ def load_hierarchy(hierarchy_filename):
     with open(hierarchy_filename) as hierarchy_file:
         reader = csv.DictReader(hierarchy_file)
         for row in reader:
-            node = Feature(row[constants.NODE_NAME], category=row[constants.CATEGORY],
+            node = Feature(row[constants.NODE_NAME],
                            parent_name=row[constants.PARENT_NAME], description=row[constants.DESCRIPTION],
                            static_indices=Feature.unpack_indices(row[constants.STATIC_INDICES]),
                            temporal_indices=Feature.unpack_indices(row[constants.TEMPORAL_INDICES]))
-            assert node.identifier not in nodes, "(category, name) tuple must be unique across all features: %s" % node.identifier
-            nodes[node.identifier] = node
+            assert node.name not in nodes, "Node name must be unique across all features: %s" % node.name
+            nodes[node.name] = node
     # Construct tree
-    for node in nodes:
+    for node in nodes.values():
         if not node.parent_name:
             assert not root, "Invalid tree structure: %s and %s both have no parent" % (root.node_name, node.node_name)
             root = node
@@ -138,7 +138,7 @@ def flatten_hierarchy(hierarchy_root):
         Flattened hierarchy comprising list of features/feature groups
     """
     nodes = list(anytree.PreOrderIter(hierarchy_root))
-    nodes += Feature(constants.BASELINE, category=constants.BASELINE, description="No perturbation") # Baseline corresponds to no perturbation
+    nodes += Feature(constants.BASELINE, description="No perturbation") # Baseline corresponds to no perturbation
     return np.random.shuffle(nodes) # To balance load across workers
 
 
@@ -178,18 +178,17 @@ def evaluate(args, feature_nodes, targets, losses, predictions):
     # pylint: disable = too-many-locals
     outfile = open("%s/outputs.csv" % args.output_dir, "wb")
     writer = csv.writer(outfile, delimiter=",")
-    writer.writerow([constants.CATEGORY, constants.NODE_NAME, constants.DESCRIPTION, constants.AUROC, constants.MEAN_LOSS, constants.PVALUE_LOSSES])
-    baseline_loss = losses[Feature.get_identifier(constants.BASELINE, constants.BASELINE)]
+    writer.writerow([constants.NODE_NAME, constants.DESCRIPTION, constants.AUROC, constants.MEAN_LOSS, constants.PVALUE_LOSSES])
+    baseline_loss = losses[constants.BASELINE]
     for node in feature_nodes:
         name = node.name
-        category = node.category
-        loss = losses[node.identifier]
+        loss = losses[node.name]
         mean_loss = np.mean(loss)
         pvalue_loss = compute_p_value(baseline_loss, loss)
         # Compute AUROC depending on whether task is binary classification or not:
-        prediction = predictions[node.identifier]
+        prediction = predictions[node.name]
         auroc = sklearn.metrics.roc_auc_score(targets, prediction) if prediction else ""
-        writer.writerow([category, name, node.description.encode('utf8'), auroc, mean_loss, pvalue_loss])
+        writer.writerow([name, node.description.encode('utf8'), auroc, mean_loss, pvalue_loss])
     outfile.close()
 
 
@@ -236,10 +235,10 @@ class CondorPipeline():
         targs.all_features = False
         with open(features_filename, "w") as features_file:
             writer = csv.writer(features_file)
-            writer.writerow([constants.CATEGORY, constants.NODE_NAME,
+            writer.writerow([constants.NODE_NAME,
                              constants.STATIC_INDICES, constants.TEMPORAL_INDICES])
             for feature_node in task_features:
-                writer.writerow([feature_node.category_name, feature_node.name,
+                writer.writerow([feature_node.name,
                                  Feature.pack_indices(feature_node.static_indices),
                                  Feature.pack_indices(feature_node.temporal_indices)])
 
