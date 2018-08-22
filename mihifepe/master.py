@@ -21,9 +21,9 @@ import h5py
 import numpy as np
 import sklearn
 
-from compute_p_values import compute_p_value
-import constants
-from feature import Feature
+from .compute_p_values import compute_p_value
+from . import constants
+from .feature import Feature
 
 def main():
     """Parse arguments"""
