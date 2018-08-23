@@ -58,6 +58,8 @@ def pipeline(args):
     data_filename, hierarchy_filename, gen_model_filename = write_outputs(args, data, hierarchy_root, targets, model)
     # Invoke feature importance algorithm
     run_mihifepe(args, data_filename, hierarchy_filename, gen_model_filename)
+    # Run hierarchical FDR control to visualize mihifepe outputs
+    # Visualize ground truth outputs for comparison
     args.logger.info("End mihifepe simulation")
 
 
