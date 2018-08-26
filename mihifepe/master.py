@@ -72,9 +72,11 @@ def pipeline(args, logger):
     feature_nodes = flatten_hierarchy(hierarchy_root)
     # Perturb features
     targets, losses, predictions = perturb_features(args, logger, feature_nodes)
-    # Evaluate
+    # Compute p-values
     losses, predictions = round_vectors(losses, predictions)
-    evaluate(args, feature_nodes, targets, losses, predictions)
+    compute_p_values(args, hierarchy_root, targets, losses, predictions)
+    # Run hierarchical FDR
+    hierarchical_fdr(args, logger)
     logger.info("End mihifepe master pipeline")
 
 
@@ -176,16 +178,17 @@ def round_vectors(losses, predictions):
     return losses, predictions
 
 
-def evaluate(args, feature_nodes, targets, losses, predictions):
+def compute_p_values(args, hierarchy_root, targets, losses, predictions):
     """Evaluates and compares different feature erasures"""
     # pylint: disable = too-many-locals
-    outfile = open("%s/outputs.csv" % args.output_dir, "w")
+    outfile = open("%s/%s" % (args.output_dir, constants.PVALUES_FILENAME), "w")
     writer = csv.writer(outfile, delimiter=",")
-    writer.writerow([constants.NODE_NAME, constants.DESCRIPTION, constants.AUROC,
+    writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.DESCRIPTION, constants.EFFECT_SIZE,
                      constants.MEAN_LOSS, constants.PVALUE_LOSSES])
     baseline_loss = losses[constants.BASELINE]
-    for node in feature_nodes:
+    for node in anytree.PreOrderIter(hierarchy_root):
         name = node.name
+        parent_name = node.parent.name if node.parent else ""
         loss = losses[node.name]
         mean_loss = np.mean(loss)
         pvalue_loss = compute_p_value(baseline_loss, loss)
@@ -194,8 +197,19 @@ def evaluate(args, feature_nodes, targets, losses, predictions):
         if args.model_type == constants.BINARY_CLASSIFIER:
             prediction = predictions[node.name]
             auroc = roc_auc_score(targets, prediction)
-        writer.writerow([name, node.description.encode('utf8'), auroc, mean_loss, pvalue_loss])
+        writer.writerow([name, parent_name, node.description, auroc, mean_loss, pvalue_loss])
     outfile.close()
+
+
+def hierarchical_fdr(args, logger):
+    """Performs hierarchical FDR control on results"""
+    input_filename = "%s/%s" % (args.output_dir, constants.PVALUES_FILENAME)
+    output_dir = "%s/%s" % (args.output_dir, constants.HIERARCHICAL_FDR_DIR)
+    cmd = ("python -m mihifepe.fdr.hierarchical_fdr_control -output_dir %s -procedure yekutieli "
+           "%s" % (output_dir, input_filename))
+    logger.info("Running cmd: %s" % cmd)
+    output = subprocess.check_output(cmd, shell=True)
+    logger.info("Cmd output: %s" % output)
 
 
 class SerialPipeline():
