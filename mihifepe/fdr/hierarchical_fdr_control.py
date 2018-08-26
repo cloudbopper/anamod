@@ -9,28 +9,18 @@ import os
 import anytree
 from anytree.exporter import DotExporter
 
-from fdr_algorithms import hierarchical_fdr_control # Swap implementation here
-from fdr_algorithms import POSITIVE, ARBITRARY # Defined constants there since used in both
-from fdr_algorithms import YEKUTIELI, LYNCH_GUO
+from .. import constants
+from .fdr_algorithms import hierarchical_fdr_control
 
 # pylint: disable = invalid-name
-
-# CSV header names
-NODE = "node"
-DESCRIPTION = "description"
-EFFECT_SIZE = "effect_size"
-PARENT = "parent"
-PVALUE = "p-value"
-ADJUSTED_PVALUE = "adjusted_p-value"
-REJECTED_STATUS = "rejected_status"
 
 def main():
     """Main"""
     parser = argparse.ArgumentParser()
     parser.add_argument("-output_dir", help="name of output directory")
-    parser.add_argument("-dependence_assumption", help="choice of dependence assumption used by Lynch and Guo (2016) procedure", choices=[POSITIVE, ARBITRARY], default=POSITIVE)
+    parser.add_argument("-dependence_assumption", help="choice of dependence assumption used by Lynch and Guo (2016) procedure", choices=[constants.POSITIVE, constants.ARBITRARY], default=constants.POSITIVE)
     parser.add_argument("-alpha", type=float, default=0.05)
-    parser.add_argument("-procedure", default=YEKUTIELI, choices=[YEKUTIELI, LYNCH_GUO])
+    parser.add_argument("-procedure", default=constants.YEKUTIELI, choices=[constants.YEKUTIELI, constants.LYNCH_GUO])
     parser.add_argument("csv_filename", help="CSV (with header) representing hierarchy, each row corresponding to one node:"
                         " the name of the node, the name of its parent node, the node's p-value and optionally a description of the node")
     parser.add_argument("-effect_name", default="AUROC")
@@ -38,7 +28,7 @@ def main():
                         " only show nodes within given threshold of root (i.e. all nodes erased) effect size", type=float, default=1)
     parser.add_argument("-color_scheme", default="ylorrd9", help="color scheme to use for shading nodes")
     parser.add_argument("-color_range", help="range for chosen color scheme", nargs=2, type=int, default=[1, 9])
-    parser.add_argument("-sorting_param", help="parameter to sort on for color grading", default=ADJUSTED_PVALUE, choices=[ADJUSTED_PVALUE, EFFECT_SIZE])
+    parser.add_argument("-sorting_param", help="parameter to sort on for color grading", default=constants.ADJUSTED_PVALUE, choices=[constants.ADJUSTED_PVALUE, constants.EFFECT_SIZE])
     parser.add_argument("-minimal_labels", help="do not write descriptions/effect sizes on node labels", action="store_true")
     parser.add_argument("-rectangle_leaves", help="enable to generate rectangular nodes for leaves of original hierarchy", action="store_true")
     args = parser.parse_args()
@@ -64,9 +54,9 @@ def write_outputs(args, logger, tree):
     """Write outputs"""
     logger.info("Begin writing outputs")
     # Write CSV with additional column for rejected or not
-    with open("%s/outputs.csv" % args.output_dir, "wb") as output_file:
+    with open("%s/%s" % (args.output_dir, constants.HIERARCHICAL_FDR_OUTPUTS), "w") as output_file:
         writer = csv.writer(output_file)
-        writer.writerow([NODE, PARENT, PVALUE, REJECTED_STATUS, ADJUSTED_PVALUE])
+        writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.PVALUE_LOSSES, constants.REJECTED_STATUS, constants.ADJUSTED_PVALUE])
         for node in anytree.LevelOrderIter(tree):
             parent_name = ""
             if node.parent:
@@ -95,12 +85,12 @@ def generate_tree_of_rejected_hypotheses(args, tree):
 
 def render_tree(args, tree):
     """Render tree in ASCII and graphviz"""
-    with codecs.open("{0}/{0}_tree.txt".format(args.output_dir), "w", encoding="utf8") as txt_file:
+    with codecs.open("{0}/tree.txt".format(args.output_dir), "w", encoding="utf8") as txt_file:
         for pre, _, node in anytree.RenderTree(tree):
-            txt_file.write("%s%s: %s (%s: %.3f)\n" % (pre, node.name, node.description.title(), args.effect_name, node.effect_size))
+            txt_file.write("%s%s: %s (%s: %s)\n" % (pre, node.name, node.description.title(), args.effect_name, str(node.effect_size)))
     graph_options = [] # Example: graph_options = ["dpi=300.0;", "style=filled;", "bgcolor=yellow;"]
-    DotExporter(tree, options=graph_options, nodeattrfunc=lambda node: nodeattrfunc(args, node)).to_dotfile("{0}/{0}_tree.dot".format(args.output_dir))
-    DotExporter(tree, options=graph_options, nodeattrfunc=lambda node: nodeattrfunc(args, node)).to_picture("{0}/{0}_tree.png".format(args.output_dir))
+    DotExporter(tree, options=graph_options, nodeattrfunc=lambda node: nodeattrfunc(args, node)).to_dotfile("{0}/tree.dot".format(args.output_dir))
+    DotExporter(tree, options=graph_options, nodeattrfunc=lambda node: nodeattrfunc(args, node)).to_picture("{0}/tree.png".format(args.output_dir))
 
 
 def prune_tree_on_effect_size(args, tree):
@@ -115,7 +105,7 @@ def prune_tree_on_effect_size(args, tree):
 
 def color_nodes(args, tree):
     """Add fill and font color to nodes based on partition in sorted list"""
-    differentiator = lambda node: node.adjusted_pvalue if args.sorting_param == ADJUSTED_PVALUE else node.effect_size
+    differentiator = lambda node: node.adjusted_pvalue if args.sorting_param == constants.ADJUSTED_PVALUE else node.effect_size
     nodes_sorted = sorted(anytree.LevelOrderIter(tree), key=differentiator, reverse=True) # sort nodes for color grading
     num_nodes = len(nodes_sorted)
     lower, upper = args.color_range
@@ -125,7 +115,7 @@ def color_nodes(args, tree):
         node = nodes_sorted[idx]
         node.color = idx + lower
         if num_nodes > num_colors:
-            node.color = lower + (idx * num_colors) / num_nodes
+            node.color = lower + (idx * num_colors) // num_nodes
         assert node.color in range(lower, upper + 1, 1)
     # Non-differentiated nodes should have the same color
     prev_node = None
@@ -162,11 +152,13 @@ def build_tree(args, logger):
     with open(args.csv_filename) as csv_file:
         reader = csv.DictReader(csv_file)
         for row in reader:
-            node_name = row[NODE]
-            parent_name = row[PARENT]
-            pvalue = float(row[PVALUE])
-            description = row[DESCRIPTION] if row.has_key(DESCRIPTION) else ""
-            effect_size = float(row[EFFECT_SIZE]) if row.has_key(EFFECT_SIZE) else ""
+            node_name = row[constants.NODE_NAME]
+            parent_name = row[constants.PARENT_NAME]
+            pvalue = float(row[constants.PVALUE_LOSSES])
+            description = row[constants.DESCRIPTION] if constants.DESCRIPTION in row else ""
+            effect_size = ""
+            if constants.EFFECT_SIZE in row and row[constants.EFFECT_SIZE]:
+                effect_size = float(row[constants.EFFECT_SIZE])
             # Create or retrieve current node
             if node_name not in nodes:
                 node = anytree.Node(node_name)
@@ -187,7 +179,7 @@ def build_tree(args, logger):
                 parent = nodes[parent_name]
             node.parent = parent
             node.pvalue = pvalue
-            node.description = description.decode("utf8")
+            node.description = description
             node.effect_size = effect_size
     assert root # to ensure root exists and has an assigned p-value
     logger.info("End building tree")

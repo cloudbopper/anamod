@@ -28,11 +28,12 @@ CLUSTER = "cluster"
 JOB_START_TIME = "job_start_time"
 
 # Evaluation
-AUROC = "auroc"
-MEAN_LOSS = "mean loss"
+EFFECT_SIZE = "effect_size"
+MEAN_LOSS = "mean_loss"
 PVALUE_LOSSES = "p-value-losses"
 PAIRED_TTEST = "paired-t-test"
 WILCOXON_TEST = "wilcoxon-test"
+PVALUES_FILENAME = "pvalues.csv"
 
 # HDF5
 RECORDS = "records"
@@ -47,6 +48,19 @@ IRRELEVANT = "irrelevant"
 MODEL_FILENAME = "model.npy"
 GEN_MODEL_CONFIG_FILENAME = "gen_model_config.pkl"
 GEN_MODEL_FILENAME = "gen_model.py"
+
+# Hierarchical FDR
+HIERARCHICAL_FDR_DIR = "hierarchical_fdr_results"
+HIERARCHICAL_FDR_OUTPUTS = "hierarchical_fdr_outputs.csv"
+ADJUSTED_PVALUE = "adjusted_p-value"
+REJECTED_STATUS = "rejected_status"
+# Dependence assumptions
+POSITIVE = "positive"
+ARBITRARY = "arbitrary"
+# Procedures
+YEKUTIELI = "yekutieli"
+LYNCH_GUO = "lynch_guo"
+
 
 # Miscellaneous
 BASELINE = u"baseline"

@@ -3,13 +3,7 @@
 
 import sys
 
-# Dependence assumptions
-POSITIVE = "positive"
-ARBITRARY = "arbitrary"
-
-# Procedures
-YEKUTIELI = "yekutieli"
-LYNCH_GUO = "lynch_guo"
+from ..constants import POSITIVE
 
 def num_rejections(args, F, d, total_rejected):
     """Sub-procedure that returns number of rejections at given level"""
