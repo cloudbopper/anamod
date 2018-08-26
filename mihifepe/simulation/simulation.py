@@ -42,14 +42,14 @@ def pipeline(args):
     # TODO: Features other than binary
     args.logger.info("Begin mihifepe simulation")
     # Synthesize data
-    data = synthesize_data(args)
+    probs, data = synthesize_data(args)
     # Generate hierarchy using clustering
     clusters = cluster_data(args, data)
     hierarchy_root = gen_hierarchy(args, clusters)
     # Synthesize polynomial that generates ground truth
     relevant_features, poly_coeff = gen_polynomial(args)
-    # Update hierarchy to contain relevance information
-    update_hierarchy_relevance(hierarchy_root, relevant_features, poly_coeff)
+    # Update hierarchy descriptions for future visualization
+    update_hierarchy_descriptions(hierarchy_root, relevant_features, poly_coeff, probs)
     # Generate targets (ground truth)
     targets = gen_targets(poly_coeff, data)
     # Synthesize model (perturbed version of polynomial)
@@ -69,10 +69,10 @@ def synthesize_data(args):
     args.logger.info("Begin generating data")
     probs = np.random.uniform(size=args.num_features)
     data = np.random.binomial(1, probs, size=(args.num_instances, args.num_features))
-    # TODO: train/test split
+    # TODO: train/test split?
     # train, test = data[:int(args.num_instances * .8), :], data[int(args.num_instances * .8):, :]
     args.logger.info("End generating data")
-    return data
+    return probs, data
 
 
 def cluster_data(args, data):
@@ -120,17 +120,20 @@ def gen_polynomial(args):
     return relevant_features, coefficients
 
 
-def update_hierarchy_relevance(hierarchy_root, relevant_features, poly_coeff):
+def update_hierarchy_descriptions(hierarchy_root, relevant_features, poly_coeff, probs):
     """
-    Tag nodes of hierarchy as relevant or not
-    based on whether they contain any relevant feature
+    Add description to nodes of hierarchy
+    based on whether they contain any relevant feature,
+    their probabilty of being enabled,
+    their polynomial coefficient
     """
     for node in anytree.PostOrderIter(hierarchy_root):
         node.description = constants.IRRELEVANT
         if node.is_leaf:
             idx = int(node.name)
             if relevant_features[idx]:
-                node.description = "%s: %f" % (constants.RELEVANT, poly_coeff[idx])
+                node.description = ("%s feature:\nPolynomial coefficient: %f\nBinomial probability: %f"
+                                    % (constants.RELEVANT, poly_coeff[idx], probs[idx]))
         else:
             for child in node.children:
                 if child.description != constants.IRRELEVANT:
