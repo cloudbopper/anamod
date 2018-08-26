@@ -85,12 +85,12 @@ def generate_tree_of_rejected_hypotheses(args, tree):
 
 def render_tree(args, tree):
     """Render tree in ASCII and graphviz"""
-    with codecs.open("{0}/tree.txt".format(args.output_dir), "w", encoding="utf8") as txt_file:
+    with codecs.open("{0}/{1}.txt".format(args.output_dir, constants.TREE), "w", encoding="utf8") as txt_file:
         for pre, _, node in anytree.RenderTree(tree):
             txt_file.write("%s%s: %s (%s: %s)\n" % (pre, node.name, node.description.title(), args.effect_name, str(node.effect_size)))
     graph_options = [] # Example: graph_options = ["dpi=300.0;", "style=filled;", "bgcolor=yellow;"]
-    DotExporter(tree, options=graph_options, nodeattrfunc=lambda node: nodeattrfunc(args, node)).to_dotfile("{0}/tree.dot".format(args.output_dir))
-    DotExporter(tree, options=graph_options, nodeattrfunc=lambda node: nodeattrfunc(args, node)).to_picture("{0}/tree.png".format(args.output_dir))
+    DotExporter(tree, options=graph_options, nodeattrfunc=lambda node: nodeattrfunc(args, node)).to_dotfile("{0}/{1}.dot".format(args.output_dir, constants.TREE))
+    DotExporter(tree, options=graph_options, nodeattrfunc=lambda node: nodeattrfunc(args, node)).to_picture("{0}/{1}.png".format(args.output_dir, constants.TREE))
 
 
 def prune_tree_on_effect_size(args, tree):

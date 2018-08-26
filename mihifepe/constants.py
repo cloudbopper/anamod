@@ -60,7 +60,7 @@ ARBITRARY = "arbitrary"
 # Procedures
 YEKUTIELI = "yekutieli"
 LYNCH_GUO = "lynch_guo"
-
+TREE = "tree"
 
 # Miscellaneous
 BASELINE = u"baseline"

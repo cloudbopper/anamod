@@ -58,8 +58,8 @@ def pipeline(args):
     data_filename, hierarchy_filename, gen_model_filename = write_outputs(args, data, hierarchy_root, targets, model)
     # Invoke feature importance algorithm
     run_mihifepe(args, data_filename, hierarchy_filename, gen_model_filename)
-    # Run hierarchical FDR control to visualize mihifepe outputs
-    # Visualize ground truth outputs for comparison
+    # Compare mihifepe outputs with ground truth outputs
+    compare_results(args, hierarchy_root)
     args.logger.info("End mihifepe simulation")
 
 
@@ -230,6 +230,33 @@ def run_mihifepe(args, data_filename, hierarchy_filename, gen_model_filename):
     output = subprocess.check_output(cmd, shell=True)
     args.logger.info("mihifepe stdout: %s" % output)
     args.logger.info("End running mihifepe")
+
+
+def compare_results(args, hierarchy_root):
+    """Compare results from mihifepe with ground truth results"""
+    # Generate ground truth results
+    # Write hierarchical FDR input file for ground truth values
+    args.logger.info("Compare mihifepe results to ground truth")
+    input_filename = "%s/ground_truth_pvalues.csv" % args.output_dir
+    with open(input_filename, "w") as input_file:
+        writer = csv.writer(input_file)
+        writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.PVALUE_LOSSES, constants.DESCRIPTION])
+        for node in anytree.PreOrderIter(hierarchy_root):
+            parent_name = node.parent.name if node.parent else ""
+            pvalue = 1.0 if node.description == constants.IRRELEVANT else 0.0
+            writer.writerow([node.name, parent_name, pvalue, node.description])
+    # Generate hierarchical FDR results for ground truth values
+    ground_truth_dir = "%s/ground_truth_fdr" % args.output_dir
+    cmd = ("python -m mihifepe.fdr.hierarchical_fdr_control -output_dir %s -procedure yekutieli "
+           "%s" % (ground_truth_dir, input_filename))
+    args.logger.info("Running cmd: %s" % cmd)
+    output = subprocess.check_output(cmd, shell=True)
+    args.logger.info("Cmd output: %s" % output)
+    # Compare results
+    ground_truth_outputs_filename = "%s/%s.png" % (ground_truth_dir, constants.TREE)
+    args.logger.info("Ground truth results: %s" % ground_truth_outputs_filename)
+    mihifepe_outputs_filename = "%s/%s/%s.png" % (args.output_dir, constants.HIERARCHICAL_FDR_DIR, constants.TREE)
+    args.logger.info("mihifepe results: %s" % mihifepe_outputs_filename)
 
 
 if __name__ == "__main__":
