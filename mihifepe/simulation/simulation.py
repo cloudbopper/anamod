@@ -38,9 +38,9 @@ def main():
 
     args = parser.parse_args()
     if not args.output_dir:
-        args.output_dir = ("sim_outputs_inst_%d_feat_%d_noise_%.3f_pert_%s_shufftrials_%d" %
+        args.output_dir = ("sim_outputs_inst_%d_feat_%d_noise_%.3f_relfraction_%.3f_pert_%s_shufftrials_%d" %
                            (args.num_instances, args.num_features, args.noise_multiplier,
-                            args.perturbation, args.num_shuffling_trials))
+                            args.fraction_relevant_features, args.perturbation, args.num_shuffling_trials))
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     np.random.seed(args.seed)
