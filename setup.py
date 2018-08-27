@@ -17,9 +17,9 @@ setup(
     install_requires=[
         "anytree~=2.4.3",
         "h5py~=2.8.0",
-        "numpy~=1.12.1",
+        "numpy~=1.15.0",
         "pyhashxx~=0.1.3",
-        "scikit-learn~=0.18.1",
+        "scikit-learn~=0.19.2",
         "scipy~=1.1.0"
     ]
 )
