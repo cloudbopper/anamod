@@ -24,6 +24,8 @@ def main():
     parser.add_argument("-num_features", type=int, default=500)
     parser.add_argument("-output_dir", required=True)
     parser.add_argument("-fraction_relevant_features", type=float, default=.05)
+    parser.add_argument("-noise_multiplier", type=float, default=.01,
+                        help="Multiplicative factor for noise added to polynomial computation for irrelevant features")
 
     args = parser.parse_args()
     if not os.path.exists(args.output_dir):
@@ -49,13 +51,11 @@ def pipeline(args):
     # Synthesize polynomial that generates ground truth
     relevant_features, poly_coeff = gen_polynomial(args)
     # Update hierarchy descriptions for future visualization
-    update_hierarchy_descriptions(hierarchy_root, relevant_features, poly_coeff, probs)
+    update_hierarchy_relevance(hierarchy_root, relevant_features, poly_coeff, probs)
     # Generate targets (ground truth)
     targets = gen_targets(poly_coeff, data)
-    # Synthesize model (perturbed version of polynomial)
-    model = gen_model(args, poly_coeff)
     # Write outputs - data, gen_model.py, hierarchy
-    data_filename, hierarchy_filename, gen_model_filename = write_outputs(args, data, hierarchy_root, targets, model)
+    data_filename, hierarchy_filename, gen_model_filename = write_outputs(args, data, hierarchy_root, targets, poly_coeff)
     # Invoke feature importance algorithm
     run_mihifepe(args, data_filename, hierarchy_filename, gen_model_filename)
     # Compare mihifepe outputs with ground truth outputs
@@ -120,10 +120,9 @@ def gen_polynomial(args):
     return relevant_features, coefficients
 
 
-def update_hierarchy_descriptions(hierarchy_root, relevant_features, poly_coeff, probs):
+def update_hierarchy_relevance(hierarchy_root, relevant_features, poly_coeff, probs):
     """
-    Add description to nodes of hierarchy
-    based on whether they contain any relevant feature,
+    Add feature relevance information to nodes of hierarchy:
     their probabilty of being enabled,
     their polynomial coefficient
     """
@@ -132,6 +131,8 @@ def update_hierarchy_descriptions(hierarchy_root, relevant_features, poly_coeff,
         if node.is_leaf:
             idx = int(node.name)
             if relevant_features[idx]:
+                node.bin_prob = probs[idx]
+                node.poly_coeff = poly_coeff[idx]
                 node.description = ("%s feature:\nPolynomial coefficient: %f\nBinomial probability: %f"
                                     % (constants.RELEVANT, poly_coeff[idx], probs[idx]))
         else:
@@ -143,11 +144,6 @@ def update_hierarchy_descriptions(hierarchy_root, relevant_features, poly_coeff,
 def gen_targets(poly_coeff, data):
     """Generate targets (ground truth) from polynomial"""
     return np.dot(data, poly_coeff)
-
-
-def gen_model(args, poly_coeff):
-    """Generate noisy version of polynomial, which acts as the model"""
-    return poly_coeff # TODO: generate noisy version
 
 
 def write_outputs(args, data, hierarchy_root, targets, model):
@@ -210,6 +206,7 @@ def write_outputs(args, data, hierarchy_root, targets, model):
         gen_model_config_filename = "%s/%s" % (os.path.dirname(os.path.abspath(__file__)), constants.GEN_MODEL_CONFIG_FILENAME)
         with open(gen_model_config_filename, "wb") as gen_model_config_file:
             pickle.dump(model_filename, gen_model_config_file)
+            pickle.dump(args.noise_multiplier, gen_model_config_file)
         gen_model_filename = "%s/%s" % (os.path.dirname(os.path.abspath(__file__)), constants.GEN_MODEL_FILENAME)
         return gen_model_filename
 
@@ -227,8 +224,7 @@ def run_mihifepe(args, data_filename, hierarchy_filename, gen_model_filename):
     cmd = ("python -m mihifepe.master -data_filename '%s' -hierarchy_filename '%s' -model_generator_filename '%s' -output_dir '%s'" %
            (data_filename, hierarchy_filename, gen_model_filename, args.output_dir))
     args.logger.info("Running cmd: %s" % cmd)
-    output = subprocess.check_output(cmd, shell=True)
-    args.logger.info("mihifepe stdout: %s" % output)
+    subprocess.check_call(cmd, shell=True)
     args.logger.info("End running mihifepe")
 
 
@@ -241,17 +237,22 @@ def compare_results(args, hierarchy_root):
     with open(input_filename, "w") as input_file:
         writer = csv.writer(input_file)
         writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.PVALUE_LOSSES, constants.DESCRIPTION])
-        for node in anytree.PreOrderIter(hierarchy_root):
+        for node in anytree.PostOrderIter(hierarchy_root):
             parent_name = node.parent.name if node.parent else ""
-            pvalue = 1.0 if node.description == constants.IRRELEVANT else 0.0
-            writer.writerow([node.name, parent_name, pvalue, node.description])
+            # Decide p-values based on rough heuristic for relevance
+            node.pvalue = 1.0
+            if node.description != constants.IRRELEVANT:
+                if node.is_leaf:
+                    node.pvalue = 1e-10 / (node.poly_coeff * node.bin_prob) ** 3
+                else:
+                    node.pvalue = 0.999 * min([child.pvalue for child in node.children])
+            writer.writerow([node.name, parent_name, node.pvalue, node.description])
     # Generate hierarchical FDR results for ground truth values
     ground_truth_dir = "%s/ground_truth_fdr" % args.output_dir
     cmd = ("python -m mihifepe.fdr.hierarchical_fdr_control -output_dir %s -procedure yekutieli "
-           "%s" % (ground_truth_dir, input_filename))
+           "-rectangle_leaves %s" % (ground_truth_dir, input_filename))
     args.logger.info("Running cmd: %s" % cmd)
-    output = subprocess.check_output(cmd, shell=True)
-    args.logger.info("Cmd output: %s" % output)
+    subprocess.check_call(cmd, shell=True)
     # Compare results
     ground_truth_outputs_filename = "%s/%s.png" % (ground_truth_dir, constants.TREE)
     args.logger.info("Ground truth results: %s" % ground_truth_outputs_filename)
