@@ -43,13 +43,14 @@ def pipeline(args):
     """Simulation pipeline"""
     # TODO: Features other than binary
     args.logger.info("Begin mihifepe simulation")
+    # Synthesize polynomial that generates ground truth
+    relevant_features, poly_coeff = gen_polynomial(args)
     # Synthesize data
     probs, data = synthesize_data(args)
     # Generate hierarchy using clustering
+    # TODO: Generate other hierarchies e.g. random
     clusters = cluster_data(args, data)
     hierarchy_root = gen_hierarchy(args, clusters)
-    # Synthesize polynomial that generates ground truth
-    relevant_features, poly_coeff = gen_polynomial(args)
     # Update hierarchy descriptions for future visualization
     update_hierarchy_relevance(hierarchy_root, relevant_features, poly_coeff, probs)
     # Generate targets (ground truth)
@@ -161,12 +162,14 @@ def write_outputs(args, data, hierarchy_root, targets, model):
         """
         data_filename = "%s/%s" % (args.output_dir, "data.hdf5")
         root = h5py.File(data_filename, "w")
-        records = root.create_group(constants.RECORDS)
-        record_ids = [records.create_group(str(idx)) for idx in range(args.num_instances)]
-        for idx, record_id in enumerate(record_ids):
-            record_id.create_dataset(constants.TEMPORAL, data=[])
-            record_id.create_dataset(constants.STATIC, data=data[idx])
-            record_id.create_dataset(constants.TARGET, data=targets[idx])
+        record_ids = [str(idx).encode("utf8") for idx in range(args.num_instances)]
+        root.create_dataset(constants.RECORD_IDS, data=record_ids)
+        root.create_dataset(constants.TARGETS, data=targets)
+        root.create_dataset(constants.STATIC, data=data)
+        # Temporal data: not used here, but add fields for demonstration
+        temporal = root.create_group(constants.TEMPORAL)
+        for record_id in record_ids:
+            temporal.create_dataset(record_id, data=[])
         root.close()
         return data_filename
 

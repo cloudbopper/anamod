@@ -6,8 +6,6 @@ PARENT_NAME = "parent_name"
 DESCRIPTION = "description"
 STATIC_INDICES = "static_indices"
 TEMPORAL_INDICES = "temporal_indices"
-STATIC = "static"
-TEMPORAL = "temporal"
 
 # Condor
 SUBMIT_FILENAME = "SUBMIT_FILENAME"
@@ -36,11 +34,12 @@ WILCOXON_TEST = "wilcoxon-test"
 PVALUES_FILENAME = "pvalues.csv"
 
 # HDF5
-RECORDS = "records"
-TARGET = "target"
 LOSSES = "losses"
 PREDICTIONS = "predictions"
+RECORD_IDS = "record_ids"
 TARGETS = "targets"
+STATIC = "static"
+TEMPORAL = "temporal"
 
 # Simulation
 RELEVANT = "relevant"
@@ -61,6 +60,10 @@ ARBITRARY = "arbitrary"
 YEKUTIELI = "yekutieli"
 LYNCH_GUO = "lynch_guo"
 TREE = "tree"
+
+# Perturbation
+ZEROING = "zeroing"
+SHUFFLING = "shuffling"
 
 # Miscellaneous
 BASELINE = u"baseline"

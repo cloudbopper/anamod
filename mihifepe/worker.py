@@ -26,7 +26,7 @@ def main():
     cargs = parser.parse_args()
     with open(cargs.args_filename, "r") as args_file:
         args = pickle.load(args_file)
-    np.random.seed(constants.SEED)
+    np.random.seed(constants.SEED + args.task_idx)
     logging.basicConfig(level=logging.INFO, filename="%s/worker_%d.log" % (args.output_dir, args.task_idx),
                         format="%(asctime)s: %(message)s")
     logger = logging.getLogger(__name__)
@@ -36,7 +36,6 @@ def main():
 def pipeline(args, logger):
     """Worker pipeline"""
     logger.info("Begin mihifepe worker pipeline")
-    # TODO: handle temporal features
     # Load features to perturb from file
     features = load_features(args.features_filename)
     # Load data
@@ -44,7 +43,7 @@ def pipeline(args, logger):
     # Load model
     model = load_model(logger, args.model_generator_filename)
     # Perturb features
-    targets, losses, predictions = perturb_features(logger, features, records, model)
+    targets, losses, predictions = perturb_features(args, logger, features, records, model)
     # Write outputs
     write_outputs(args, logger, targets, losses, predictions)
     logger.info("End mihifepe worker pipeline")
@@ -82,8 +81,7 @@ def load_data(data_filename):
         data: HDF5 root group containing data
     """
     hdf5_root = h5py.File(data_filename, "r")
-    records = hdf5_root[constants.RECORDS]
-    return records
+    return hdf5_root
 
 
 def load_model(logger, gen_model_filename):
@@ -109,56 +107,103 @@ def load_model(logger, gen_model_filename):
     return model
 
 
-def perturb_features(logger, features, records, model):
+def perturb_features(args, logger, features, hdf5_root, model):
     """
     Perturbs features and observes effect on model loss
 
     Args:
+        args:       command-line arguments passed down from master
+        logger:     logger
         features:   list of features to perturb
-        records:    HDF5 group containing data
+        hdf5_root:  HDF5 root object containing data
         model:      model object passed by client
 
     Returns:
-        targets:        (record -> target value)
-                        mapping of record id's to target values
+        targets:        array of target values
                         (classification labels or regression outputs, always scalars)
-        losses:         (feature_id-> (record_id -> loss))
-                        mapping of feature names to a mapping of record id's to losses,
+        losses:         (feature_id-> loss))
+                        mapping of feature names to loss vectors,
                         describing the losses of the model over the data with that feature perturbed
-        predictions:    (feature_id -> (record_id -> prediction))
-                        mapping feature names to a mapping of record id's to predictions,
+        predictions:    (feature_id-> prediction))
+                        mapping of feature names to prediction vectors,
                         describing the predictions of the model over the data with that feature perturbed
     """
-    # pylint: disable = too-many-locals
     logger.info("Begin perturbing features")
-    num_records = len(records)
-    targets = {}
-    losses = {feature.name: {} for feature in features}
-    predictions = {feature.name: {} for feature in features}
-    for record_idx, record in enumerate(records.values()):
+    perturber = Perturber(args, features, hdf5_root, model)
+    for record_idx, _ in enumerate(perturber.record_ids):
         if record_idx % 100 == 0:
-            logger.info("Begin processing record index %d of %d" % (record_idx, num_records))
-        record_id = record.name.split("/")[-1]
-        static_data = record[constants.STATIC].value
-        temporal_data = record[constants.TEMPORAL].value
-        target = record[constants.TARGET].value
-        targets[record_id] = target
-        # Perturb each feature
-        for feature in features:
-            # TODO: configurable perturbations
-            sdata = static_data
-            tdata = temporal_data
-            if static_data.size:
-                sdata = np.copy(static_data)
-                sdata[feature.static_indices] = 0
-            if temporal_data.size:
-                tdata = np.copy(temporal_data)
-                tdata[feature.temporal_indices] = 0
-            (loss, prediction) = model.predict(target, static_data=sdata, temporal_data=tdata)
-            losses[feature.name][record_id] = loss
-            predictions[feature.name][record_id] = prediction
+            logger.info("Begin processing record index %d of %d" % (record_idx + 1, perturber.num_records))
+        # Perturb each feature for given record
+        perturber.perturb_features_for_record(record_idx)
     logger.info("End perturbing features")
-    return targets, losses, predictions
+    return perturber.targets, perturber.losses, perturber.predictions
+
+
+class Perturber():
+    """Class to perform perturbations"""
+    # pylint: disable = too-many-instance-attributes, len-as-condition
+    # (Use len as it works with python lists as well as numpy arrays)
+    def __init__(self, args, features, hdf5_root, model):
+        self.args = args
+        self.features = features
+        self.model = model
+        self.record_ids = hdf5_root[constants.RECORD_IDS].value
+        self.targets = hdf5_root[constants.TARGETS].value
+        self.static_dataset = hdf5_root[constants.STATIC].value
+        self.temporal_grp = hdf5_root[constants.TEMPORAL]
+        self.num_records = len(self.record_ids)
+        self.static_data_input = True if self.static_dataset.size else False
+        self.losses = {feature.name: np.zeros(self.num_records) for feature in self.features}
+        self.predictions = {feature.name: np.zeros(self.num_records) for feature in self.features}
+
+
+    def perturb_features_for_record(self, record_idx):
+        """Perturbs all features for given record"""
+        # Data
+        target = self.targets[record_idx]
+        static_data = self.static_dataset[record_idx] if self.static_data_input else []
+        record_id = self.record_ids[record_idx]
+        temporal_data = self.temporal_grp[record_id].value
+        # Perturb each feature
+        for feature in self.features:
+            tdata = self.perturb_temporal_data(feature, temporal_data)
+            sdata = None
+            if self.args.perturbation == constants.SHUFFLING:
+                tvals = np.zeros(2, self.args.num_shuffling_trials)
+                for trial in range(self.args.num_shuffling_trials):
+                    sdata = self.perturb_static_data(feature, record_idx)
+                    tvals[:, trial] = self.model.predict(target, static_data=sdata, temporal_data=tdata)
+                (loss, prediction) = tvals.average(1)
+            else:
+                sdata = self.perturb_static_data(feature, static_data)
+                (loss, prediction) = self.model.predict(target, static_data=sdata, temporal_data=tdata)
+            # Update outputs
+            self.losses[feature.name][record_idx] = loss
+            self.predictions[feature.name][record_idx] = prediction
+
+
+    def perturb_static_data(self, feature, static_data):
+        """Perturb static data for given feature"""
+        if len(static_data) == 0 or len(feature.static_indices) == 0:
+            return static_data
+        sdata = np.copy(static_data)
+        if self.args.perturbation == constants.ZEROING:
+            sdata[feature.static_indices] = 0
+        elif self.args.perturbation == constants.SHUFFLING:
+            replace_idx = np.random.randint(0, self.num_records)
+            sdata[feature.static_indices] = self.static_dataset[replace_idx][feature.static_indices]
+        return sdata
+
+
+    def perturb_temporal_data(self, feature, temporal_data):
+        """Perturb temporal data for given feature"""
+        if len(temporal_data) == 0 or len(feature.temporal_indices) == 0:
+            return temporal_data
+        tdata = temporal_data
+        if self.args.perturbation == constants.ZEROING:
+            tdata = np.copy(temporal_data)
+            tdata[feature.temporal_indices] = 0
+        return tdata
 
 
 def write_outputs(args, logger, targets, losses, predictions):
@@ -166,19 +211,18 @@ def write_outputs(args, logger, targets, losses, predictions):
     Write outputs to results file
     """
     logger.info("Begin writing outputs")
-    record_ids = sorted(targets.keys()) # Sorting ensures record order is the same across workers
     results_filename = "%s/results_worker_%d.hdf5" % (args.output_dir, args.task_idx)
     root = h5py.File(results_filename, "w")
 
     def store_data(group, data):
         """Helper function to store data"""
         for feature_id, feature_data in data.items():
-            group.create_dataset(feature_id, data=[feature_data[rid] for rid in record_ids])
+            group.create_dataset(feature_id, data=feature_data)
 
     store_data(root.create_group(constants.LOSSES), losses)
     store_data(root.create_group(constants.PREDICTIONS), predictions)
     if args.task_idx == 0:
-        root.create_dataset(constants.TARGETS, data=[targets[rid] for rid in record_ids])
+        root.create_dataset(constants.TARGETS, data=targets)
     root.close()
     logger.info("End writing outputs")
 

@@ -26,8 +26,6 @@ from . import constants
 from .feature import Feature
 from . import worker
 
-# TODO maybe: write arguments to separate readme.txt for documentating runs
-
 def main():
     """Parse arguments"""
     parser = argparse.ArgumentParser()
@@ -38,7 +36,12 @@ def main():
     parser.add_argument("-data_filename", help="Test data in HDF5 format", required=True)
     parser.add_argument("-output_dir", help="Output directory", required=True)
     # Optional arguments
-    # TODO: type of perturbation; note: current parallel setup cannot handle shuffling involving multiple features
+    parser.add_argument("-perturbation", default=constants.ZEROING, choices=[constants.ZEROING, constants.SHUFFLING],
+                        help="type of perturbation to perform:\n"
+                        "%s (default): works on both static and temporal data\n"
+                        "%s: works only on static data" % (constants.ZEROING, constants.SHUFFLING))
+    parser.add_argument("-num_shuffling_trials", type=int, default=500, help="Number of shuffling trials to average over, "
+                        "when shuffling perturbations are selected")
     parser.add_argument("-condor", dest="condor", action="store_true",
                         help="Enable parallelization using condor (default disabled)")
     parser.add_argument("-no-condor", dest="condor", action="store_false", help="Disable parallelization using condor")
@@ -251,7 +254,6 @@ class CondorPipeline():
         """Write features to file"""
         features_filename = self.get_output_filepath(targs, "features")
         targs.features_filename = features_filename
-        targs.all_features = False
         with open(features_filename, "w") as features_file:
             writer = csv.writer(features_file)
             writer.writerow([constants.NODE_NAME,
@@ -426,7 +428,7 @@ class CondorPipeline():
                     return results
 
                 all_losses.update(load_data(root[constants.LOSSES]))
-                all_predictions.update(load_data(root[constants.PREDICTIONS])) # Predictions non-empty if task is binary classification
+                all_predictions.update(load_data(root[constants.PREDICTIONS]))
                 idx = int(match.group(1))
                 if idx == 0:
                     # Only first worker outputs labels since they're common
