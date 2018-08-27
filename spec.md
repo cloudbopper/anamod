@@ -31,14 +31,14 @@ The input data for *mihifepe* must be organized as follows (see [TODO] for examp
 
 Groups:
 
-    /records
-    /records/<record_id>
+    /temporal               (Group containing temporal data)
 
 Datasets:
 
-    /records/<record_id>/temporal (2-D array) (may be empty)
-    /records/<record_id>/static (1-D array) (may be empty)
-    /records/<record_id>/target (scalar)
+    /record_ids             (List of record identifiers (strings) of length M = number of records/instances)
+    /targets                (vector of target values (regression/classification outputs) of length M)
+    /static_data            (matrix of static data of size M x L)
+    /temporal/<record_id>   (One dataset per record_id) (List (of variable length V) of vectors (of fixed length W))
 
 Sparse representations may be used for both temporal and static data, in which case the attribute 'sparse' must be specified (see above example). [TODO]
 
