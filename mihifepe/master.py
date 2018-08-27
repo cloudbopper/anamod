@@ -206,10 +206,9 @@ def hierarchical_fdr(args, logger):
     input_filename = "%s/%s" % (args.output_dir, constants.PVALUES_FILENAME)
     output_dir = "%s/%s" % (args.output_dir, constants.HIERARCHICAL_FDR_DIR)
     cmd = ("python -m mihifepe.fdr.hierarchical_fdr_control -output_dir %s -procedure yekutieli "
-           "%s" % (output_dir, input_filename))
+           "-rectangle_leaves %s" % (output_dir, input_filename))
     logger.info("Running cmd: %s" % cmd)
-    output = subprocess.check_output(cmd, shell=True)
-    logger.info("Cmd output: %s" % output)
+    subprocess.check_call(cmd, shell=True)
 
 
 class SerialPipeline():
