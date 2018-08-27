@@ -21,13 +21,26 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-seed", type=int, default=constants.SEED)
     parser.add_argument("-num_instances", type=int, default=10000)
-    parser.add_argument("-num_features", type=int, default=500)
-    parser.add_argument("-output_dir", required=True)
+    parser.add_argument("-num_features", type=int, default=100)
+    parser.add_argument("-output_dir", help="Name of output directory")
     parser.add_argument("-fraction_relevant_features", type=float, default=.05)
-    parser.add_argument("-noise_multiplier", type=float, default=.01,
+    parser.add_argument("-noise_multiplier", type=float, default=.05,
                         help="Multiplicative factor for noise added to polynomial computation for irrelevant features")
+    # Arguments passed to mihifepe
+    parser.add_argument("-perturbation", default=constants.SHUFFLING, choices=[constants.ZEROING, constants.SHUFFLING])
+    parser.add_argument("-num_shuffling_trials", type=int, default=100, help="Number of shuffling trials to average over, "
+                        "when shuffling perturbations are selected")
+    parser.add_argument("-condor", dest="condor", action="store_true",
+                        help="Enable parallelization using condor (default disabled)")
+    parser.add_argument("-no-condor", dest="condor", action="store_false", help="Disable parallelization using condor")
+    parser.set_defaults(condor=False)
+    parser.add_argument("-features_per_worker", type=int, default=1, help="worker load")
 
     args = parser.parse_args()
+    if not args.output_dir:
+        args.output_dir = ("sim_outputs_inst_%d_feat_%d_noise_%.3f_pert_%s_shufftrials_%d" %
+                           (args.num_instances, args.num_features, args.noise_multiplier,
+                            args.perturbation, args.num_shuffling_trials))
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     np.random.seed(args.seed)
@@ -224,8 +237,11 @@ def write_outputs(args, data, hierarchy_root, targets, model):
 def run_mihifepe(args, data_filename, hierarchy_filename, gen_model_filename):
     """Run mihifepe algorithm"""
     args.logger.info("Begin running mihifepe")
-    cmd = ("python -m mihifepe.master -data_filename '%s' -hierarchy_filename '%s' -model_generator_filename '%s' -output_dir '%s'" %
-           (data_filename, hierarchy_filename, gen_model_filename, args.output_dir))
+    condor_val = "-condor" if args.condor else "-no-condor"
+    cmd = ("python -m mihifepe.master -data_filename '%s' -hierarchy_filename '%s' -model_generator_filename '%s' -output_dir '%s' "
+           "-perturbation %s -num_shuffling_trials %d %s -features_per_worker %d"
+           % (data_filename, hierarchy_filename, gen_model_filename, args.output_dir,
+              args.perturbation, args.num_shuffling_trials, condor_val, args.features_per_worker))
     args.logger.info("Running cmd: %s" % cmd)
     subprocess.check_call(cmd, shell=True)
     args.logger.info("End running mihifepe")
