@@ -70,7 +70,7 @@ def write_outputs(args, logger, tree):
 def generate_tree_of_rejected_hypotheses(args, tree):
     """Generate tree of rejected hypotheses with colour grading based on adjusted p-value"""
     # Generate tree of rejected hypotheses
-    assert tree.rejected # at least root must be rejected
+    assert tree.rejected, "No hypothesis rejected - check your input p-values" # at least root must be rejected
     nodes = {}
     for node in anytree.LevelOrderIter(tree):
         if node.rejected:
