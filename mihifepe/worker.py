@@ -169,11 +169,11 @@ class Perturber():
             tdata = self.perturb_temporal_data(feature, temporal_data)
             sdata = None
             if self.args.perturbation == constants.SHUFFLING:
-                tvals = np.zeros(2, self.args.num_shuffling_trials)
+                tvals = np.zeros((2, self.args.num_shuffling_trials))
                 for trial in range(self.args.num_shuffling_trials):
-                    sdata = self.perturb_static_data(feature, record_idx)
+                    sdata = self.perturb_static_data(feature, static_data)
                     tvals[:, trial] = self.model.predict(target, static_data=sdata, temporal_data=tdata)
-                (loss, prediction) = tvals.average(1)
+                (loss, prediction) = np.average(tvals, axis=1)
             else:
                 sdata = self.perturb_static_data(feature, static_data)
                 (loss, prediction) = self.model.predict(target, static_data=sdata, temporal_data=tdata)
