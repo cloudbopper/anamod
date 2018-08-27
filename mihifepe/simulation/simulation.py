@@ -243,7 +243,7 @@ def compare_results(args, hierarchy_root):
             node.pvalue = 1.0
             if node.description != constants.IRRELEVANT:
                 if node.is_leaf:
-                    node.pvalue = 1e-10 / (node.poly_coeff * node.bin_prob) ** 3
+                    node.pvalue = min(0.001, 1e-10 / (node.poly_coeff * node.bin_prob) ** 3)
                 else:
                     node.pvalue = 0.999 * min([child.pvalue for child in node.children])
             writer.writerow([node.name, parent_name, node.pvalue, node.description])
