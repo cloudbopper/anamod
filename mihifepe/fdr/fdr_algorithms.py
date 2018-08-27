@@ -96,9 +96,9 @@ def yekutieli(args, logger, F, M):
             for idx in range(max_idx):
                 family[idx].rejected = True
             Rs[node.depth + 1] += max_idx
-        for idx in reversed(range(max_idx - 1)):
-            # Adjusted pvalues - see http://www.biostathandbook.com/multiplecomparisons.html
-            family[idx].adjusted_pvalue = min(family[idx].adjusted_pvalue, family[idx+1].adjusted_pvalue)
+            for idx in reversed(range(max_idx - 1)):
+                # Adjusted pvalues - see http://www.biostathandbook.com/multiplecomparisons.html
+                family[idx].adjusted_pvalue = min(family[idx].adjusted_pvalue, family[idx+1].adjusted_pvalue)
     # Sanity check
     for node in M:
         if node.parent and node.rejected:
