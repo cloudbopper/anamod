@@ -238,10 +238,12 @@ def run_mihifepe(args, data_filename, hierarchy_filename, gen_model_filename):
     """Run mihifepe algorithm"""
     args.logger.info("Begin running mihifepe")
     condor_val = "-condor" if args.condor else "-no-condor"
+    # Compute approximate memory requirement in GB
+    memory_requirement = 1 + (os.stat(data_filename).st_size // (2 ** 30))
     cmd = ("python -m mihifepe.master -data_filename '%s' -hierarchy_filename '%s' -model_generator_filename '%s' -output_dir '%s' "
-           "-perturbation %s -num_shuffling_trials %d %s -features_per_worker %d"
+           "-perturbation %s -num_shuffling_trials %d %s -features_per_worker %d -memory_requirement %d"
            % (data_filename, hierarchy_filename, gen_model_filename, args.output_dir,
-              args.perturbation, args.num_shuffling_trials, condor_val, args.features_per_worker))
+              args.perturbation, args.num_shuffling_trials, condor_val, args.features_per_worker, memory_requirement))
     args.logger.info("Running cmd: %s" % cmd)
     subprocess.check_call(cmd, shell=True)
     args.logger.info("End running mihifepe")

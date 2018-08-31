@@ -49,6 +49,7 @@ def main():
     parser.add_argument("-features_per_worker", type=int, default=10, help="worker load")
     parser.add_argument("-eviction_timeout", type=int, default=14400, help="time in seconds to allow condor jobs"
                         " to run before evicting and restarting")
+    parser.add_argument("-memory_requirement", type=int, default=16, help="memory requirement in GB, minimum 1, default 16")
     parser.add_argument("-compile_results_only", help="only compile results (assuming they already exist), "
                         "skipping actually launching jobs", action="store_true")
     parser.add_argument("-model_type", default=constants.REGRESSION,
@@ -247,6 +248,7 @@ class CondorPipeline():
         self.virtual_env = ""
         if constants.VIRTUAL_ENV in os.environ:
             self.virtual_env = os.path.split(os.environ[constants.VIRTUAL_ENV])[1]
+        assert self.master_args.memory_requirement >= 1, "Required memory must be 1 or more GB"
 
     @staticmethod
     def get_output_filepath(targs, prefix, suffix="txt"):
@@ -282,7 +284,8 @@ class CondorPipeline():
         task[constants.LOG_FILENAME] = self.get_output_filepath(targs, "log")
         task[constants.OUTPUT_FILENAME] = self.get_output_filepath(targs, "out")
         task[constants.ERROR_FILENAME] = self.get_output_filepath(targs, "err")
-        task[constants.VIRTUAL_ENV]  = self.virtual_env
+        task[constants.VIRTUAL_ENV] = self.virtual_env
+        task[constants.MEMORY_REQUIREMENT] = self.master_args.memory_requirement
         submit_file = open(submit_filename, "w")
         with open(template_filename, "r") as template_file:
             for line in template_file:

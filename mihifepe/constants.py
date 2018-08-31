@@ -25,6 +25,7 @@ ABNORMAL_TERMINATION = "Abnormal termination"
 CLUSTER = "cluster"
 JOB_START_TIME = "job_start_time"
 VIRTUAL_ENV = "VIRTUAL_ENV"
+MEMORY_REQUIREMENT = "MEMORY_REQUIREMENT"
 
 # Evaluation
 EFFECT_SIZE = "effect_size"

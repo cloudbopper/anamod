@@ -4,7 +4,7 @@ executable                  = /usr/bin/sh
 arguments                   = run_worker.sh ARGS_FILENAME VIRTUAL_ENV
 universe                    = vanilla
 rank                        = memory
-request_memory              = 16 GB
+request_memory              = MEMORY_REQUIREMENT GB
 requirements                = (OpSys == "LINUX" && arch == "X86_64")
 log                         = LOG_FILENAME
 output                      = OUTPUT_FILENAME
