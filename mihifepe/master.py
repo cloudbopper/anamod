@@ -249,6 +249,7 @@ class CondorPipeline():
         if constants.VIRTUAL_ENV in os.environ:
             self.virtual_env = os.path.split(os.environ[constants.VIRTUAL_ENV])[1]
         assert self.master_args.memory_requirement >= 1, "Required memory must be 1 or more GB"
+        self.memory_requirement = str(self.master_args.memory_requirement)
 
     @staticmethod
     def get_output_filepath(targs, prefix, suffix="txt"):
@@ -285,7 +286,7 @@ class CondorPipeline():
         task[constants.OUTPUT_FILENAME] = self.get_output_filepath(targs, "out")
         task[constants.ERROR_FILENAME] = self.get_output_filepath(targs, "err")
         task[constants.VIRTUAL_ENV] = self.virtual_env
-        task[constants.MEMORY_REQUIREMENT] = self.master_args.memory_requirement
+        task[constants.MEMORY_REQUIREMENT] = self.memory_requirement
         submit_file = open(submit_filename, "w")
         with open(template_filename, "r") as template_file:
             for line in template_file:
