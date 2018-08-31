@@ -179,7 +179,7 @@ def build_tree(args, logger):
             else:
                 parent = nodes[parent_name]
             node.parent = parent
-            node.pvalue = pvalue if not math.isnan(pvalue) else -1.
+            node.pvalue = pvalue if not math.isnan(pvalue) else 1.
             node.description = description
             node.effect_size = effect_size
     assert root # to ensure root exists and has an assigned p-value
