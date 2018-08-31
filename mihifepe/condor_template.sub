@@ -1,7 +1,7 @@
 # Condor submit file template for feature importance subtask
 
-executable                  = python
-arguments                   = -m mihifepe.worker ARGS_FILENAME
+executable                  = sh
+arguments                   = run_worker.sh ARGS_FILENAME
 universe                    = vanilla
 rank                        = memory
 request_memory              = 16 GB
