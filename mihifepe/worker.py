@@ -24,7 +24,7 @@ def main():
     parser.add_argument("args_filename", help="pickle file containing arguments"
                         " passed by master.py")
     cargs = parser.parse_args()
-    with open(cargs.args_filename, "r") as args_file:
+    with open(cargs.args_filename, "rb") as args_file:
         args = pickle.load(args_file)
     np.random.seed(constants.SEED + args.task_idx)
     logging.basicConfig(level=logging.INFO, filename="%s/worker_%d.log" % (args.output_dir, args.task_idx),
