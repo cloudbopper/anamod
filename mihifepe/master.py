@@ -310,7 +310,7 @@ class CondorPipeline():
             task[constants.ATTEMPT] += 1
             self.logger.info("\nAttempt %d: running cmd: '%s'" % (task[constants.ATTEMPT], task[constants.CMD]))
             try:
-                output = subprocess.check_output(task[constants.CMD], shell=True)
+                output = subprocess.check_output(task[constants.CMD], shell=True).decode("utf-8")
                 self.logger.info(output)
                 cluster = re.search("cluster ([0-9]+)", output)
                 assert cluster
