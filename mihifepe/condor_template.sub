@@ -1,6 +1,6 @@
 # Condor submit file template for feature importance subtask
 
-executable                  = python3
+executable                  = python
 arguments                   = -m mihifepe.worker ARGS_FILENAME
 universe                    = vanilla
 rank                        = memory
