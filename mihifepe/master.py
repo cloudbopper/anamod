@@ -340,7 +340,7 @@ class CondorPipeline():
         while unfinished_tasks and os.path.isfile(kill_filename):
             unfinished_tasks = 0
             release = False
-            time.sleep(120)
+            time.sleep(30)
             for task in tasks:
                 if constants.JOB_COMPLETE in task:
                     continue
