@@ -267,7 +267,7 @@ class CondorPipeline():
         """Write task-specific arguments"""
         args_filename = self.get_output_filepath(targs, "args", suffix="pkl")
         targs.args_filename = args_filename
-        with open(args_filename, "w") as args_file:
+        with open(args_filename, "wb") as args_file:
             pickle.dump(targs, args_file)
 
     def write_submit_file(self, targs):
