@@ -26,6 +26,7 @@ CLUSTER = "cluster"
 JOB_START_TIME = "job_start_time"
 VIRTUAL_ENV = "VIRTUAL_ENV"
 MEMORY_REQUIREMENT = "MEMORY_REQUIREMENT"
+SCRIPT_DIR = "SCRIPT_DIR"
 
 # Evaluation
 EFFECT_SIZE = "effect_size"

@@ -250,6 +250,7 @@ class CondorPipeline():
             self.virtual_env = os.path.split(os.environ[constants.VIRTUAL_ENV])[1]
         assert self.master_args.memory_requirement >= 1, "Required memory must be 1 or more GB"
         self.memory_requirement = str(self.master_args.memory_requirement)
+        self.script_dir = os.path.dirname(os.path.abspath(__file__))
 
     @staticmethod
     def get_output_filepath(targs, prefix, suffix="txt"):
@@ -278,7 +279,7 @@ class CondorPipeline():
 
     def write_submit_file(self, targs):
         """Write task-specific submit file"""
-        template_filename = "%s/condor_template.sub" % os.path.dirname(os.path.abspath(__file__))
+        template_filename = "%s/condor_template.sub" % self.script_dir
         submit_filename = self.get_output_filepath(targs, "condor_task", suffix="sub")
         task = {}
         task[constants.ARGS_FILENAME] = targs.args_filename
@@ -287,6 +288,7 @@ class CondorPipeline():
         task[constants.ERROR_FILENAME] = self.get_output_filepath(targs, "err")
         task[constants.VIRTUAL_ENV] = self.virtual_env
         task[constants.MEMORY_REQUIREMENT] = self.memory_requirement
+        task[constants.SCRIPT_DIR] = self.script_dir
         submit_file = open(submit_filename, "w")
         with open(template_filename, "r") as template_file:
             for line in template_file:
