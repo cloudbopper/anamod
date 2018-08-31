@@ -389,7 +389,12 @@ class CondorPipeline():
                         unfinished_tasks -= 1
                 # Release job if held
                 if release:
-                    subprocess.check_call("condor_release %d" % task[constants.CLUSTER], shell=True)
+                    try:
+                        subprocess.check_output("condor_release %d" % task[constants.CLUSTER], shell=True)
+                    except subprocess.CalledProcessError as err:
+                        self.logger.warn(err)
+                        self.logger.warn("'%s' may have failed due to job being automatically released in the interim - "
+                                         "proceeding under assumption the job was automatically released." % err.cmd)
                 # Evict job still if timeout exceeded - it will be put back in queue and restarted/resumed elsewhere
                 elapsed_time = (datetime.now() - task[constants.JOB_START_TIME]).seconds
                 if elapsed_time > self.master_args.eviction_timeout:
