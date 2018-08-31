@@ -24,6 +24,7 @@ NORMAL_TERMINATION_FAILURE = "Normal termination (return value 1)"
 ABNORMAL_TERMINATION = "Abnormal termination"
 CLUSTER = "cluster"
 JOB_START_TIME = "job_start_time"
+VIRTUAL_ENV = "virtual_env"
 
 # Evaluation
 EFFECT_SIZE = "effect_size"

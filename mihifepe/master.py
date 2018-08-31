@@ -244,6 +244,9 @@ class CondorPipeline():
         self.master_args = copy.deepcopy(args)
         self.logger = logger
         self.feature_nodes = feature_nodes
+        self.virtual_env = ""
+        if constants.VIRTUAL_ENV in os.environ:
+            self.virtual_env = os.path.split(os.environ[constants.VIRTUAL_ENV])[1]
 
     @staticmethod
     def get_output_filepath(targs, prefix, suffix="txt"):
@@ -279,6 +282,7 @@ class CondorPipeline():
         task[constants.LOG_FILENAME] = self.get_output_filepath(targs, "log")
         task[constants.OUTPUT_FILENAME] = self.get_output_filepath(targs, "out")
         task[constants.ERROR_FILENAME] = self.get_output_filepath(targs, "err")
+        task[constants.VIRTUAL_ENV]  = self.virtual_env
         submit_file = open(submit_filename, "w")
         with open(template_filename, "r") as template_file:
             for line in template_file:
