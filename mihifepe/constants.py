@@ -37,6 +37,8 @@ PVALUE_LOSSES = "p-value-losses"
 PAIRED_TTEST = "paired-t-test"
 WILCOXON_TEST = "wilcoxon-test"
 PVALUES_FILENAME = "pvalues.csv"
+LESS = "less"
+GREATER = "greater"
 
 # HDF5
 LOSSES = "losses"
