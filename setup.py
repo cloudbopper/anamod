@@ -19,7 +19,6 @@ setup(
         "h5py~=2.8.0",
         "numpy~=1.15.0",
         "pyhashxx~=0.1.3",
-        "rpy2~=2.8.4",
         "scikit-learn~=0.19.2",
         "scipy~=1.1.0"
     ]
