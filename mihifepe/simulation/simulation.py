@@ -100,7 +100,7 @@ def cluster_data(args, data):
     """Cluster data using hierarchical clustering with Hamming distance"""
     # Cluster data
     args.logger.info("Begin clustering data")
-    clusters = linkage(data.transpose(), metric="hamming")
+    clusters = linkage(data.transpose(), metric="hamming", method="complete")
     args.logger.info("End clustering data")
     return clusters
 
@@ -117,16 +117,29 @@ def gen_hierarchy(args, clusters):
         hierarchy_root: root of resulting hierarchy over features
     """
     args.logger.info("Begin generating hierarchy")
+    # Generate hierarchy from clusters
     nodes = [anytree.Node(str(idx), static_indices=str(idx)) for idx in range(args.num_features)]
     for idx, cluster in enumerate(clusters):
+        cluster_idx = idx + args.num_features
         left_idx, right_idx, _, _ = cluster
         left_idx = int(left_idx)
         right_idx = int(right_idx)
-        cluster_node = anytree.Node("%d+%d" % (left_idx, right_idx))
+        cluster_node = anytree.Node(str(cluster_idx))
         nodes[left_idx].parent = cluster_node
         nodes[right_idx].parent = cluster_node
         nodes.append(cluster_node)
     hierarchy_root = nodes[-1]
+    # Rename nodes for better visualization
+    for idx, node in enumerate(anytree.PostOrderIter(hierarchy_root)):
+        node.idx = idx
+        if node.is_leaf:
+            node.min_child_idx = idx
+            node.max_child_idx = idx
+            node.name = str(idx)
+        else:
+            node.min_child_idx = min([child.min_child_idx for child in node.children])
+            node.max_child_idx = max([child.idx for child in node.children])
+            node.name = "%d [%d-%d]" % (idx, node.min_child_idx, node.max_child_idx)
     args.logger.info("End generating hierarchy")
     return hierarchy_root
 
@@ -150,7 +163,7 @@ def update_hierarchy_relevance(hierarchy_root, relevant_features, poly_coeff, pr
     for node in anytree.PostOrderIter(hierarchy_root):
         node.description = constants.IRRELEVANT
         if node.is_leaf:
-            idx = int(node.name)
+            idx = int(node.static_indices)
             if relevant_features[idx]:
                 node.bin_prob = probs[idx]
                 node.poly_coeff = poly_coeff[idx]
