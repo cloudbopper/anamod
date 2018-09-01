@@ -38,6 +38,9 @@ def wilcoxon_test(x, y, alternative=constants.LESS):
     mn = count * (count + 1.) * 0.25
     se = count * (count + 1.) * (2. * count + 1.)
 
+    if se < 1e-20:
+        return 1. # Degenerate case
+
     _, repnum = find_repeats(r)
     if repnum.size != 0:
         # Correction for repeated elements.
