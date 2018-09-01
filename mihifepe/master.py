@@ -365,7 +365,7 @@ class CondorPipeline():
                         task[constants.NORMAL_FAILURE_COUNT] += 1
                         if task[constants.NORMAL_FAILURE_COUNT] > constants.MAX_NORMAL_FAILURE_COUNT:
                             self.logger.error("Cmd '%s' terminated with invalid return code. Reached maximum number of normal failures %d, aborting." %
-                                              (task[constants.CMD], task[constants.MAX_NORMAL_FAILURE_COUNT]))
+                                              (task[constants.CMD], constants.MAX_NORMAL_FAILURE_COUNT))
                             task[constants.JOB_COMPLETE] = 1
                             unfinished_tasks -= 1
                             rerun = False
