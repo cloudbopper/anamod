@@ -14,6 +14,7 @@ import os
 import pickle
 import re
 import subprocess
+import sys
 import time
 
 import anytree
@@ -299,6 +300,7 @@ class CondorPipeline():
         task[constants.SUBMIT_FILENAME] = submit_filename
         task[constants.CMD] = "condor_submit %s" % submit_filename
         task[constants.ATTEMPT] = 0
+        task[constants.NORMAL_FAILURE_COUNT] = 0
         return task
 
     def launch_tasks(self, tasks):
@@ -332,6 +334,7 @@ class CondorPipeline():
         # TODO: refactor
         # pylint: disable = too-many-branches, too-many-nested-blocks, too-many-statements, too-many-locals
         unfinished_tasks = 1
+        failed_tasks = set()
         kill_filename = "%s/kill_file.txt" % self.master_args.output_dir
         self.logger.info("\nMonitoring/restarting tasks until all tasks verified completed. "
                          "Delete file %s to end task monitoring/restarting\n" % kill_filename)
@@ -359,17 +362,18 @@ class CondorPipeline():
                         unfinished_tasks -= 1
                         break
                     elif line.find(constants.NORMAL_TERMINATION_FAILURE) >= 0:
-                        self.logger.warn("Cmd '%s' terminated with invalid return code. Examining ..." % task[constants.CMD])
-                        with open(task[constants.ERROR_FILENAME]) as error_file:
-                            for err_line in error_file:
-                                if re.search("I/O error|ImportError|AttributeError|IOError|OSError", err_line):
-                                    self.logger.warn("Cmd '%s' failed due to likely condor-related error. Re-attempting..." % task[constants.CMD])
-                                    rerun = True
-                                    break
-                            if not rerun:
-                                self.logger.error("\nCmd '%s' completed with errors." % task[constants.CMD])
-                                task[constants.JOB_COMPLETE] = 1
-                                unfinished_tasks -= 1
+                        task[constants.NORMAL_FAILURE_COUNT] += 1
+                        if task[constants.NORMAL_FAILURE_COUNT] > constants.MAX_NORMAL_FAILURE_COUNT:
+                            self.logger.error("Cmd '%s' terminated with invalid return code. Reached maximum number of normal failures %d, aborting." %
+                                              (task[constants.CMD], task[constants.MAX_NORMAL_FAILURE_COUNT]))
+                            task[constants.JOB_COMPLETE] = 1
+                            unfinished_tasks -= 1
+                            rerun = False
+                            failed_tasks.add(task[constants.CMD])
+                            break
+                        self.logger.warn("Cmd '%s' terminated normally with invalid return code. Re-running assuming condor failure "
+                                         "(attempt %d of %d)..." % (task[constants.CMD], task[constants.NORMAL_FAILURE_COUNT] + 1, task[constants.MAX_NORMAL_FAILURE_COUNT] + 1))
+                        rerun = True
                         break
                     elif line.find(constants.JOB_HELD) >= 0:
                         for filetype in [constants.LOG_FILENAME, constants.OUTPUT_FILENAME, constants.ERROR_FILENAME]:
@@ -387,6 +391,7 @@ class CondorPipeline():
                     if not launch_success:
                         task[constants.JOB_COMPLETE] = 1
                         unfinished_tasks -= 1
+                        failed_tasks.add(task[constants.CMD])
                 # Release job if held
                 if release:
                     try:
@@ -404,6 +409,11 @@ class CondorPipeline():
 
         if os.path.isfile(kill_filename):
             os.remove(kill_filename)
+        if failed_tasks:
+            self.logger.error("List of failed tasks:\n%s" % "\n".join(failed_tasks))
+            self.logger.error("One or more tasks failed to complete, aborting run.")
+            sys.exit(1)
+        self.logger.info("All workers completed running successfully")
 
 
     def create_tasks(self):
