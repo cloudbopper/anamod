@@ -372,7 +372,7 @@ class CondorPipeline():
                             failed_tasks.add(task[constants.CMD])
                             break
                         self.logger.warn("Cmd '%s' terminated normally with invalid return code. Re-running assuming condor failure "
-                                         "(attempt %d of %d)..." % (task[constants.CMD], task[constants.NORMAL_FAILURE_COUNT] + 1, task[constants.MAX_NORMAL_FAILURE_COUNT] + 1))
+                                         "(attempt %d of %d)..." % (task[constants.CMD], task[constants.NORMAL_FAILURE_COUNT] + 1, constants.MAX_NORMAL_FAILURE_COUNT + 1))
                         rerun = True
                         break
                     elif line.find(constants.JOB_HELD) >= 0:
