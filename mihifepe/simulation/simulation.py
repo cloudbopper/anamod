@@ -26,6 +26,9 @@ def main():
     parser.add_argument("-fraction_relevant_features", type=float, default=.05)
     parser.add_argument("-noise_multiplier", type=float, default=.05,
                         help="Multiplicative factor for noise added to polynomial computation for irrelevant features")
+    parser.add_argument("-clustering_instance_count", type=int, help="If provided, uses this number of instances to "
+                        "cluster the data to generate a hierarchy, allowing the hierarchy to remain same across multiple "
+                        "sets of instances", default=0)
     # Arguments passed to mihifepe
     parser.add_argument("-perturbation", default=constants.SHUFFLING, choices=[constants.ZEROING, constants.SHUFFLING])
     parser.add_argument("-num_shuffling_trials", type=int, default=100, help="Number of shuffling trials to average over, "
@@ -59,17 +62,17 @@ def pipeline(args):
     # Synthesize polynomial that generates ground truth
     relevant_features, poly_coeff = gen_polynomial(args)
     # Synthesize data
-    probs, data = synthesize_data(args)
+    probs, test_data, clustering_data = synthesize_data(args)
     # Generate hierarchy using clustering
     # TODO: Generate other hierarchies e.g. random
-    clusters = cluster_data(args, data)
+    clusters = cluster_data(args, clustering_data)
     hierarchy_root = gen_hierarchy(args, clusters)
     # Update hierarchy descriptions for future visualization
     update_hierarchy_relevance(hierarchy_root, relevant_features, poly_coeff, probs)
     # Generate targets (ground truth)
-    targets = gen_targets(poly_coeff, data)
+    targets = gen_targets(poly_coeff, test_data)
     # Write outputs - data, gen_model.py, hierarchy
-    data_filename, hierarchy_filename, gen_model_filename = write_outputs(args, data, hierarchy_root, targets, poly_coeff)
+    data_filename, hierarchy_filename, gen_model_filename = write_outputs(args, test_data, hierarchy_root, targets, poly_coeff)
     # Invoke feature importance algorithm
     run_mihifepe(args, data_filename, hierarchy_filename, gen_model_filename)
     # Compare mihifepe outputs with ground truth outputs
@@ -82,11 +85,15 @@ def synthesize_data(args):
     # TODO: Correlations between features
     args.logger.info("Begin generating data")
     probs = np.random.uniform(size=args.num_features)
-    data = np.random.binomial(1, probs, size=(args.num_instances, args.num_features))
-    # TODO: train/test split?
-    # train, test = data[:int(args.num_instances * .8), :], data[int(args.num_instances * .8):, :]
+    data = np.random.binomial(1, probs, size=(max(args.num_instances, args.clustering_instance_count), args.num_features))
+    test_data = data
+    clustering_data = data
+    if args.clustering_instance_count:
+        clustering_data = data[:args.clustering_instance_count, :]
+        if args.clustering_instance_count > args.num_instances:
+            test_data = data[:args.num_instances, :]
     args.logger.info("End generating data")
-    return probs, data
+    return probs, test_data, clustering_data
 
 
 def cluster_data(args, data):
