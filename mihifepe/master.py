@@ -411,7 +411,7 @@ class CondorPipeline():
                 # Remove and restart jobs that get stuck in idle (likely due to condor bug)
                 if not num_removal_restarts:
                     job_status = subprocess.check_output("condor_q -format '%d' JobStatus {0}".format(task[constants.CLUSTER]), shell=True)
-                    if job_status and job_status == "1" and elapsed_time > self.master_args.idle_timeout:
+                    if job_status and int(job_status) == 1 and elapsed_time > self.master_args.idle_timeout:
                         self.logger.warn("Job '%s' has been idle for too long, removing and restarting" % task[constants.CMD])
                         subprocess.call("condor_rm %d" % task[constants.CLUSTER], shell=True)
                         task[constants.ATTEMPT] -= 1 # to not penalize attempts that didn't even get started
