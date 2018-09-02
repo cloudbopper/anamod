@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import os
 import subprocess
 
 INSTANCE_COUNTS = "instance_counts"
@@ -19,6 +20,9 @@ def main():
     parser.add_argument("-output_dir", required=True)
 
     args = parser.parse_args()
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir)
+
     logging.basicConfig(level=logging.INFO, filename="%s/run_simulations.log" % args.output_dir,
                         format="%(asctime)s: %(message)s")
     logger = logging.getLogger(__name__)
