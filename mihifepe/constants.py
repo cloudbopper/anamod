@@ -57,7 +57,7 @@ GEN_MODEL_FILENAME = "gen_model.py"
 
 # Hierarchical FDR
 HIERARCHICAL_FDR_DIR = "hierarchical_fdr_results"
-HIERARCHICAL_FDR_OUTPUTS = "hierarchical_fdr_outputs.csv"
+HIERARCHICAL_FDR_OUTPUTS = "hierarchical_fdr_outputs"
 ADJUSTED_PVALUE = "adjusted_p-value"
 REJECTED_STATUS = "rejected_status"
 # Dependence assumptions
