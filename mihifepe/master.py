@@ -410,10 +410,10 @@ class CondorPipeline():
 
                 # Remove and restart jobs that get stuck in idle (likely due to condor bug)
                 if not num_removal_restarts:
-                    job_status = subprocess.check_output("condor_q -format '%d' JobStatus {0}".format(task[constants.CLUSTER]))
+                    job_status = subprocess.check_output("condor_q -format '%d' JobStatus {0}".format(task[constants.CLUSTER]), shell=True)
                     if job_status and job_status == "1" and elapsed_time > self.master_args.idle_timeout:
                         self.logger.warn("Job '%s' has been idle for too long, removing and restarting" % task[constants.CMD])
-                        subprocess.call("condor_rm %d" % task[constants.CLUSTER])
+                        subprocess.call("condor_rm %d" % task[constants.CLUSTER], shell=True)
                         task[constants.ATTEMPT] -= 1 # to not penalize attempts that didn't even get started
                         rerun = True
                         num_removal_restarts += 1
@@ -435,7 +435,7 @@ class CondorPipeline():
                     self.logger.error("Task '%s' failed to run on condor, attempting on master thread" % task[constants.CMD])
                     cmd = "python -m mihifepe.worker %s" % task[constants.ARGS_FILENAME]
                     self.logger.info("Running cmd '%s'" % cmd)
-                    subprocess.check_call(cmd)
+                    subprocess.check_call(cmd, shell=True)
 
         if os.path.isfile(kill_filename):
             os.remove(kill_filename)
