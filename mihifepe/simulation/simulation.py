@@ -147,7 +147,12 @@ def gen_hierarchy(args, clusters):
 def gen_polynomial(args):
     """Generate polynomial which decides the ground truth"""
     # Decide relevant features
-    relevant_features = np.random.binomial(1, [args.fraction_relevant_features] * args.num_features)
+    num_relevant_features = round(args.num_features * args.fraction_relevant_features)
+    if not num_relevant_features:
+        num_relevant_features = 1
+    relevant_features = np.zeros(args.num_features)
+    relevant_features[:num_relevant_features] = 1
+    np.random.shuffle(relevant_features)
     # Generate coefficients
     # TODO: higher powers, interaction terms, negative coefficients
     coefficients = np.multiply(relevant_features, np.random.uniform(size=args.num_features))
