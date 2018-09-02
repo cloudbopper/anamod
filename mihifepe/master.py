@@ -334,13 +334,13 @@ class CondorPipeline():
         # TODO: refactor
         # pylint: disable = too-many-branches, too-many-nested-blocks, too-many-statements, too-many-locals
         unfinished_tasks = 1
-        failed_tasks = set()
         kill_filename = "%s/kill_file.txt" % self.master_args.output_dir
         self.logger.info("\nMonitoring/restarting tasks until all tasks verified completed. "
                          "Delete file %s to end task monitoring/restarting\n" % kill_filename)
         with open(kill_filename, "w") as kill_file:
             kill_file.write("Delete this file to kill process\n")
         while unfinished_tasks and os.path.isfile(kill_filename):
+            failed_tasks = []
             unfinished_tasks = 0
             release = False
             time.sleep(30)
@@ -364,12 +364,13 @@ class CondorPipeline():
                     elif line.find(constants.NORMAL_TERMINATION_FAILURE) >= 0:
                         task[constants.NORMAL_FAILURE_COUNT] += 1
                         if task[constants.NORMAL_FAILURE_COUNT] > constants.MAX_NORMAL_FAILURE_COUNT:
-                            self.logger.error("Cmd '%s' terminated with invalid return code. Reached maximum number of normal failures %d, aborting." %
+                            self.logger.error("Cmd '%s' terminated with invalid return code. Reached maximum number of "
+                                              "normal failures %d on condor workers, attempting in master thread." %
                                               (task[constants.CMD], constants.MAX_NORMAL_FAILURE_COUNT))
                             task[constants.JOB_COMPLETE] = 1
                             unfinished_tasks -= 1
                             rerun = False
-                            failed_tasks.add(task[constants.CMD])
+                            failed_tasks.append(task)
                             break
                         self.logger.warn("Cmd '%s' terminated normally with invalid return code. Re-running assuming condor failure "
                                          "(attempt %d of %d)..." % (task[constants.CMD], task[constants.NORMAL_FAILURE_COUNT] + 1, constants.MAX_NORMAL_FAILURE_COUNT + 1))
@@ -391,7 +392,7 @@ class CondorPipeline():
                     if not launch_success:
                         task[constants.JOB_COMPLETE] = 1
                         unfinished_tasks -= 1
-                        failed_tasks.add(task[constants.CMD])
+                        failed_tasks.append(task)
                 # Release job if held
                 if release:
                     try:
@@ -406,6 +407,14 @@ class CondorPipeline():
                     self.logger.info("Job time limit exceeded - evicting and restarting/resuming elsewhere")
                     subprocess.check_call("condor_vacate_job %d" % task[constants.CLUSTER], shell=True)
                     task[constants.JOB_START_TIME] = datetime.now()
+
+            # Attempt to run tasks that failed on condor in master thread
+            if failed_tasks:
+                for task in failed_tasks:
+                    self.logger.error("Task '%s' failed to run on condor, attempting on master thread" % task[constants.CMD])
+                    cmd = "python -m mihifepe.worker %s" % task[constants.ARGS_FILENAME]
+                    self.logger.info("Running cmd '%s'" % cmd)
+                    subprocess.check_call(cmd)
 
         if os.path.isfile(kill_filename):
             os.remove(kill_filename)
