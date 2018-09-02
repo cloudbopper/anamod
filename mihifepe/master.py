@@ -345,7 +345,6 @@ class CondorPipeline():
             failed_tasks = []
             unfinished_tasks = 0
             release = False
-            num_removal_restarts = 0 # To prevent overloading condor with removal/restart requests
             time.sleep(30)
             for task in tasks:
                 if constants.JOB_COMPLETE in task:
@@ -378,11 +377,10 @@ class CondorPipeline():
                         task[constants.NORMAL_FAILURE_COUNT] += 1
                         if task[constants.NORMAL_FAILURE_COUNT] > constants.MAX_NORMAL_FAILURE_COUNT:
                             self.logger.error("Cmd '%s' terminated with invalid return code. Reached maximum number of "
-                                              "normal failures %d on condor workers, attempting in master thread." %
+                                              "normal failures %d on condor workers, attempting in master node." %
                                               (task[constants.CMD], constants.MAX_NORMAL_FAILURE_COUNT))
                             task[constants.JOB_COMPLETE] = 1
                             unfinished_tasks -= 1
-                            rerun = False
                             failed_tasks.append(task)
                             break
                         self.logger.warn("Cmd '%s' terminated normally with invalid return code. Re-running assuming condor failure "
@@ -408,15 +406,13 @@ class CondorPipeline():
                         self.logger.warn("'%s' may have failed due to job being automatically released in the interim - "
                                          "proceeding under assumption the job was automatically released." % err.cmd)
 
-                # Remove and restart jobs that get stuck in idle (likely due to condor bug)
-                if not num_removal_restarts:
-                    job_status = subprocess.check_output("condor_q -format '%d' JobStatus {0}".format(task[constants.CLUSTER]), shell=True)
-                    if job_status and int(job_status) == 1 and elapsed_time > self.master_args.idle_timeout:
-                        self.logger.warn("Job '%s' has been idle for too long, removing and restarting" % task[constants.CMD])
-                        subprocess.call("condor_rm %d" % task[constants.CLUSTER], shell=True)
-                        task[constants.ATTEMPT] -= 1 # to not penalize attempts that didn't even get started
-                        rerun = True
-                        num_removal_restarts += 1
+                # Some jobs get stuck in idle indefinitely (likely due to condor bug) - attempt to run these in master node
+                job_status = subprocess.check_output("condor_q -format '%d' JobStatus {0}".format(task[constants.CLUSTER]), shell=True)
+                if job_status and int(job_status) == 1 and elapsed_time > self.master_args.idle_timeout:
+                    self.logger.warn("Job '%s' has been idle for too long, attempting to run in master node instead" % task[constants.CMD])
+                    task[constants.JOB_COMPLETE] = 1
+                    unfinished_tasks -= 1
+                    failed_tasks.append(task)
 
                 # Rerun jobs that didn't complete, likely due to condor issues
                 if rerun:
@@ -429,10 +425,10 @@ class CondorPipeline():
                         unfinished_tasks -= 1
                         failed_tasks.append(task)
 
-            # Attempt to run tasks that failed on condor in master thread
+            # Attempt to run tasks that failed on condor in master node
             if failed_tasks:
                 for task in failed_tasks:
-                    self.logger.error("Task '%s' failed to run on condor, attempting on master thread" % task[constants.CMD])
+                    self.logger.error("Task '%s' failed to run on condor, attempting on master node" % task[constants.CMD])
                     cmd = "python -m mihifepe.worker %s" % task[constants.ARGS_FILENAME]
                     self.logger.info("Running cmd '%s'" % cmd)
                     subprocess.check_call(cmd, shell=True)
