@@ -14,7 +14,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-generate_results", action="store_true")
     parser.add_argument("-visualize_results", action="store_true")
-    parser.add_argument("-type", choices=[INSTANCE_COUNTS, NOISE_LEVELS], default=INSTANCE_COUNTS)
+    parser.add_argument("-type", choices=[INSTANCE_COUNTS, FEATURE_COUNTS, NOISE_LEVELS],
+                        default=INSTANCE_COUNTS)
     parser.add_argument("-output_dir", required=True)
 
     args = parser.parse_args()
@@ -23,12 +24,15 @@ def main():
     logger = logging.getLogger(__name__)
     args.logger = logger
 
-    args.logger.info("Begin running simulations")
-    if args.type == INSTANCE_COUNTS:
-        run_instance_count_sims(args)
-    elif args.type == FEATURE_COUNTS:
-        run_feature_count_sims(args)
-    elif args.type == NOISE_LEVELS:
+    args.logger.info("Begin running/analyzing simulations")
+    if args.generate_results:
+        if args.type == INSTANCE_COUNTS:
+            run_instance_count_sims(args)
+        elif args.type == FEATURE_COUNTS:
+            run_feature_count_sims(args)
+        elif args.type == NOISE_LEVELS:
+            raise NotImplementedError() # TODO
+    if args.visualize_results:
         raise NotImplementedError() # TODO
     args.logger.info("End running simulations")
 
