@@ -14,7 +14,6 @@ import os
 import pickle
 import re
 import subprocess
-import sys
 import time
 
 import anytree
@@ -50,6 +49,9 @@ def main():
     parser.add_argument("-features_per_worker", type=int, default=10, help="worker load")
     parser.add_argument("-eviction_timeout", type=int, default=14400, help="time in seconds to allow condor jobs"
                         " to run before evicting and restarting")
+    parser.add_argument("-idle_timeout", type=int, default=300, help="time in seconds to allow condor jobs"
+                        " to stay idle before removing and restarting. To prevent overloading condor with redundant"
+                        " removals/restarts, only allow one removal/restart in one pass over all tasks.")
     parser.add_argument("-memory_requirement", type=int, default=16, help="memory requirement in GB, minimum 1, default 16")
     parser.add_argument("-compile_results_only", help="only compile results (assuming they already exist), "
                         "skipping actually launching jobs", action="store_true")
@@ -343,12 +345,23 @@ class CondorPipeline():
             failed_tasks = []
             unfinished_tasks = 0
             release = False
+            num_removal_restarts = 0 # To prevent overloading condor with removal/restart requests
             time.sleep(30)
             for task in tasks:
                 if constants.JOB_COMPLETE in task:
                     continue
                 rerun = False
                 unfinished_tasks += 1
+
+                # Evict job still if timeout exceeded - it will be put back in queue and restarted/resumed elsewhere
+                elapsed_time = datetime.now() - task[constants.JOB_START_TIME].seconds
+                if elapsed_time > self.master_args.eviction_timeout:
+                    self.logger.info("Job time limit exceeded - evicting and restarting/resuming elsewhere")
+                    subprocess.check_call("condor_vacate_job %d" % task[constants.CLUSTER], shell=True)
+                    task[constants.JOB_START_TIME] = datetime.now()
+                    continue
+
+                # Parse log file to determine task status
                 with open(task[constants.LOG_FILENAME]) as log_file:
                     lines = [line.strip() for line in log_file]
                 for line in lines:
@@ -385,14 +398,7 @@ class CondorPipeline():
                         self.logger.info("\nTask was held, releasing. Cmd: '%s'" % task[constants.CMD])
                         release = True
                         break
-                if rerun:
-                    for filetype in [constants.LOG_FILENAME, constants.OUTPUT_FILENAME, constants.ERROR_FILENAME]:
-                        os.remove(task[filetype])
-                    launch_success = self.launch_task(task)
-                    if not launch_success:
-                        task[constants.JOB_COMPLETE] = 1
-                        unfinished_tasks -= 1
-                        failed_tasks.append(task)
+
                 # Release job if held
                 if release:
                     try:
@@ -401,12 +407,27 @@ class CondorPipeline():
                         self.logger.warn(err)
                         self.logger.warn("'%s' may have failed due to job being automatically released in the interim - "
                                          "proceeding under assumption the job was automatically released." % err.cmd)
-                # Evict job still if timeout exceeded - it will be put back in queue and restarted/resumed elsewhere
-                elapsed_time = (datetime.now() - task[constants.JOB_START_TIME]).seconds
-                if elapsed_time > self.master_args.eviction_timeout:
-                    self.logger.info("Job time limit exceeded - evicting and restarting/resuming elsewhere")
-                    subprocess.check_call("condor_vacate_job %d" % task[constants.CLUSTER], shell=True)
-                    task[constants.JOB_START_TIME] = datetime.now()
+
+                # Remove and restart jobs that get stuck in idle (likely due to condor bug)
+                if not num_removal_restarts:
+                    job_status = subprocess.check_output("condor_q -format '%d' JobStatus {0}".format(task[constants.CLUSTER]))
+                    if job_status and job_status == "1" and elapsed_time > self.master_args.idle_timeout:
+                        self.logger.warn("Job '%s' has been idle for too long, removing and restarting" % task[constants.CMD])
+                        subprocess.call("condor_rm %d" % task[constants.CLUSTER])
+                        task[constants.ATTEMPT] -= 1 # to not penalize attempts that didn't even get started
+                        rerun = True
+                        num_removal_restarts += 1
+
+                # Rerun jobs that didn't complete, likely due to condor issues
+                if rerun:
+                    for filetype in [constants.LOG_FILENAME, constants.OUTPUT_FILENAME, constants.ERROR_FILENAME]:
+                        if os.path.isfile(task[filetype]):
+                            os.remove(task[filetype])
+                    launch_success = self.launch_task(task)
+                    if not launch_success:
+                        task[constants.JOB_COMPLETE] = 1
+                        unfinished_tasks -= 1
+                        failed_tasks.append(task)
 
             # Attempt to run tasks that failed on condor in master thread
             if failed_tasks:
@@ -418,10 +439,6 @@ class CondorPipeline():
 
         if os.path.isfile(kill_filename):
             os.remove(kill_filename)
-        if failed_tasks:
-            self.logger.error("List of failed tasks:\n%s" % "\n".join(failed_tasks))
-            self.logger.error("One or more tasks failed to complete, aborting run.")
-            sys.exit(1)
         self.logger.info("All workers completed running successfully")
 
 
