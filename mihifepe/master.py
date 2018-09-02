@@ -354,7 +354,7 @@ class CondorPipeline():
                 unfinished_tasks += 1
 
                 # Evict job still if timeout exceeded - it will be put back in queue and restarted/resumed elsewhere
-                elapsed_time = datetime.now() - task[constants.JOB_START_TIME].seconds
+                elapsed_time = (datetime.now() - task[constants.JOB_START_TIME]).seconds
                 if elapsed_time > self.master_args.eviction_timeout:
                     self.logger.info("Job time limit exceeded - evicting and restarting/resuming elsewhere")
                     subprocess.check_call("condor_vacate_job %d" % task[constants.CLUSTER], shell=True)
