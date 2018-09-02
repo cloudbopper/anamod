@@ -410,6 +410,7 @@ class CondorPipeline():
                 job_status = subprocess.check_output("condor_q -format '%d' JobStatus {0}".format(task[constants.CLUSTER]), shell=True)
                 if job_status and int(job_status) == 1 and elapsed_time > self.master_args.idle_timeout:
                     self.logger.warn("Job '%s' has been idle for too long, attempting to run in master node instead" % task[constants.CMD])
+                    subprocess.call("condor_rm %d" % task[constants.CLUSTER], shell=True)
                     task[constants.JOB_COMPLETE] = 1
                     unfinished_tasks -= 1
                     failed_tasks.append(task)
