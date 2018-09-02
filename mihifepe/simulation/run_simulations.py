@@ -72,7 +72,7 @@ def instance_count_sims(args):
     for instance_count in instance_counts:
         output_dir = OUTPUTS % (args.output_dir, INSTANCE_COUNTS, str(instance_count))
         cmd = ("python -m mihifepe.simulation.simulation -num_features 500 -fraction_relevant_features 0.1 -noise_multiplier 0.01 "
-               "-cluster_instance_count 10000 -perturbation %s -num_shuffling_trials 500 -condor "
+               "-clustering_instance_count 10000 -perturbation %s -num_shuffling_trials 500 -condor "
                "-num_instances %d -seed %d -output_dir %s" % (args.perturbation, instance_count, seed, output_dir))
         sims.append(Simulation(cmd, output_dir, instance_count))
     return sims
