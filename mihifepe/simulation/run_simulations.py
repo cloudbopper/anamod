@@ -60,7 +60,7 @@ def parametrize_simulations(args):
     if args.type == FEATURE_COUNTS:
         return feature_count_sims(args)
     if args.type == NOISE_LEVELS:
-        raise NotImplementedError() # TODO
+        return noise_level_sims(args)
     raise NotImplementedError("Unknown simulation type")
 
 
@@ -89,6 +89,20 @@ def feature_count_sims(args):
                "-noise_multiplier 0.01 -perturbation %s -num_shuffling_trials 500 -condor "
                "-num_features %d -seed %d -output_dir %s" % (args.perturbation, feature_count, seed, output_dir))
         sims.append(Simulation(cmd, output_dir, feature_count))
+    return sims
+
+
+def noise_level_sims(args):
+    """Run simulations for different values of noise"""
+    sims = []
+    seed = 85100
+    noise_levels = [0.0, 0.0001, 0.001, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5]
+    for noise_level in noise_levels:
+        output_dir = OUTPUTS % (args.output_dir, NOISE_LEVELS, str(noise_level))
+        cmd = ("python -m mihifepe.simulation.simulation -num_instances 10000 -fraction_relevant_features 0.1 "
+               "-noise_multiplier %f -perturbation %s -num_shuffling_trials 500 -condor "
+               "-num_features 500 -seed %d -output_dir %s" % (noise_level, args.perturbation, seed, output_dir))
+        sims.append(Simulation(cmd, output_dir, noise_level))
     return sims
 
 
