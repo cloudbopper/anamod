@@ -48,10 +48,9 @@ def main():
     parser.set_defaults(condor=False)
     parser.add_argument("-features_per_worker", type=int, default=10, help="worker load")
     parser.add_argument("-eviction_timeout", type=int, default=14400, help="time in seconds to allow condor jobs"
-                        " to run before evicting and restarting")
+                        " to run before evicting and restarting them on another condor node")
     parser.add_argument("-idle_timeout", type=int, default=300, help="time in seconds to allow condor jobs"
-                        " to stay idle before removing and restarting. To prevent overloading condor with redundant"
-                        " removals/restarts, only allow one removal/restart in one pass over all tasks.")
+                        " to stay idle before removing them from condor and attempting them on the master node.")
     parser.add_argument("-memory_requirement", type=int, default=16, help="memory requirement in GB, minimum 1, default 16")
     parser.add_argument("-compile_results_only", help="only compile results (assuming they already exist), "
                         "skipping actually launching jobs", action="store_true")

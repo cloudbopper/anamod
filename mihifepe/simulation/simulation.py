@@ -38,6 +38,8 @@ def main():
     parser.add_argument("-no-condor", dest="condor", action="store_false", help="Disable parallelization using condor")
     parser.set_defaults(condor=False)
     parser.add_argument("-features_per_worker", type=int, default=1, help="worker load")
+    parser.add_argument("-eviction_timeout", type=int, default=5400)
+    parser.add_argument("-idle_timeout", type=int, default=300)
 
     args = parser.parse_args()
     if not args.output_dir:
@@ -266,9 +268,11 @@ def run_mihifepe(args, data_filename, hierarchy_filename, gen_model_filename):
     # Compute approximate memory requirement in GB
     memory_requirement = 1 + (os.stat(data_filename).st_size // (2 ** 30))
     cmd = ("python -m mihifepe.master -data_filename '%s' -hierarchy_filename '%s' -model_generator_filename '%s' -output_dir '%s' "
-           "-perturbation %s -num_shuffling_trials %d %s -features_per_worker %d -memory_requirement %d"
+           "-perturbation %s -num_shuffling_trials %d %s -features_per_worker %d -memory_requirement %d "
+           "-eviction_timeout %d -idle_timeout %d"
            % (data_filename, hierarchy_filename, gen_model_filename, args.output_dir,
-              args.perturbation, args.num_shuffling_trials, condor_val, args.features_per_worker, memory_requirement))
+              args.perturbation, args.num_shuffling_trials, condor_val, args.features_per_worker, memory_requirement,
+              args.eviction_timeout, args.idle_timeout))
     args.logger.info("Running cmd: %s" % cmd)
     subprocess.check_call(cmd, shell=True)
     args.logger.info("End running mihifepe")
