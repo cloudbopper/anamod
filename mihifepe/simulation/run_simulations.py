@@ -68,12 +68,12 @@ def instance_count_sims(args):
     """Configure simulations for different values of instance counts"""
     sims = []
     seed = 9184
-    instance_counts = [16 * 2 ** x for x in range(10)]
+    instance_counts = [16 * 2 ** x for x in range(11)]
     for instance_count in instance_counts:
         output_dir = OUTPUTS % (args.output_dir, INSTANCE_COUNTS, str(instance_count))
         cmd = ("python -m mihifepe.simulation.simulation -num_features 500 -fraction_relevant_features 0.1 -noise_multiplier 0.01 "
-               "-clustering_instance_count 10000 -perturbation %s -num_shuffling_trials 500 -condor "
-               "-num_instances %d -seed %d -output_dir %s" % (args.perturbation, instance_count, seed, output_dir))
+               "-clustering_instance_count %d -perturbation %s -num_shuffling_trials 500 -condor "
+               "-num_instances %d -seed %d -output_dir %s" % (instance_counts[-1], args.perturbation, instance_count, seed, output_dir))
         sims.append(Simulation(cmd, output_dir, instance_count))
     return sims
 
