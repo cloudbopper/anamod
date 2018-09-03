@@ -82,7 +82,7 @@ def feature_count_sims(args):
     """Run simulations for different values of feature counts"""
     sims = []
     seed = 7185
-    feature_counts = [8 * 2 ** x for x in range(7)]
+    feature_counts = [8 * 2 ** x for x in range(8)]
     for feature_count in feature_counts:
         output_dir = OUTPUTS % (args.output_dir, FEATURE_COUNTS, str(feature_count))
         cmd = ("python -m mihifepe.simulation.simulation -num_instances 10000 -fraction_relevant_features 0.1 "
