@@ -31,7 +31,7 @@ def main():
     parser.add_argument("-analyze_results", action="store_true")
     parser.add_argument("-type", choices=[INSTANCE_COUNTS, FEATURE_COUNTS, NOISE_LEVELS],
                         default=INSTANCE_COUNTS)
-    parser.add_argument("-perturbation", choices=[constants.ZEROING, constants.SHUFFLING], default=constants.ZEROING)
+    parser.add_argument("-perturbation", choices=[constants.ZEROING, constants.SHUFFLING], default=constants.SHUFFLING)
     parser.add_argument("-output_dir", required=True)
 
     args = parser.parse_args()
@@ -82,10 +82,10 @@ def feature_count_sims(args):
     """Run simulations for different values of feature counts"""
     sims = []
     seed = 7185
-    feature_counts = [16 * 2 ** x for x in range(7)]
+    feature_counts = [8 * 2 ** x for x in range(7)]
     for feature_count in feature_counts:
         output_dir = OUTPUTS % (args.output_dir, FEATURE_COUNTS, str(feature_count))
-        cmd = ("python -m mihifepe.simulation.simulation -num_instances 1000 -fraction_relevant_features 0.1 "
+        cmd = ("python -m mihifepe.simulation.simulation -num_instances 10000 -fraction_relevant_features 0.1 "
                "-noise_multiplier 0.01 -perturbation %s -num_shuffling_trials 500 -condor "
                "-num_features %d -seed %d -output_dir %s" % (args.perturbation, feature_count, seed, output_dir))
         sims.append(Simulation(cmd, output_dir, feature_count))
@@ -96,7 +96,7 @@ def noise_level_sims(args):
     """Run simulations for different values of noise"""
     sims = []
     seed = 85100
-    noise_levels = [0.0, 0.0001, 0.001, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5]
+    noise_levels = [0.0] + [0.0001 * 2 ** x for x in range(13)]
     for noise_level in noise_levels:
         output_dir = OUTPUTS % (args.output_dir, NOISE_LEVELS, str(noise_level))
         cmd = ("python -m mihifepe.simulation.simulation -num_instances 10000 -fraction_relevant_features 0.1 "
