@@ -113,7 +113,7 @@ def shuffling_count_sims(args):
     """Run simulations for different number of shuffling trials"""
     sims = []
     seed = 185
-    shuffling_counts = [5, 10, 20, 50, 100, 200, 500, 1000]
+    shuffling_counts = [10, 20, 50, 100, 200, 500, 750, 1000]
     for shuffling_count in shuffling_counts:
         output_dir = OUTPUTS % (args.output_dir, NOISE_LEVELS, str(shuffling_count))
         # TODO: increase num_instances to 10000, num_features to 500, shuffling_counts maximum to 5000
