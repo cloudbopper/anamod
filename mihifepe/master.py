@@ -342,13 +342,13 @@ class CondorPipeline():
             kill_file.write("Delete this file to kill process\n")
         while unfinished_tasks and os.path.isfile(kill_filename):
             failed_tasks = []
+            rerun_tasks = []
+            release_tasks = []
             unfinished_tasks = 0
-            release = False
             time.sleep(30)
             for task in tasks:
                 if constants.JOB_COMPLETE in task:
                     continue
-                rerun = False
                 unfinished_tasks += 1
 
                 # Evict job still if timeout exceeded - it will be put back in queue and restarted/resumed elsewhere
@@ -359,13 +359,23 @@ class CondorPipeline():
                     task[constants.JOB_START_TIME] = datetime.now()
                     continue
 
+                # Some jobs get stuck in idle indefinitely (likely due to condor bug) - attempt to run these in master node
+                job_status = subprocess.check_output("condor_q -format '%d' JobStatus {0}".format(task[constants.CLUSTER]), shell=True)
+                if job_status and int(job_status) == 1 and elapsed_time > self.master_args.idle_timeout:
+                    self.logger.warn("Job '%s' has been idle for too long, attempting to run in master node instead" % task[constants.CMD])
+                    subprocess.call("condor_rm %d" % task[constants.CLUSTER], shell=True)
+                    task[constants.JOB_COMPLETE] = 1
+                    unfinished_tasks -= 1
+                    failed_tasks.append(task)
+                    continue
+
                 # Parse log file to determine task status
                 with open(task[constants.LOG_FILENAME]) as log_file:
                     lines = [line.strip() for line in log_file]
                 for line in lines:
                     if line.find(constants.ABNORMAL_TERMINATION) >= 0:
                         self.logger.warn("Cmd '%s' failed due to abnormal termination. Re-attempting..." % task[constants.CMD])
-                        rerun = True
+                        rerun_tasks.append(task)
                         break
                     elif line.find(constants.NORMAL_TERMINATION_SUCCESS) >= 0:
                         self.logger.info("Cmd '%s' completed successfully" % task[constants.CMD])
@@ -384,47 +394,36 @@ class CondorPipeline():
                             break
                         self.logger.warn("Cmd '%s' terminated normally with invalid return code. Re-running assuming condor failure "
                                          "(attempt %d of %d)..." % (task[constants.CMD], task[constants.NORMAL_FAILURE_COUNT] + 1, constants.MAX_NORMAL_FAILURE_COUNT + 1))
-                        time.sleep(30) # To prevent infinite-idle condor issue
-                        rerun = True
+                        rerun_tasks.append(task)
                         break
                     elif line.find(constants.JOB_HELD) >= 0:
-                        for filetype in [constants.LOG_FILENAME, constants.OUTPUT_FILENAME, constants.ERROR_FILENAME]:
-                            try:
-                                os.remove(task[filetype])
-                            except OSError:
-                                pass
-                        self.logger.info("\nTask was held, releasing. Cmd: '%s'" % task[constants.CMD])
-                        release = True
+                        release_tasks.append(task)
                         break
 
-                # Release job if held
-                if release:
+            # Release jobs if held
+            if release_tasks:
+                for task in release_tasks:
                     try:
+                        self.logger.info("\nTask was held, releasing. Cmd: '%s'" % task[constants.CMD])
                         subprocess.check_output("condor_release %d" % task[constants.CLUSTER], shell=True)
                     except subprocess.CalledProcessError as err:
                         self.logger.warn(err)
                         self.logger.warn("'%s' may have failed due to job being automatically released in the interim - "
                                          "proceeding under assumption the job was automatically released." % err.cmd)
 
-                # Some jobs get stuck in idle indefinitely (likely due to condor bug) - attempt to run these in master node
-                job_status = subprocess.check_output("condor_q -format '%d' JobStatus {0}".format(task[constants.CLUSTER]), shell=True)
-                if job_status and int(job_status) == 1 and elapsed_time > self.master_args.idle_timeout:
-                    self.logger.warn("Job '%s' has been idle for too long, attempting to run in master node instead" % task[constants.CMD])
-                    subprocess.call("condor_rm %d" % task[constants.CLUSTER], shell=True)
-                    task[constants.JOB_COMPLETE] = 1
-                    unfinished_tasks -= 1
-                    failed_tasks.append(task)
-
-                # Rerun jobs that didn't complete, likely due to condor issues
-                if rerun:
+            # Rerun jobs that didn't complete, likely due to condor issues
+            if rerun_tasks:
+                for task in rerun_tasks:
                     for filetype in [constants.LOG_FILENAME, constants.OUTPUT_FILENAME, constants.ERROR_FILENAME]:
                         if os.path.isfile(task[filetype]):
                             dirname, basename = os.path.split(task[filetype])
                             root, ext = os.path.splitext(basename)
-                            new_filename = "%s/%s_attempt_%d.%s" % (dirname, root, task[constants.ATTEMPT], ext)
+                            new_filename = "%s/%s_attempt_%d%s" % (dirname, root, task[constants.ATTEMPT], ext)
                             if os.path.isfile(new_filename):
                                 self.logger.warn("File %s already exists, overwriting." % new_filename)
                             os.rename(task[filetype], new_filename)
+                time.sleep(30) # To prevent infinite-idle condor issue
+                for task in rerun_tasks:
                     launch_success = self.launch_task(task)
                     if not launch_success:
                         task[constants.JOB_COMPLETE] = 1
