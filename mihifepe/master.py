@@ -421,7 +421,7 @@ class CondorPipeline():
                         if os.path.isfile(task[filetype]):
                             dirname, basename = os.path.split(task[filetype])
                             root, ext = os.path.splitext(basename)
-                            new_filename = "%s_%s_attempt_%d.%s" % (dirname, root, task[constants.ATTEMPT], ext)
+                            new_filename = "%s/%s_attempt_%d.%s" % (dirname, root, task[constants.ATTEMPT], ext)
                             if os.path.isfile(new_filename):
                                 self.logger.warn("File %s already exists, overwriting." % new_filename)
                             os.rename(task[filetype], new_filename)
