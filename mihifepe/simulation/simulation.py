@@ -39,7 +39,7 @@ def main():
     parser.set_defaults(condor=False)
     parser.add_argument("-features_per_worker", type=int, default=1, help="worker load")
     parser.add_argument("-eviction_timeout", type=int, default=5400)
-    parser.add_argument("-idle_timeout", type=int, default=300)
+    parser.add_argument("-idle_timeout", type=int, default=3600)
 
     args = parser.parse_args()
     if not args.output_dir:
