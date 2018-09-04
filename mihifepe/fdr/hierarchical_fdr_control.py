@@ -68,14 +68,16 @@ def write_outputs(args, logger, tree):
                 parent_name = node.parent.name
             writer.writerow([node.name, parent_name, node.pvalue, int(node.rejected), node.adjusted_pvalue])
     # Generate tree of rejected hypotheses with colour grading based on adjusted p-value
-    generate_tree_of_rejected_hypotheses(args, tree)
+    generate_tree_of_rejected_hypotheses(args, logger, tree)
     logger.info("End writing outputs")
 
 
-def generate_tree_of_rejected_hypotheses(args, tree):
+def generate_tree_of_rejected_hypotheses(args, logger, tree):
     """Generate tree of rejected hypotheses with colour grading based on adjusted p-value"""
     # Generate tree of rejected hypotheses
-    assert tree.rejected, "No hypothesis rejected - check your input p-values" # at least root must be rejected
+    if not tree.rejected:
+        logger.warn("No hypothesis rejected, so no tree will be generated. If this is unexpected, check your input p-values")
+        return
     nodes = {}
     for node in anytree.LevelOrderIter(tree):
         if node.rejected:
