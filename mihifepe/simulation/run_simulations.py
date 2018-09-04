@@ -21,8 +21,8 @@ SHUFFLING_COUNTS = "shuffling_counts"
 OUTPUTS = "%s/%s_%s"
 PRECISION = "Precision"
 RECALL = "Recall"
-FSCORE = "F-score"
-
+BASE_FEATURES_PRECISION = "Base_Features_Precision"
+BASE_FEATURES_RECALL = "Base_Features_Recall"
 Simulation = namedtuple("Simulation", ["cmd", "output_dir", "param"])
 
 def main():
@@ -133,20 +133,30 @@ def run_simulations(args, simulations):
 def analyze_simulations(args, simulations):
     """Analyze results of completed simulations"""
     # pylint: disable = too-many-locals
+
+    def get_relevant_rejected(nodes, leaves=False):
+        """Get set of relevant and rejected nodes"""
+        if leaves:
+            nodes = [node for node in nodes if node.is_leaf]
+        relevant = [0 if node.description == constants.IRRELEVANT else 1 for node in nodes]
+        rejected = [1 if node.rejected else 0 for node in nodes]
+        return relevant, rejected
+
     results_filename = "%s/all_simulation_results_%s.csv" % (args.output_dir, args.type)
     with open(results_filename, "w") as results_file:
         writer = csv.writer(results_file, delimiter=",")
-        writer.writerow([args.type, PRECISION, RECALL, FSCORE])
+        writer.writerow([args.type, PRECISION, RECALL, BASE_FEATURES_PRECISION, BASE_FEATURES_RECALL])
         # Load tree of rejected hypotheses for each sim
         for sim in simulations:
             tree_filename = "%s/%s/%s.json" % (sim.output_dir, constants.HIERARCHICAL_FDR_DIR, constants.HIERARCHICAL_FDR_OUTPUTS)
             with open(tree_filename, "r") as tree_file:
                 tree = JsonImporter().read(tree_file)
                 nodes = list(anytree.PreOrderIter(tree))
-                relevant = [0 if node.description == constants.IRRELEVANT else 1 for node in nodes]
-                rejected = [1 if node.rejected else 0 for node in nodes]
-                precision, recall, fscore, _ = precision_recall_fscore_support(relevant, rejected, average="binary")
-                writer.writerow([str(x) for x in [sim.param, precision, recall, fscore]])
+                relevant, rejected = get_relevant_rejected(nodes)
+                bf_relevant, bf_rejected = get_relevant_rejected(nodes, leaves=True)
+                precision, recall, _, _ = precision_recall_fscore_support(relevant, rejected, average="binary")
+                bf_precision, bf_recall, _, _ = precision_recall_fscore_support(bf_relevant, bf_rejected, average="binary")
+                writer.writerow([str(x) for x in [sim.param, precision, recall, bf_precision, bf_recall]])
 
 
 if __name__ == "__main__":
