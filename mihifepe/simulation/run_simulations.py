@@ -17,6 +17,7 @@ from mihifepe import constants
 INSTANCE_COUNTS = "instance_counts"
 NOISE_LEVELS = "noise_levels"
 FEATURE_COUNTS = "feature_counts"
+SHUFFLING_COUNTS = "shuffling_counts"
 OUTPUTS = "%s/%s_%s"
 PRECISION = "Precision"
 RECALL = "Recall"
@@ -29,7 +30,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-generate_results", action="store_true")
     parser.add_argument("-analyze_results", action="store_true")
-    parser.add_argument("-type", choices=[INSTANCE_COUNTS, FEATURE_COUNTS, NOISE_LEVELS],
+    parser.add_argument("-type", choices=[INSTANCE_COUNTS, FEATURE_COUNTS, NOISE_LEVELS, SHUFFLING_COUNTS],
                         default=INSTANCE_COUNTS)
     parser.add_argument("-perturbation", choices=[constants.ZEROING, constants.SHUFFLING], default=constants.SHUFFLING)
     parser.add_argument("-output_dir", required=True)
@@ -61,6 +62,8 @@ def parametrize_simulations(args):
         return feature_count_sims(args)
     if args.type == NOISE_LEVELS:
         return noise_level_sims(args)
+    if args.type == SHUFFLING_COUNTS:
+        return shuffling_count_sims(args)
     raise NotImplementedError("Unknown simulation type")
 
 
@@ -103,6 +106,21 @@ def noise_level_sims(args):
                "-noise_multiplier %f -perturbation %s -num_shuffling_trials 500 -condor "
                "-num_features 500 -seed %d -output_dir %s" % (noise_level, args.perturbation, seed, output_dir))
         sims.append(Simulation(cmd, output_dir, noise_level))
+    return sims
+
+
+def shuffling_count_sims(args):
+    """Run simulations for different number of shuffling trials"""
+    sims = []
+    seed = 185
+    shuffling_counts = [5, 10, 20, 50, 100, 200, 500, 1000]
+    for shuffling_count in shuffling_counts:
+        output_dir = OUTPUTS % (args.output_dir, NOISE_LEVELS, str(shuffling_count))
+        # TODO: increase num_instances to 10000, num_features to 500, shuffling_counts maximum to 5000
+        cmd = ("python -m mihifepe.simulation.simulation -num_instances 1000 -fraction_relevant_features 0.1 "
+               "-noise_multiplier 0.01 -perturbation shuffling -num_shuffling_trials %d -condor "
+               "-num_features 50 -seed %d -output_dir %s" % (shuffling_count, seed, output_dir))
+        sims.append(Simulation(cmd, output_dir, shuffling_count))
     return sims
 
 
