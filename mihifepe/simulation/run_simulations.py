@@ -113,13 +113,12 @@ def shuffling_count_sims(args):
     """Run simulations for different number of shuffling trials"""
     sims = []
     seed = 185
-    shuffling_counts = [10, 20, 50, 100, 200, 500, 750, 1000]
+    shuffling_counts = [1000, 750, 500, 250, 100]
     for shuffling_count in shuffling_counts:
-        output_dir = OUTPUTS % (args.output_dir, NOISE_LEVELS, str(shuffling_count))
-        # TODO: increase num_instances to 10000, num_features to 500, shuffling_counts maximum to 5000
-        cmd = ("python -m mihifepe.simulation.simulation -num_instances 1000 -fraction_relevant_features 0.1 "
+        output_dir = OUTPUTS % (args.output_dir, SHUFFLING_COUNTS, str(shuffling_count))
+        cmd = ("python -m mihifepe.simulation.simulation -num_instances 10000 -fraction_relevant_features 0.1 "
                "-noise_multiplier 0.01 -perturbation shuffling -num_shuffling_trials %d -condor "
-               "-num_features 50 -seed %d -output_dir %s" % (shuffling_count, seed, output_dir))
+               "-num_features 500 -seed %d -output_dir %s" % (shuffling_count, seed, output_dir))
         sims.append(Simulation(cmd, output_dir, shuffling_count))
     return sims
 
