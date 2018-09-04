@@ -384,6 +384,7 @@ class CondorPipeline():
                             break
                         self.logger.warn("Cmd '%s' terminated normally with invalid return code. Re-running assuming condor failure "
                                          "(attempt %d of %d)..." % (task[constants.CMD], task[constants.NORMAL_FAILURE_COUNT] + 1, constants.MAX_NORMAL_FAILURE_COUNT + 1))
+                        time.sleep(30) # To prevent infinite-idle condor issue
                         rerun = True
                         break
                     elif line.find(constants.JOB_HELD) >= 0:
@@ -418,7 +419,12 @@ class CondorPipeline():
                 if rerun:
                     for filetype in [constants.LOG_FILENAME, constants.OUTPUT_FILENAME, constants.ERROR_FILENAME]:
                         if os.path.isfile(task[filetype]):
-                            os.remove(task[filetype])
+                            dirname, basename = os.path.split(task[filetype])
+                            root, ext = os.path.splitext(basename)
+                            new_filename = "%s_%s_attempt_%d.%s" % (dirname, root, task[constants.ATTEMPT], ext)
+                            if os.path.isfile(new_filename):
+                                self.logger.warn("File %s already exists, overwriting." % new_filename)
+                            os.rename(task[filetype], new_filename)
                     launch_success = self.launch_task(task)
                     if not launch_success:
                         task[constants.JOB_COMPLETE] = 1
