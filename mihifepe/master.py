@@ -350,24 +350,7 @@ class CondorPipeline():
                 if constants.JOB_COMPLETE in task:
                     continue
                 unfinished_tasks += 1
-
-                # Evict job still if timeout exceeded - it will be put back in queue and restarted/resumed elsewhere
-                elapsed_time = (datetime.now() - task[constants.JOB_START_TIME]).seconds
-                if elapsed_time > self.master_args.eviction_timeout:
-                    self.logger.info("Job time limit exceeded - evicting and restarting/resuming elsewhere")
-                    subprocess.check_call("condor_vacate_job %d" % task[constants.CLUSTER], shell=True)
-                    task[constants.JOB_START_TIME] = datetime.now()
-                    continue
-
-                # Some jobs get stuck in idle indefinitely (likely due to condor bug) - attempt to run these in master node
-                job_status = subprocess.check_output("condor_q -format '%d' JobStatus {0}".format(task[constants.CLUSTER]), shell=True)
-                if job_status and int(job_status) == 1 and elapsed_time > self.master_args.idle_timeout:
-                    self.logger.warn("Job '%s' has been idle for too long, attempting to run in master node instead" % task[constants.CMD])
-                    subprocess.call("condor_rm %d" % task[constants.CLUSTER], shell=True)
-                    task[constants.JOB_COMPLETE] = 1
-                    unfinished_tasks -= 1
-                    failed_tasks.append(task)
-                    continue
+                task_updated = False
 
                 # Parse log file to determine task status
                 with open(task[constants.LOG_FILENAME]) as log_file:
@@ -376,11 +359,13 @@ class CondorPipeline():
                     if line.find(constants.ABNORMAL_TERMINATION) >= 0:
                         self.logger.warn("Cmd '%s' failed due to abnormal termination. Re-attempting..." % task[constants.CMD])
                         rerun_tasks.append(task)
+                        task_updated = True
                         break
                     elif line.find(constants.NORMAL_TERMINATION_SUCCESS) >= 0:
                         self.logger.info("Cmd '%s' completed successfully" % task[constants.CMD])
                         task[constants.JOB_COMPLETE] = 1
                         unfinished_tasks -= 1
+                        task_updated = True
                         break
                     elif line.find(constants.NORMAL_TERMINATION_FAILURE) >= 0:
                         task[constants.NORMAL_FAILURE_COUNT] += 1
@@ -391,14 +376,35 @@ class CondorPipeline():
                             task[constants.JOB_COMPLETE] = 1
                             unfinished_tasks -= 1
                             failed_tasks.append(task)
+                            task_updated = True
                             break
                         self.logger.warn("Cmd '%s' terminated normally with invalid return code. Re-running assuming condor failure "
                                          "(attempt %d of %d)..." % (task[constants.CMD], task[constants.NORMAL_FAILURE_COUNT] + 1, constants.MAX_NORMAL_FAILURE_COUNT + 1))
                         rerun_tasks.append(task)
+                        task_updated = True
                         break
                     elif line.find(constants.JOB_HELD) >= 0:
                         release_tasks.append(task)
+                        task_updated = True
                         break
+
+                if not task_updated:
+                    schedule_rerun = False
+                    # Evict job still if timeout exceeded - it will be put back in queue and restarted/resumed elsewhere
+                    elapsed_time = (datetime.now() - task[constants.JOB_START_TIME]).seconds
+                    if elapsed_time > self.master_args.eviction_timeout:
+                        self.logger.info("Job '%s' time limit exceeded, scheduling rerun" % task[constants.CMD])
+                        schedule_rerun = True
+
+                    # Some jobs get stuck in idle indefinitely (likely due to condor bug) - attempt to run these in master node
+                    job_status = subprocess.check_output("condor_q -format '%d' JobStatus {0}".format(task[constants.CLUSTER]), shell=True)
+                    if job_status and int(job_status) == 1 and elapsed_time > self.master_args.idle_timeout:
+                        self.logger.warn("Job '%s' has been idle for too long, scheduling rerun" % task[constants.CMD])
+                        schedule_rerun = True
+
+                    if schedule_rerun:
+                        subprocess.call("condor_rm %d" % task[constants.CLUSTER], shell=True)
+                        rerun_tasks.append(task)
 
             # Release jobs if held
             if release_tasks:
