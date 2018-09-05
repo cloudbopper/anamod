@@ -1,7 +1,6 @@
 """Run a bunch of simulations (requires condor)"""
 
 import argparse
-from collections import namedtuple
 import csv
 import logging
 import os
@@ -17,7 +16,16 @@ NOISE_LEVELS = "noise_levels"
 FEATURE_COUNTS = "feature_counts"
 SHUFFLING_COUNTS = "shuffling_counts"
 OUTPUTS = "%s/%s_%s"
-Simulation = namedtuple("Simulation", ["cmd", "output_dir", "param"])
+ALL_SIMULATION_RESULTS = "all_simulation_results"
+
+class Simulation():
+    """Simulation helper class"""
+    # pylint: disable = too-few-public-methods
+    def __init__(self, cmd, output_dir, param, popen=None):
+        self.cmd = cmd
+        self.output_dir = output_dir
+        self.param = param
+        self.popen = popen
 
 def main():
     """Main"""
@@ -136,7 +144,7 @@ def analyze_simulations(args, simulations):
         while not all([sim.popen.poll() is not None for sim in simulations]):
             time.sleep(30)
 
-    results_filename = "%s/all_simulation_results_%s.csv" % (args.output_dir, args.type)
+    results_filename = "%s/%s_%s.csv" % (args.output_dir, ALL_SIMULATION_RESULTS, args.type)
     with open(results_filename, "w", newline="") as results_file:
         writer = csv.writer(results_file, delimiter=",")
         writer.writerow([args.type, constants.FDR, constants.POWER, constants.OUTER_NODES_FDR, constants.OUTER_NODES_POWER,
@@ -145,7 +153,8 @@ def analyze_simulations(args, simulations):
             results = evaluate(sim.output_dir)
             writer.writerow([str(x) for x in [sim.param] + list(results)])
     # Format nicely
-    subprocess.check_call("column -t -s ',' {0} > {0}".format(results_filename))
+    formatted_results_filename = "%s/%s_%s_formatted.csv" % (args.output_dir, ALL_SIMULATION_RESULTS, args.type)
+    subprocess.call("column -t -s ',' %s > %s" % (results_filename, formatted_results_filename), shell=True)
 
 
 if __name__ == "__main__":
