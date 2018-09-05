@@ -6,6 +6,8 @@ PARENT_NAME = "parent_name"
 DESCRIPTION = "description"
 STATIC_INDICES = "static_indices"
 TEMPORAL_INDICES = "temporal_indices"
+CLUSTER_FROM_DATA = "cluster_from_data"
+RANDOM = "random"
 
 # Condor
 SUBMIT_FILENAME = "SUBMIT_FILENAME"

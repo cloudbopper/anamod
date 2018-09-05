@@ -26,6 +26,8 @@ def main():
     parser.add_argument("-fraction_relevant_features", type=float, default=.05)
     parser.add_argument("-noise_multiplier", type=float, default=.05,
                         help="Multiplicative factor for noise added to polynomial computation for irrelevant features")
+    parser.add_argument("-hierarchy_type", help="Choice of hierarchy to generate", default=constants.CLUSTER_FROM_DATA,
+                        choices=[constants.CLUSTER_FROM_DATA, constants.RANDOM])
     parser.add_argument("-clustering_instance_count", type=int, help="If provided, uses this number of instances to "
                         "cluster the data to generate a hierarchy, allowing the hierarchy to remain same across multiple "
                         "sets of instances", default=0)
@@ -66,9 +68,7 @@ def pipeline(args):
     # Synthesize data
     probs, test_data, clustering_data = synthesize_data(args)
     # Generate hierarchy using clustering
-    # TODO: Generate other hierarchies e.g. random
-    clusters = cluster_data(args, clustering_data)
-    hierarchy_root = gen_hierarchy(args, clusters)
+    hierarchy_root = gen_hierarchy(args, clustering_data)
     # Update hierarchy descriptions for future visualization
     update_hierarchy_relevance(hierarchy_root, relevant_features, poly_coeff, probs)
     # Generate targets (ground truth)
@@ -98,6 +98,65 @@ def synthesize_data(args):
     return probs, test_data, clustering_data
 
 
+def gen_hierarchy(args, clustering_data):
+    """
+    Generate hierarchy over features
+
+    Args:
+        args: Command-line arguments
+        clustering_data: Data potentially used to cluster features
+                         (depending on hierarchy generation method)
+
+    Returns:
+        hierarchy_root: root fo resulting hierarchy over features
+    """
+    # Generate hierarchy
+    hierarchy_root = None
+    if args.hierarchy_type == constants.CLUSTER_FROM_DATA:
+        clusters = cluster_data(args, clustering_data)
+        hierarchy_root = gen_hierarchy_from_clusters(args, clusters)
+    elif args.hierarchy_type == constants.RANDOM:
+        hierarchy_root = gen_random_hierarchy(args)
+    else:
+        raise NotImplementedError("Need valid hierarchy type")
+    # Improve visualization - contiguous feature names
+    for idx, node in enumerate(anytree.PostOrderIter(hierarchy_root)):
+        node.idx = idx
+        if node.is_leaf:
+            node.min_child_idx = idx
+            node.max_child_idx = idx
+            node.num_base_features = 1
+            node.name = str(idx)
+        else:
+            node.min_child_idx = min([child.min_child_idx for child in node.children])
+            node.max_child_idx = max([child.idx for child in node.children])
+            node.num_base_features = sum([child.num_base_features for child in node.children])
+            node.name = "[%d-%d] (size: %d)" % (node.min_child_idx, node.max_child_idx, node.num_base_features)
+    return hierarchy_root
+
+
+def gen_random_hierarchy(args):
+    """Generates balanced random hierarchy"""
+    args.logger.info("Begin generating hierarchy")
+    nodes = [anytree.Node(str(idx), static_indices=str(idx)) for idx in range(args.num_features)]
+    np.random.shuffle(nodes)
+    node_count = len(nodes)
+    while len(nodes) > 1:
+        parents = []
+        for left_idx in range(0, len(nodes), 2):
+            parent = anytree.Node(str(node_count))
+            node_count += 1
+            nodes[left_idx].parent = parent
+            right_idx = left_idx + 1
+            if right_idx < len(nodes):
+                nodes[right_idx].parent = parent
+            parents.append(parent)
+        nodes = parents
+    hierarchy_root = nodes[0]
+    args.logger.info("End generating hierarchy")
+    return hierarchy_root
+
+
 def cluster_data(args, data):
     """Cluster data using hierarchical clustering with Hamming distance"""
     # Cluster data
@@ -107,7 +166,7 @@ def cluster_data(args, data):
     return clusters
 
 
-def gen_hierarchy(args, clusters):
+def gen_hierarchy_from_clusters(args, clusters):
     """
     Organize clusters into hierarchy
 
@@ -118,7 +177,6 @@ def gen_hierarchy(args, clusters):
     Returns:
         hierarchy_root: root of resulting hierarchy over features
     """
-    args.logger.info("Begin generating hierarchy")
     # Generate hierarchy from clusters
     nodes = [anytree.Node(str(idx), static_indices=str(idx)) for idx in range(args.num_features)]
     for idx, cluster in enumerate(clusters):
@@ -131,18 +189,6 @@ def gen_hierarchy(args, clusters):
         nodes[right_idx].parent = cluster_node
         nodes.append(cluster_node)
     hierarchy_root = nodes[-1]
-    # Rename nodes for better visualization
-    for idx, node in enumerate(anytree.PostOrderIter(hierarchy_root)):
-        node.idx = idx
-        if node.is_leaf:
-            node.min_child_idx = idx
-            node.max_child_idx = idx
-            node.name = str(idx)
-        else:
-            node.min_child_idx = min([child.min_child_idx for child in node.children])
-            node.max_child_idx = max([child.idx for child in node.children])
-            node.name = "%d [%d-%d]" % (idx, node.min_child_idx, node.max_child_idx)
-    args.logger.info("End generating hierarchy")
     return hierarchy_root
 
 
@@ -226,7 +272,7 @@ def write_outputs(args, data, hierarchy_root, targets, model):
                                         of these features in the temporal data
         """
         hierarchy_filename = "%s/%s" % (args.output_dir, "hierarchy.csv")
-        with open(hierarchy_filename, "w") as hierarchy_file:
+        with open(hierarchy_filename, "w", newline="") as hierarchy_file:
             writer = csv.writer(hierarchy_file, delimiter=",")
             writer.writerow([constants.NODE_NAME, constants.PARENT_NAME,
                              constants.DESCRIPTION, constants.STATIC_INDICES, constants.TEMPORAL_INDICES])
@@ -284,7 +330,7 @@ def compare_results(args, hierarchy_root):
     # Write hierarchical FDR input file for ground truth values
     args.logger.info("Compare mihifepe results to ground truth")
     input_filename = "%s/ground_truth_pvalues.csv" % args.output_dir
-    with open(input_filename, "w") as input_file:
+    with open(input_filename, "w", newline="") as input_file:
         writer = csv.writer(input_file)
         writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.PVALUE_LOSSES, constants.DESCRIPTION])
         for node in anytree.PostOrderIter(hierarchy_root):
