@@ -66,6 +66,13 @@ BASE_FEATURES_FDR = "Base_Features_FDR"
 BASE_FEATURES_POWER = "Base_Features_Power"
 SIMULATION_RESULTS = "simulation_results"
 
+# Trial (multiple simulations)
+INSTANCE_COUNTS = "instance_counts"
+NOISE_LEVELS = "noise_levels"
+FEATURE_COUNTS = "feature_counts"
+SHUFFLING_COUNTS = "shuffling_counts"
+ALL_SIMULATION_RESULTS = "all_simulation_results"
+
 # Hierarchical FDR
 HIERARCHICAL_FDR_DIR = "hierarchical_fdr_results"
 HIERARCHICAL_FDR_OUTPUTS = "hierarchical_fdr_outputs"

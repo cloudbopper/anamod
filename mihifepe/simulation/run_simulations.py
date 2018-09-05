@@ -8,15 +8,11 @@ import time
 import subprocess
 
 from mihifepe import constants
+from mihifepe.constants import INSTANCE_COUNTS, NOISE_LEVELS, FEATURE_COUNTS, SHUFFLING_COUNTS, ALL_SIMULATION_RESULTS
 from mihifepe.simulation.simulation import evaluate
 # TODO: change all import paths to absolute
 
-INSTANCE_COUNTS = "instance_counts"
-NOISE_LEVELS = "noise_levels"
-FEATURE_COUNTS = "feature_counts"
-SHUFFLING_COUNTS = "shuffling_counts"
 OUTPUTS = "%s/%s_%s"
-ALL_SIMULATION_RESULTS = "all_simulation_results"
 
 class Simulation():
     """Simulation helper class"""
