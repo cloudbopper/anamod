@@ -56,10 +56,26 @@ def run_trials(args, trials):
 
 def summarize_trials(args, trials):
     """Summarize outputs from trials"""
+    header = ([args.type, constants.FDR, constants.POWER, constants.OUTER_NODES_FDR,
+               constants.OUTER_NODES_POWER, constants.BASE_FEATURES_FDR, constants.BASE_FEATURES_POWER])
+    items = []
+    for trial_idx, trial in enumerate(trials):
+        trial_results_filename = "%s/%s/%s_%s.csv" % (args.output_dir, trial.output_dir, constants.ALL_SIMULATION_RESULTS, args.type)
+        with open(trial_results_filename, "r") as trial_results_file:
+            reader = csv.reader(trial_results_file, delimiter=",")
+            for row in reader:
+                values = [float(elem) for elem in row]
+                if trial_idx == len(items):
+                    items.append(values)
+                else:
+                    items[trial_idx] += values
+    items = [elem/args.num_trials for elem in items]
     summary_filename = "%s/%s.csv" % (args.output_dir, SUMMARY_FILENAME)
-    for trial in trials:
-        None # TODO
-
+    with open(summary_filename, "w", newline="") as summary_file:
+        writer = csv.writer(summary_file, delimiter=",")
+        writer.writerow(header)
+        for item in items:
+            writer.writerow([str(elem) for elem in item])
 
 if __name__ == "__main__":
     main()
