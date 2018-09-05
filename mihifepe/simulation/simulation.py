@@ -1,6 +1,7 @@
 """Generates simulated data and model to test mihifepe algorithm"""
 
 import argparse
+from collections import namedtuple
 import csv
 import logging
 import os
@@ -8,13 +9,19 @@ import pickle
 import subprocess
 
 import anytree
+from anytree.importer import JsonImporter
 import h5py
 import numpy as np
 from scipy.cluster.hierarchy import linkage
+from sklearn.metrics import precision_recall_fscore_support
 
 from .. import constants
 
 # TODO maybe: write arguments to separate readme.txt for documentating runs
+
+# Simulation results object
+Results = namedtuple(constants.SIMULATION_RESULTS, [constants.FDR, constants.POWER, constants.OUTER_NODES_FDR,
+                                                    constants.OUTER_NODES_POWER, constants.BASE_FEATURES_FDR, constants.BASE_FEATURES_POWER])
 
 def main():
     """Main"""
@@ -81,6 +88,9 @@ def pipeline(args):
     run_mihifepe(args, data_filename, hierarchy_filename, gen_model_filename)
     # Compare mihifepe outputs with ground truth outputs
     compare_results(args, hierarchy_root)
+    # Evaluate mihifepe outputs - power/FDR for all nodes/outer nodes/base features
+    results = evaluate(args)
+    args.logger.info("Results:\n%s" % str(results))
     args.logger.info("End mihifepe simulation")
 
 
@@ -357,6 +367,38 @@ def compare_results(args, hierarchy_root):
     args.logger.info("Ground truth results: %s" % ground_truth_outputs_filename)
     mihifepe_outputs_filename = "%s/%s/%s.png" % (args.output_dir, constants.HIERARCHICAL_FDR_DIR, constants.TREE)
     args.logger.info("mihifepe results: %s" % mihifepe_outputs_filename)
+
+
+def evaluate(output_dir):
+    """
+    Evaluate mihifepe results - obtain power/FDR measures for all nodes/outer nodes/base features
+    """
+    # pylint: disable = too-many-locals
+    def get_relevant_rejected(nodes, outer=False, leaves=False):
+        """Get set of relevant and rejected nodes"""
+        assert not (outer and leaves)
+        if outer:
+            nodes = [node for node in nodes if node.rejected and all([not child.rejected for child in node.children])]
+        elif leaves:
+            nodes = [node for node in nodes if node.is_leaf]
+        relevant = [0 if node.description == constants.IRRELEVANT else 1 for node in nodes]
+        rejected = [1 if node.rejected else 0 for node in nodes]
+        return relevant, rejected
+
+    tree_filename = "%s/%s/%s.json" % (output_dir, constants.HIERARCHICAL_FDR_DIR, constants.HIERARCHICAL_FDR_OUTPUTS)
+    with open(tree_filename, "r") as tree_file:
+        tree = JsonImporter().read(tree_file)
+        nodes = list(anytree.PreOrderIter(tree))
+        # All nodes FDR/power
+        relevant, rejected = get_relevant_rejected(nodes)
+        precision, recall, _, _ = precision_recall_fscore_support(relevant, rejected, average="binary")
+        # Outer nodes FDR/power
+        outer_relevant, outer_rejected = get_relevant_rejected(nodes, outer=True)
+        outer_precision, outer_recall, _, _ = precision_recall_fscore_support(outer_relevant, outer_rejected, average="binary")
+        # Base features FDR/power
+        bf_relevant, bf_rejected = get_relevant_rejected(nodes, leaves=True)
+        bf_precision, bf_recall, _, _ = precision_recall_fscore_support(bf_relevant, bf_rejected, average="binary")
+        return Results(1 - precision, recall, 1 - outer_precision, outer_recall, 1 - bf_precision, bf_recall)
 
 
 if __name__ == "__main__":

@@ -5,13 +5,11 @@ from collections import namedtuple
 import csv
 import logging
 import os
+import time
 import subprocess
 
-import anytree
-from anytree.importer import JsonImporter
-from sklearn.metrics import precision_recall_fscore_support
-
 from mihifepe import constants
+from mihifepe.simulation.simulation import evaluate
 # TODO: change all import paths to absolute
 
 INSTANCE_COUNTS = "instance_counts"
@@ -19,10 +17,6 @@ NOISE_LEVELS = "noise_levels"
 FEATURE_COUNTS = "feature_counts"
 SHUFFLING_COUNTS = "shuffling_counts"
 OUTPUTS = "%s/%s_%s"
-PRECISION = "Precision"
-RECALL = "Recall"
-BASE_FEATURES_PRECISION = "Base_Features_Precision"
-BASE_FEATURES_RECALL = "Base_Features_Recall"
 Simulation = namedtuple("Simulation", ["cmd", "output_dir", "param"])
 
 def main():
@@ -32,11 +26,11 @@ def main():
                         " (useful when results already generated")
     parser.add_argument("-type", choices=[INSTANCE_COUNTS, FEATURE_COUNTS, NOISE_LEVELS, SHUFFLING_COUNTS],
                         default=INSTANCE_COUNTS)
-    parser.add_argument("-perturbation", choices=[constants.ZEROING, constants.SHUFFLING], default=constants.SHUFFLING)
+    parser.add_argument("-perturbation", choices=[constants.ZEROING, constants.SHUFFLING], default=constants.ZEROING)
     parser.add_argument("-output_dir", required=True)
     parser.add_argument("-seed", type=int, default=None)
-    parser.add_argument("-hierarchy_type", choices=[constants.CLUSTER_FROM_DATA, constants.RANDOM], default=constants.CLUSTER_FROM_DATA)
-    parser.add_argument("-noise_type", choices=[constants.ADDITIVE_GAUSSIAN, constants.EPSILON_IRRELEVANT], default=constants.EPSILON_IRRELEVANT)
+    parser.add_argument("-hierarchy_type", choices=[constants.CLUSTER_FROM_DATA, constants.RANDOM], default=constants.RANDOM)
+    parser.add_argument("-noise_type", choices=[constants.ADDITIVE_GAUSSIAN, constants.EPSILON_IRRELEVANT], default=constants.ADDITIVE_GAUSSIAN)
 
     args = parser.parse_args()
     if not os.path.exists(args.output_dir):
@@ -49,7 +43,8 @@ def main():
 
     args.logger.info("Begin running/analyzing simulations")
     simulations = parametrize_simulations(args)
-    run_analyze_simulations(args, simulations)
+    run_simulations(args, simulations)
+    analyze_simulations(args, simulations)
     args.logger.info("End running simulations")
 
 
@@ -73,7 +68,7 @@ def instance_count_sims(args):
     instance_counts = [16 * 2 ** x for x in range(11)]
     for instance_count in instance_counts:
         output_dir = OUTPUTS % (args.output_dir, INSTANCE_COUNTS, str(instance_count))
-        cmd = ("python -m mihifepe.simulation.simulation -num_features 500 -fraction_relevant_features 0.1 -noise_multiplier 0.01 "
+        cmd = ("python -m mihifepe.simulation.simulation -num_features 500 -fraction_relevant_features 0.1 -noise_multiplier 0.1 "
                "-clustering_instance_count %d -perturbation %s -num_shuffling_trials 500 -condor "
                "-num_instances %d -seed %d -output_dir %s -hierarchy_type %s -noise_type %s" %
                (instance_counts[-1], args.perturbation, instance_count, seed, output_dir, args.hierarchy_type, args.noise_type))
@@ -126,38 +121,31 @@ def shuffling_count_sims(args):
     return sims
 
 
-def run_analyze_simulations(args, simulations):
+def run_simulations(args, simulations):
+    """Runs simulations in parallel"""
+    if not args.analyze_results_only:
+        for sim in simulations:
+            args.logger.info("Running simulation: '%s'" % sim.cmd)
+            sim.popen = subprocess.Popen(sim.cmd, shell=True)
+
+
+def analyze_simulations(args, simulations):
     """Runs and/or analyzes simulations"""
-    # pylint: disable = too-many-locals
-    def get_relevant_rejected(nodes, leaves=False):
-        """Get set of relevant and rejected nodes"""
-        if leaves:
-            nodes = [node for node in nodes if node.is_leaf]
-        relevant = [0 if node.description == constants.IRRELEVANT else 1 for node in nodes]
-        rejected = [1 if node.rejected else 0 for node in nodes]
-        return relevant, rejected
+    if not args.analyze_results_only:
+        # Wait for runs to complete
+        while not all([sim.popen.poll() is not None for sim in simulations]):
+            time.sleep(30)
 
     results_filename = "%s/all_simulation_results_%s.csv" % (args.output_dir, args.type)
     with open(results_filename, "w", newline="") as results_file:
         writer = csv.writer(results_file, delimiter=",")
-        writer.writerow([args.type, PRECISION, RECALL, BASE_FEATURES_PRECISION, BASE_FEATURES_RECALL])
+        writer.writerow([args.type, constants.FDR, constants.POWER, constants.OUTER_NODES_FDR, constants.OUTER_NODES_POWER,
+                         constants.BASE_FEATURES_FDR, constants.BASE_FEATURES_POWER])
         for sim in simulations:
-            if not args.analyze_results_only:
-                # Run sim
-                args.logger.info("Running simulation: '%s'" % sim.cmd)
-                subprocess.check_call(sim.cmd, shell=True)
-            # Analyze sim
-            tree_filename = "%s/%s/%s.json" % (sim.output_dir, constants.HIERARCHICAL_FDR_DIR, constants.HIERARCHICAL_FDR_OUTPUTS)
-            with open(tree_filename, "r") as tree_file:
-                tree = JsonImporter().read(tree_file)
-                nodes = list(anytree.PreOrderIter(tree))
-                relevant, rejected = get_relevant_rejected(nodes)
-                bf_relevant, bf_rejected = get_relevant_rejected(nodes, leaves=True)
-                precision, recall, _, _ = precision_recall_fscore_support(relevant, rejected, average="binary")
-                bf_precision, bf_recall, _, _ = precision_recall_fscore_support(bf_relevant, bf_rejected, average="binary")
-                writer.writerow([str(x) for x in [sim.param, precision, recall, bf_precision, bf_recall]])
-                tree_file.flush()
-                os.fsync(tree_file.fileno())
+            results = evaluate(sim.output_dir)
+            writer.writerow([str(x) for x in [sim.param] + list(results)])
+    # Format nicely
+    subprocess.check_call("column -t -s ',' {0} > {0}".format(results_filename))
 
 
 if __name__ == "__main__":
