@@ -29,6 +29,6 @@ class Model():
         # Add noise - additive Gaussian, sampled for every instance/perturbed instance
         hashval = hashxx(static_data.data.tobytes())
         prg = np.random.RandomState(hashval)
-        prediction = np.dot(static_data, self.poly_coeff) + self.noise_multiplier * prg.normal()
+        prediction = np.dot(static_data, self.poly_coeff) + prg.normal(0, self.noise_multiplier)
         loss = np.sqrt(np.power(prediction - target, 2)) # RMSE
         return (loss, prediction)
