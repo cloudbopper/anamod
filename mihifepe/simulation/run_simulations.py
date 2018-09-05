@@ -156,7 +156,7 @@ def run_analyze_simulations(args, simulations):
                 bf_precision, bf_recall, _, _ = precision_recall_fscore_support(bf_relevant, bf_rejected, average="binary")
                 writer.writerow([str(x) for x in [sim.param, precision, recall, bf_precision, bf_recall]])
                 tree_file.flush()
-                os.fsync()
+                os.fsync(tree_file.fileno())
 
 
 if __name__ == "__main__":
