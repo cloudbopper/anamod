@@ -10,8 +10,6 @@ class Model():
     def __init__(self, poly_coeff, noise_multiplier):
         self.poly_coeff = poly_coeff
         self.noise_multiplier = noise_multiplier
-        self.dim = self.poly_coeff.shape[0]
-        self.irrelevant = np.logical_xor(self.poly_coeff, np.ones(self.dim)) # Zero-valued coefficients correspond to irrelevant features
 
     def predict(self, target, static_data, temporal_data):
         """
