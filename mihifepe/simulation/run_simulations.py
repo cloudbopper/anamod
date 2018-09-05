@@ -35,6 +35,7 @@ def main():
     parser.add_argument("-perturbation", choices=[constants.ZEROING, constants.SHUFFLING], default=constants.SHUFFLING)
     parser.add_argument("-output_dir", required=True)
     parser.add_argument("-seed", type=int, default=None)
+    parser.add_argument("-hierarchy_type", choices=[constants.CLUSTER_FROM_DATA, constants.RANDOM], default=constants.CLUSTER_FROM_DATA)
 
     args = parser.parse_args()
     if not os.path.exists(args.output_dir):
@@ -73,7 +74,8 @@ def instance_count_sims(args):
         output_dir = OUTPUTS % (args.output_dir, INSTANCE_COUNTS, str(instance_count))
         cmd = ("python -m mihifepe.simulation.simulation -num_features 500 -fraction_relevant_features 0.1 -noise_multiplier 0.01 "
                "-clustering_instance_count %d -perturbation %s -num_shuffling_trials 500 -condor "
-               "-num_instances %d -seed %d -output_dir %s" % (instance_counts[-1], args.perturbation, instance_count, seed, output_dir))
+               "-num_instances %d -seed %d -output_dir %s -hierarchy_type %s" %
+               (instance_counts[-1], args.perturbation, instance_count, seed, output_dir, args.hierarchy_type))
         sims.append(Simulation(cmd, output_dir, instance_count))
     return sims
 
@@ -87,7 +89,8 @@ def feature_count_sims(args):
         output_dir = OUTPUTS % (args.output_dir, FEATURE_COUNTS, str(feature_count))
         cmd = ("python -m mihifepe.simulation.simulation -num_instances 10000 -fraction_relevant_features 0.1 "
                "-noise_multiplier 0.01 -perturbation %s -num_shuffling_trials 500 -condor "
-               "-num_features %d -seed %d -output_dir %s" % (args.perturbation, feature_count, seed, output_dir))
+               "-num_features %d -seed %d -output_dir %s -hierarchy_type %s" %
+               (args.perturbation, feature_count, seed, output_dir, args.hierarchy_type))
         sims.append(Simulation(cmd, output_dir, feature_count))
     return sims
 
@@ -101,7 +104,8 @@ def noise_level_sims(args):
         output_dir = OUTPUTS % (args.output_dir, NOISE_LEVELS, str(noise_level))
         cmd = ("python -m mihifepe.simulation.simulation -num_instances 10000 -fraction_relevant_features 0.1 "
                "-noise_multiplier %f -perturbation %s -num_shuffling_trials 500 -condor "
-               "-num_features 500 -seed %d -output_dir %s" % (noise_level, args.perturbation, seed, output_dir))
+               "-num_features 500 -seed %d -output_dir %s -hierarchy_type %s" %
+               (noise_level, args.perturbation, seed, output_dir, args.hierarchy_type))
         sims.append(Simulation(cmd, output_dir, noise_level))
     return sims
 
@@ -115,7 +119,8 @@ def shuffling_count_sims(args):
         output_dir = OUTPUTS % (args.output_dir, SHUFFLING_COUNTS, str(shuffling_count))
         cmd = ("python -m mihifepe.simulation.simulation -num_instances 1000 -fraction_relevant_features 0.1 "
                "-noise_multiplier 0.01 -perturbation shuffling -num_shuffling_trials %d -condor "
-               "-num_features 500 -seed %d -output_dir %s" % (shuffling_count, seed, output_dir))
+               "-num_features 500 -seed %d -output_dir %s -hierarchy_type %s" %
+               (shuffling_count, seed, output_dir, args.hierarchy_type))
         sims.append(Simulation(cmd, output_dir, shuffling_count))
     return sims
 
