@@ -28,8 +28,8 @@ Simulation = namedtuple("Simulation", ["cmd", "output_dir", "param"])
 def main():
     """Main"""
     parser = argparse.ArgumentParser()
-    parser.add_argument("-generate_results", action="store_true")
-    parser.add_argument("-analyze_results", action="store_true")
+    parser.add_argument("-analyze_results_only", action="store_true", help="only analyze results, instead of generating them as well"
+                        " (useful when results already generated")
     parser.add_argument("-type", choices=[INSTANCE_COUNTS, FEATURE_COUNTS, NOISE_LEVELS, SHUFFLING_COUNTS],
                         default=INSTANCE_COUNTS)
     parser.add_argument("-perturbation", choices=[constants.ZEROING, constants.SHUFFLING], default=constants.SHUFFLING)
@@ -37,7 +37,6 @@ def main():
     parser.add_argument("-seed", type=int, default=None)
 
     args = parser.parse_args()
-    assert args.generate_results or args.analyze_results, "At least one of -generate_results, -analyze_results must be enabled"
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
@@ -48,10 +47,7 @@ def main():
 
     args.logger.info("Begin running/analyzing simulations")
     simulations = parametrize_simulations(args)
-    if args.generate_results:
-        run_simulations(args, simulations)
-    if args.analyze_results:
-        analyze_simulations(args, simulations)
+    run_analyze_simulations(args, simulations)
     args.logger.info("End running simulations")
 
 
@@ -124,17 +120,9 @@ def shuffling_count_sims(args):
     return sims
 
 
-def run_simulations(args, simulations):
-    """Run simulations"""
-    for sim in simulations:
-        args.logger.info("Running simulation: '%s'" % sim.cmd)
-        subprocess.check_call(sim.cmd, shell=True)
-
-
-def analyze_simulations(args, simulations):
-    """Analyze results of completed simulations"""
+def run_analyze_simulations(args, simulations):
+    """Runs and/or analyzes simulations"""
     # pylint: disable = too-many-locals
-
     def get_relevant_rejected(nodes, leaves=False):
         """Get set of relevant and rejected nodes"""
         if leaves:
@@ -147,8 +135,12 @@ def analyze_simulations(args, simulations):
     with open(results_filename, "w", newline="") as results_file:
         writer = csv.writer(results_file, delimiter=",")
         writer.writerow([args.type, PRECISION, RECALL, BASE_FEATURES_PRECISION, BASE_FEATURES_RECALL])
-        # Load tree of rejected hypotheses for each sim
         for sim in simulations:
+            if not args.analyze_results_only:
+                # Run sim
+                args.logger.info("Running simulation: '%s'" % sim.cmd)
+                subprocess.check_call(sim.cmd, shell=True)
+            # Analyze sim
             tree_filename = "%s/%s/%s.json" % (sim.output_dir, constants.HIERARCHICAL_FDR_DIR, constants.HIERARCHICAL_FDR_OUTPUTS)
             with open(tree_filename, "r") as tree_file:
                 tree = JsonImporter().read(tree_file)
@@ -158,6 +150,8 @@ def analyze_simulations(args, simulations):
                 precision, recall, _, _ = precision_recall_fscore_support(relevant, rejected, average="binary")
                 bf_precision, bf_recall, _, _ = precision_recall_fscore_support(bf_relevant, bf_rejected, average="binary")
                 writer.writerow([str(x) for x in [sim.param, precision, recall, bf_precision, bf_recall]])
+                tree_file.flush()
+                os.fsync()
 
 
 if __name__ == "__main__":
