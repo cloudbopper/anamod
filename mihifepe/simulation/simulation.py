@@ -49,8 +49,8 @@ def main():
     parser.add_argument("-no-condor", dest="condor", action="store_false", help="Disable parallelization using condor")
     parser.set_defaults(condor=False)
     parser.add_argument("-features_per_worker", type=int, default=1, help="worker load")
-    parser.add_argument("-eviction_timeout", type=int, default=5400)
-    parser.add_argument("-idle_timeout", type=int, default=3600)
+    parser.add_argument("-eviction_timeout", type=int, default=7200)
+    parser.add_argument("-idle_timeout", type=int, default=7200)
 
     args = parser.parse_args()
     if not args.output_dir:
@@ -89,7 +89,7 @@ def pipeline(args):
     # Compare mihifepe outputs with ground truth outputs
     compare_results(args, hierarchy_root)
     # Evaluate mihifepe outputs - power/FDR for all nodes/outer nodes/base features
-    results = evaluate(args)
+    results = evaluate(args.output_dir)
     args.logger.info("Results:\n%s" % str(results))
     args.logger.info("End mihifepe simulation")
 
