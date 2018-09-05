@@ -187,7 +187,7 @@ def round_vectors(losses, predictions):
 def compute_p_values(args, hierarchy_root, targets, losses, predictions):
     """Evaluates and compares different feature erasures"""
     # pylint: disable = too-many-locals
-    outfile = open("%s/%s" % (args.output_dir, constants.PVALUES_FILENAME), "w")
+    outfile = open("%s/%s" % (args.output_dir, constants.PVALUES_FILENAME), "w", newline="")
     writer = csv.writer(outfile, delimiter=",")
     writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.DESCRIPTION, constants.EFFECT_SIZE,
                      constants.MEAN_LOSS, constants.PVALUE_LOSSES])
@@ -263,7 +263,7 @@ class CondorPipeline():
         """Write features to file"""
         features_filename = self.get_output_filepath(targs, "features")
         targs.features_filename = features_filename
-        with open(features_filename, "w") as features_file:
+        with open(features_filename, "w", newline="") as features_file:
             writer = csv.writer(features_file)
             writer.writerow([constants.NODE_NAME,
                              constants.STATIC_INDICES, constants.TEMPORAL_INDICES])

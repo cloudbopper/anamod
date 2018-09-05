@@ -59,7 +59,7 @@ def write_outputs(args, logger, tree):
     with open("%s/%s.json" % (args.output_dir, constants.HIERARCHICAL_FDR_OUTPUTS), "w") as output_file:
         JsonExporter(indent=2).write(tree, output_file)
     # Write CSV with additional column for rejected or not
-    with open("%s/%s.csv" % (args.output_dir, constants.HIERARCHICAL_FDR_OUTPUTS), "w") as output_file:
+    with open("%s/%s.csv" % (args.output_dir, constants.HIERARCHICAL_FDR_OUTPUTS), "w", newline="") as output_file:
         writer = csv.writer(output_file)
         writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.PVALUE_LOSSES, constants.REJECTED_STATUS, constants.ADJUSTED_PVALUE])
         for node in anytree.LevelOrderIter(tree):

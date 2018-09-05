@@ -143,7 +143,7 @@ def analyze_simulations(args, simulations):
         return relevant, rejected
 
     results_filename = "%s/all_simulation_results_%s.csv" % (args.output_dir, args.type)
-    with open(results_filename, "w") as results_file:
+    with open(results_filename, "w", newline="") as results_file:
         writer = csv.writer(results_file, delimiter=",")
         writer.writerow([args.type, PRECISION, RECALL, BASE_FEATURES_PRECISION, BASE_FEATURES_RECALL])
         # Load tree of rejected hypotheses for each sim
