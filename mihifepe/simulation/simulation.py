@@ -48,7 +48,7 @@ def main():
                         help="Enable parallelization using condor (default disabled)")
     parser.add_argument("-no-condor", dest="condor", action="store_false", help="Disable parallelization using condor")
     parser.set_defaults(condor=False)
-    parser.add_argument("-features_per_worker", type=int, default=1, help="worker load")
+    parser.add_argument("-features_per_worker", type=int, default=10, help="worker load")
     parser.add_argument("-eviction_timeout", type=int, default=7200)
     parser.add_argument("-idle_timeout", type=int, default=7200)
 
