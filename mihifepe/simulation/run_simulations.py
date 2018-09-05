@@ -34,6 +34,7 @@ def main():
                         default=INSTANCE_COUNTS)
     parser.add_argument("-perturbation", choices=[constants.ZEROING, constants.SHUFFLING], default=constants.SHUFFLING)
     parser.add_argument("-output_dir", required=True)
+    parser.add_argument("-seed", type=int, default=None)
 
     args = parser.parse_args()
     assert args.generate_results or args.analyze_results, "At least one of -generate_results, -analyze_results must be enabled"
@@ -70,7 +71,7 @@ def parametrize_simulations(args):
 def instance_count_sims(args):
     """Configure simulations for different values of instance counts"""
     sims = []
-    seed = 9184
+    seed = 9184 if args.seed is not None else args.seed
     instance_counts = [16 * 2 ** x for x in range(11)]
     for instance_count in instance_counts:
         output_dir = OUTPUTS % (args.output_dir, INSTANCE_COUNTS, str(instance_count))
@@ -84,7 +85,7 @@ def instance_count_sims(args):
 def feature_count_sims(args):
     """Run simulations for different values of feature counts"""
     sims = []
-    seed = 7185
+    seed = 7185 if args.seed is not None else args.seed
     feature_counts = [8 * 2 ** x for x in range(8)]
     for feature_count in feature_counts:
         output_dir = OUTPUTS % (args.output_dir, FEATURE_COUNTS, str(feature_count))
@@ -98,7 +99,7 @@ def feature_count_sims(args):
 def noise_level_sims(args):
     """Run simulations for different values of noise"""
     sims = []
-    seed = 85100
+    seed = 85100 if args.seed is not None else args.seed
     noise_levels = [0.0] + [0.0001 * 2 ** x for x in range(13)]
     for noise_level in noise_levels:
         output_dir = OUTPUTS % (args.output_dir, NOISE_LEVELS, str(noise_level))
@@ -112,7 +113,7 @@ def noise_level_sims(args):
 def shuffling_count_sims(args):
     """Run simulations for different number of shuffling trials"""
     sims = []
-    seed = 185
+    seed = 185 if args.seed is not None else args.seed
     shuffling_counts = [1000, 750, 500, 250, 100]
     for shuffling_count in shuffling_counts:
         output_dir = OUTPUTS % (args.output_dir, SHUFFLING_COUNTS, str(shuffling_count))
