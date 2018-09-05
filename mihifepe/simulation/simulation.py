@@ -26,6 +26,8 @@ def main():
     parser.add_argument("-fraction_relevant_features", type=float, default=.05)
     parser.add_argument("-noise_multiplier", type=float, default=.05,
                         help="Multiplicative factor for noise added to polynomial computation for irrelevant features")
+    parser.add_argument("-noise_type", choices=[constants.ADDITIVE_GAUSSIAN, constants.EPSILON_IRRELEVANT],
+                        default=constants.EPSILON_IRRELEVANT)
     parser.add_argument("-hierarchy_type", help="Choice of hierarchy to generate", default=constants.CLUSTER_FROM_DATA,
                         choices=[constants.CLUSTER_FROM_DATA, constants.RANDOM])
     parser.add_argument("-clustering_instance_count", type=int, help="If provided, uses this number of instances to "
@@ -296,6 +298,7 @@ def write_outputs(args, data, hierarchy_root, targets, model):
         with open(gen_model_config_filename, "wb") as gen_model_config_file:
             pickle.dump(model_filename, gen_model_config_file)
             pickle.dump(args.noise_multiplier, gen_model_config_file)
+            pickle.dump(args.noise_type, gen_model_config_file)
         gen_model_filename = "%s/%s" % (os.path.dirname(os.path.abspath(__file__)), constants.GEN_MODEL_FILENAME)
         return gen_model_filename
 

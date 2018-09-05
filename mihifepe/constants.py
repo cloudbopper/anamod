@@ -56,6 +56,9 @@ IRRELEVANT = "irrelevant"
 MODEL_FILENAME = "model.npy"
 GEN_MODEL_CONFIG_FILENAME = "gen_model_config.pkl"
 GEN_MODEL_FILENAME = "gen_model.py"
+ADDITIVE_GAUSSIAN = "additive_gaussian"
+EPSILON_IRRELEVANT = "epsilon_irrelevant"
+
 
 # Hierarchical FDR
 HIERARCHICAL_FDR_DIR = "hierarchical_fdr_results"

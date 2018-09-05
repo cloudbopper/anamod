@@ -5,13 +5,21 @@ import pickle
 
 import numpy as np
 
-from mihifepe.constants import GEN_MODEL_CONFIG_FILENAME
-from mihifepe.simulation.model import Model
+from mihifepe.constants import GEN_MODEL_CONFIG_FILENAME, ADDITIVE_GAUSSIAN, EPSILON_IRRELEVANT
 
 # pylint: disable = invalid-name
 config_filename = "%s/%s" % (os.path.dirname(os.path.abspath(__file__)), GEN_MODEL_CONFIG_FILENAME)
 with open(config_filename, "rb") as config_file:
     model_filename = pickle.load(config_file)
     noise_multiplier = pickle.load(config_file)
+    noise_type = pickle.load(config_file)
     poly_coeff = np.load(model_filename)
-model = Model(poly_coeff, noise_multiplier)
+
+if noise_type == EPSILON_IRRELEVANT:
+    from mihifepe.simulation.model import Model
+    model = Model(poly_coeff, noise_multiplier)
+elif noise_type == ADDITIVE_GAUSSIAN:
+    from mihifepe.simulation.model_additive_gaussian_noise import Model
+    model = Model(poly_coeff, noise_multiplier)
+else:
+    raise NotImplementedError("Unknown noise type")
