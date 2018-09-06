@@ -304,12 +304,20 @@ def write_outputs(args, data, hierarchy_root, targets, model):
         model_filename = "%s/%s" % (args.output_dir, constants.MODEL_FILENAME)
         np.save(model_filename, model)
         # Write model_filename to config
-        gen_model_config_filename = "%s/%s" % (os.path.dirname(os.path.abspath(__file__)), constants.GEN_MODEL_CONFIG_FILENAME)
+        gen_model_config_filename = "%s/%s" % (args.output_dir, constants.GEN_MODEL_CONFIG_FILENAME)
         with open(gen_model_config_filename, "wb") as gen_model_config_file:
             pickle.dump(model_filename, gen_model_config_file)
             pickle.dump(args.noise_multiplier, gen_model_config_file)
             pickle.dump(args.noise_type, gen_model_config_file)
-        gen_model_filename = "%s/%s" % (os.path.dirname(os.path.abspath(__file__)), constants.GEN_MODEL_FILENAME)
+        # Write gen_model.py to output_dir
+        gen_model_filename = "%s/%s" % (args.output_dir, constants.GEN_MODEL_FILENAME)
+        gen_model_template_filename = "%s/%s" % (os.path.dirname(os.path.abspath(__file__)), constants.GEN_MODEL_TEMPLATE_FILENAME)
+        gen_model_file = open(gen_model_filename, "w")
+        with open(gen_model_template_filename, "r") as gen_model_template_file:
+            for line in gen_model_template_file:
+                line = line.replace(constants.GEN_MODEL_CONFIG_FILENAME_PLACEHOLDER, gen_model_config_filename)
+                gen_model_file.write(line)
+        gen_model_file.close()
         return gen_model_filename
 
     args.logger.info("Begin writing simulation files")
