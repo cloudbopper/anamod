@@ -78,6 +78,8 @@ def summarize_trials(args, trials):
     for item in items:
         new_items.append(item.tolist())
         new_items[-1][0] = int(item[0])
+        if args.type == constants.NOISE_LEVELS:
+            new_items[-1][0] = item[0]
         new_items[-1][1:] = [round(elem, 4) for elem in item[1:]]
     # Write to file
     summary_filename = "%s/%s.csv" % (args.output_dir, SUMMARY_FILENAME)
