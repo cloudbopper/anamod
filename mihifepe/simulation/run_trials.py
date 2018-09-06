@@ -7,8 +7,6 @@ import logging
 import os
 import subprocess
 
-import numpy as np
-
 from mihifepe import constants
 
 TRIAL = "trial"
@@ -71,16 +69,13 @@ def summarize_trials(args, trials):
                 if row_idx == len(items):
                     items.append(values)
                 else:
-                    items[row_idx] = np.add(items[row_idx], values)
-    items = [elem/args.num_trials for elem in items]
+                    items[row_idx] = map(sum, zip(items[row_idx], values))
+    items = [[elem/args.num_trials for elem in item] for item in items]
     # Number formatting
-    new_items = []
     for item in items:
-        new_items.append(item.tolist())
-        new_items[-1][0] = int(item[0])
-        if args.type == constants.NOISE_LEVELS:
-            new_items[-1][0] = item[0]
-        new_items[-1][1:] = [round(elem, 4) for elem in item[1:]]
+        if args.type != constants.NOISE_LEVELS:
+            item[0] = int(item[0])
+        item[1:] = [round(elem, 4) for elem in item[1:]]
     # Write to file
     summary_filename = "%s/%s.csv" % (args.output_dir, SUMMARY_FILENAME)
     header = ([args.type, constants.FDR, constants.POWER, constants.OUTER_NODES_FDR,
@@ -88,7 +83,7 @@ def summarize_trials(args, trials):
     with open(summary_filename, "w", newline="") as summary_file:
         writer = csv.writer(summary_file, delimiter=",")
         writer.writerow(header)
-        for item in new_items:
+        for item in items:
             writer.writerow([str(elem) for elem in item])
     # Format nicely
     formatted_summary_filename = "%s/%s_formatted.csv" % (args.output_dir, SUMMARY_FILENAME)
