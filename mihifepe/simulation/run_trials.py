@@ -7,6 +7,8 @@ import logging
 import os
 import subprocess
 
+import numpy as np
+
 from mihifepe import constants
 
 TRIAL = "trial"
@@ -56,26 +58,39 @@ def run_trials(args, trials):
 
 def summarize_trials(args, trials):
     """Summarize outputs from trials"""
-    header = ([args.type, constants.FDR, constants.POWER, constants.OUTER_NODES_FDR,
-               constants.OUTER_NODES_POWER, constants.BASE_FEATURES_FDR, constants.BASE_FEATURES_POWER])
+    # pylint: disable = too-many-locals
+    # Read data
     items = []
-    for trial_idx, trial in enumerate(trials):
-        trial_results_filename = "%s/%s/%s_%s.csv" % (args.output_dir, trial.output_dir, constants.ALL_SIMULATION_RESULTS, args.type)
+    for trial in trials:
+        trial_results_filename = "%s/%s_%s.csv" % (trial.output_dir, constants.ALL_SIMULATION_RESULTS, args.type)
         with open(trial_results_filename, "r") as trial_results_file:
             reader = csv.reader(trial_results_file, delimiter=",")
-            for row in reader:
+            reader.__next__()
+            for row_idx, row in enumerate(reader):
                 values = [float(elem) for elem in row]
-                if trial_idx == len(items):
+                if row_idx == len(items):
                     items.append(values)
                 else:
-                    items[trial_idx] += values
+                    items[row_idx] = np.add(items[row_idx], values)
     items = [elem/args.num_trials for elem in items]
+    # Number formatting
+    new_items = []
+    for item in items:
+        new_items.append(item.tolist())
+        new_items[-1][0] = int(item[0])
+        new_items[-1][1:] = [round(elem, 4) for elem in item[1:]]
+    # Write to file
     summary_filename = "%s/%s.csv" % (args.output_dir, SUMMARY_FILENAME)
+    header = ([args.type, constants.FDR, constants.POWER, constants.OUTER_NODES_FDR,
+               constants.OUTER_NODES_POWER, constants.BASE_FEATURES_FDR, constants.BASE_FEATURES_POWER])
     with open(summary_filename, "w", newline="") as summary_file:
         writer = csv.writer(summary_file, delimiter=",")
         writer.writerow(header)
-        for item in items:
+        for item in new_items:
             writer.writerow([str(elem) for elem in item])
+    # Format nicely
+    formatted_summary_filename = "%s/%s_formatted.csv" % (args.output_dir, SUMMARY_FILENAME)
+    subprocess.call("column -t -s ',' %s > %s" % (summary_filename, formatted_summary_filename), shell=True)
 
 if __name__ == "__main__":
     main()
