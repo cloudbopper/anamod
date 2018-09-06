@@ -71,7 +71,7 @@ def main():
 def pipeline(args):
     """Simulation pipeline"""
     # TODO: Features other than binary
-    args.logger.info("Begin mihifepe simulation")
+    args.logger.info("Begin mihifepe simulation with args: %s" % args)
     # Synthesize polynomial that generates ground truth
     relevant_features, poly_coeff = gen_polynomial(args)
     # Synthesize data
