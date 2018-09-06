@@ -99,7 +99,7 @@ def noise_level_sims(args):
     """Run simulations for different values of noise"""
     sims = []
     seed = 85100 if args.seed is None else args.seed
-    noise_levels = [0.0] + [0.0001 * 2 ** x for x in range(13)]
+    noise_levels = [0.0] + [0.01 * 2 ** x for x in range(8)]
     for noise_level in noise_levels:
         output_dir = OUTPUTS % (args.output_dir, NOISE_LEVELS, str(noise_level))
         cmd = ("python -m mihifepe.simulation.simulation -num_instances 10000 -fraction_relevant_features 0.1 "
