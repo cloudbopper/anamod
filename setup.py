@@ -11,8 +11,6 @@ setup(
     license="MIT",
     long_description=open("README.md").read(),
     packages=find_packages(),
-
-    # Requirements
     python_requires=">= 3.5",
     install_requires=[
         "anytree~=2.4.3",
@@ -21,5 +19,17 @@ setup(
         "pyhashxx~=0.1.3",
         "scikit-learn~=0.19.2",
         "scipy~=1.1.0"
+    ],
+    classifiers=[
+        "Development Status :: 2 - Pre-Alpha",
+        "Environment :: Console",
+        "Intended Audience :: Science/Research",
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: Implementation :: CPython",
+        "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ]
+
 )
