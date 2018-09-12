@@ -203,6 +203,8 @@ class Perturber():
         if self.args.perturbation == constants.ZEROING:
             tdata = np.copy(temporal_data)
             tdata[feature.temporal_indices] = 0
+        elif self.args.perturbation == constants.SHUFFLING:
+            raise ValueError("Shuffling not valid for temporal data")
         return tdata
 
 
