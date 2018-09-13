@@ -1,11 +1,15 @@
 mihifepe
 ========
 
-Description
---------------
+[![Build status](https://img.shields.io/pypi/v/mihifepe.svg)](https://pypi.python.org/pypi/mihifepe)
+[![Travis status](https://img.shields.io/travis/cloudbopper/mihifepe.svg)](https://travis-ci.org/cloudbopper/mihifepe)
+[![Documentation status](https://readthedocs.org/projects/mihifepe/badge/?version=latest)](https://mihifepe.readthedocs.io/en/latest/?badge=latest)
+[![Updates](https://pyup.io/repos/github/cloudbopper/mihifepe/shield.svg)](https://pyup.io/repos/github/cloudbopper/mihifepe/)
 
-**mihifepe** is a library that implements Model Interpretability via Hierarchical Feature Perturbation (more details forthcoming).
-**mihifepe** works with python 3.5+.
+Overview
+--------
+
+`mihifepe` is a library that implements Model Interpretability via Hierarchical Feature Perturbation (\[Paper link here\])).
 
 Installation
 ---------------
