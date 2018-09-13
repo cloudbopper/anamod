@@ -3,13 +3,16 @@
 import numpy as np
 from pyhashxx import hashxx
 
+from mihifepe import constants
+
 class Model():
     """Class implementing model API required by mihifepe"""
     # pylint: disable = too-few-public-methods, unused-argument
 
-    def __init__(self, poly_coeff, noise_multiplier):
+    def __init__(self, poly_coeff, noise_multiplier, noise_type):
         self.poly_coeff = poly_coeff
         self.noise_multiplier = noise_multiplier
+        self.noise_type = noise_type
         self.dim = self.poly_coeff.shape[0]
         self.irrelevant = np.logical_xor(self.poly_coeff, np.ones(self.dim)) # Zero-valued coefficients correspond to irrelevant features
 
@@ -28,10 +31,16 @@ class Model():
             loss:           model's output loss
             prediction:     model's output prediction, only used for classifiers
         """
-        # Add noise - small random non-zero coefficients for irrelevant features
         hashval = hashxx(static_data.data.tobytes())
         prg = np.random.RandomState(hashval)
-        coeff = self.poly_coeff + self.noise_multiplier * prg.uniform(-1, 1, self.dim) * self.irrelevant
-        prediction = np.dot(static_data, coeff)
+        if self.noise_type == constants.EPSILON_IRRELEVANT:
+            # Add noise - small random non-zero coefficients for irrelevant features
+            coeff = self.poly_coeff + self.noise_multiplier * prg.uniform(-1, 1, self.dim) * self.irrelevant
+            prediction = np.dot(static_data, coeff)
+        elif self.noise_type == constants.ADDITIVE_GAUSSIAN:
+            # Add noise - additive Gaussian, sampled for every instance/perturbed instance
+            prediction = np.dot(static_data, self.poly_coeff) + prg.normal(0, self.noise_multiplier)
+        else:
+            raise NotImplementedError("Unknown noise type")
         loss = np.sqrt(np.power(prediction - target, 2)) # RMSE
         return (loss, prediction)
