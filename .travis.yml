@@ -18,7 +18,7 @@ deploy:
   distributions: sdist bdist_wheel
   user: cloudbopper
   password:
-    secure: PLEASE_REPLACE_ME
+    secure: "Jkl2XA9JeX0//066CD1XMrH12QL4Daihhh5n2xGlyENuepzHs2YxtHBpBGjFgQd1zzujS9av2EgVldqo+cHL9L3oIYUttb9kJ7M6dW526SFFIvwKO85GCghjcdHCU8bKV9vLcDazgaFbRN6qDGlhB9Ca+jvgWb7K++X9eSj8mvVCl+8NdosOFRHtwM9DlJ+00ocgwC8IdBVgfruwBcc1MNv0cy9lHpti3ph1AqoIzi7TTxDD3rVNau/AnAj3HKNqMVafNhoC+PPqyf2vuZZFn00FMZbQHdpiqSIxpY3AlQbJcOPTruQCJoS2/Scmmi9toAeOKezgpXGv7QvSaiULuy3ZHkMb11cotfwqwERFDTqAsegCyvhiT1CaXMzApYXQCmLbbnNcIQD4c2/xmHfafIFr+0OFvIDAv3v0yHBJgBBibnZ2hCyMfVhIHa28fgrvEpR8/YXbGsMU72wzqJjePzz2uF+pjdE+dDwe4jsE9G4UPGFDllkai0Zg+9dRTP1YzIc3UC3mMaQHUWUgphp8eLq07BD0in6Z9sJaYPeV7qWG5EqN+MHOU9uuztKTL/IYTahxHOXWSCnkMH6TBnXIjKvGVe3vpPo+1NHwvLzY+yjVCim9Drnro/znpRx3dCltBK1IDP5GloxYSLr4/rTdIaAfhlisnt6G7rhLrPVf1rI="
   on:
     tags: true
     repo: cloudbopper/mihifepe
