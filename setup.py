@@ -4,6 +4,12 @@ from setuptools import find_packages, setup
 
 # pylint: disable = invalid-name
 
+def load_req_file(req_filename):
+    """Loads dependencies from requirements file"""
+    with open(req_filename) as req_file:
+        content = req_file.readlines()
+    return [x.strip() for x in content]
+
 with open("README.rst") as readme_file:
     readme = readme_file.read()
 
@@ -31,14 +37,7 @@ setup(
         ],
     },
     include_package_data=True,
-    install_requires=[
-        "anytree~=2.4.3",
-        "h5py~=2.8.0",
-        "numpy~=1.15.0",
-        "pyhashxx~=0.1.3",
-        "scikit-learn~=0.19.2",
-        "scipy~=1.1.0"
-    ],
+    install_requires=load_req_file("requirements.txt"),
     keywords="mihifepe",
     license="MIT",
     long_description=readme + "\n\n" + changelog,
