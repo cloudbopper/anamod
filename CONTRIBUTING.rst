@@ -80,6 +80,7 @@ Ready to contribute? Here's how to set up `mihifepe` for local development.
         tox
 
    You may use pyenv_ to install and test with multiple python versions.
+
 .. _pyenv: https://github.com/pyenv/pyenv
 
 6. Commit your changes and push your branch to GitHub::
