@@ -12,7 +12,7 @@ with open("CHANGELOG.rst") as changelog_file:
 
 setup(
     author="Akshay Sood",
-    author_email="sood.iitd@gmail.com',
+    author_email="sood.iitd@gmail.com",
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Environment :: Console",
