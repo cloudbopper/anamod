@@ -37,7 +37,7 @@ setup(
         ],
     },
     include_package_data=True,
-    install_requires=load_req_file("requirements.txt"),
+    install_requires=load_req_file("./requirements.txt"),
     keywords="mihifepe",
     license="MIT",
     long_description=readme + "\n\n" + changelog,
