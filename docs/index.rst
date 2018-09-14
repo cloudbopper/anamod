@@ -8,7 +8,6 @@ Welcome to mihifepe's documentation!
    readme
    installation
    usage
-   modules
    contributing
    authors
    history
