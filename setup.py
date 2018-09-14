@@ -45,12 +45,6 @@ setup(
     name="mihifepe",
     packages=find_packages(include=["mihifepe"]),
     python_requires=">= 3.5",
-    setup_requires=[
-        "pytest-runner",
-    ],
-    tests_require=[
-        "pytest",
-    ],
     url="https://github.com/cloudbopper/mihifepe",
     version="0.1.0dev",
     zip_safe=False,
