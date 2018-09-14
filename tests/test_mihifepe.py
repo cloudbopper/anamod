@@ -4,8 +4,10 @@
 
 import pytest
 
+# pylint: disable = redefined-outer-name
+
 @pytest.fixture
-def get_response():
+def response():
     """Sample pytest fixture.
 
     See more at: http://doc.pytest.org/en/latest/fixture.html
