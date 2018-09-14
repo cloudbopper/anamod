@@ -6,8 +6,8 @@ Welcome to mihifepe's documentation!
    :caption: Contents:
 
    readme
-   installation
    usage
+   examples
    contributing
    authors
    changelog

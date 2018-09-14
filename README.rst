@@ -1,3 +1,5 @@
+.. highlight:: shell
+
 ========
 mihifepe
 ========
@@ -23,7 +25,7 @@ mihifepe
 Overview
 --------
 
-`mihifepe` is a library that implements Model Interpretability via Hierarchical Feature Perturbation ([Paper link here])).
+``mihifepe`` is a library that implements Model Interpretability via Hierarchical Feature Perturbation ([Paper link here])).
 
 -------------
 Documentation
@@ -41,33 +43,38 @@ When making the virtual environment, specify python3 as the python executable (p
 
     mkvirtualenv -p python3 mihifepe_env
 
-Use pip to install directly from GitHub.::
+To install the latest stable release::
+
+    pip install mihifepe
+
+Or to install the latest development version from GitHub::
 
     pip install git+https://github.com/cloudbopper/mihifepe.git@master#egg=mihifepe
-
-Or, to install in editable mode:::
-
-    git clone https://github.com/cloudbopper/mihifepe.git
-    cd mihifepe
-    pip install -e .
 
 .. _pip: https://pip.pypa.io/
 .. _virtual environments: https://python-guide-cn.readthedocs.io/en/latest/dev/virtualenvs.html
 
+-----------
+Development
+-----------
+
+https://mihifepe.readthedocs.io/en/latest/contributing.html
+
+-----
 Usage
 -----
 
-::
+https://mihifepe.readthedocs.io/en/latest/usage.html
 
-    [TODO]
-
+-------
 License
 -------
 
-`mihifepe` is free, open source software, released under the MIT license. See LICENSE_ for details.
+``mihifepe`` is free, open source software, released under the MIT license. See LICENSE_ for details.
 
 .. _LICENSE: https://github.com/cloudbopper/mihifepe/blob/master/LICENSE
 
+-------
 Contact
 -------
 

@@ -1,3 +1,5 @@
+.. highlight:: shell
+
 ============
 Contributing
 ============
@@ -64,7 +66,7 @@ Ready to contribute? Here's how to set up `mihifepe` for local development.
 
 3. Install your local copy into a virtualenv. Assuming you have virtualenvwrapper installed, this is how you set up your fork for local development::
 
-        mkvirtualenv mihifepe
+        mkvirtualenv -p python3 mihifepe
         cd mihifepe/
         pip install -r requirements_dev.txt -r requirements.txt
 
@@ -126,11 +128,13 @@ Deploying
 ---------
 
 A reminder for the maintainers on how to deploy.
-Make sure all your changes are committed (including an entry in CHANGELOG.rst).
+Make sure all your changes are committed (including an entry in `CHANGELOG.rst`_).
 Then run::
 
     bumpversion patch # possible: major / minor / patch
     git push
     git push --tags
+
+.. _`CHANGELOG.rst`: https://github.com/cloudbopper/mihifepe/blob/master/CHANGELOG.rst
 
 Travis will then deploy to PyPI if tests pass.
