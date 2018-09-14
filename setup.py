@@ -1,4 +1,4 @@
-"""mihfepe package definition and install configuration"""
+"""mihifepe package definition and install configuration"""
 
 from setuptools import find_packages, setup
 
