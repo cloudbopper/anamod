@@ -490,7 +490,8 @@ class CondorPipeline():
                 idx = int(match.group(1))
                 if idx == 0:
                     # Only first worker outputs labels since they're common
-                    targets = root[constants.TARGETS].value
+                    # TODO: .value is deprecated (http://docs.h5py.org/en/latest/whatsnew/2.1.html?highlight=value), remove
+                    targets = root[constants.TARGETS].value # pylint: disable = no-member
         assert targets is not None
         return targets, all_losses, all_predictions
 
