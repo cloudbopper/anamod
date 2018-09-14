@@ -9,7 +9,7 @@ setup(
     url="https://github.com/cloudbopper/mihifepe",
     author="Akshay Sood",
     license="MIT",
-    long_description=open("README.md").read(),
+    long_description=open("README.rst").read(),
     packages=find_packages(),
     python_requires=">= 3.5",
     install_requires=[
