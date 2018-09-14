@@ -12,7 +12,7 @@ with open("CHANGELOG.rst") as changelog_file:
 
 setup(
     author="Akshay Sood",
-    author_email='sood.iitd@gmail.com',
+    author_email="sood.iitd@gmail.com',
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "Environment :: Console",
@@ -46,6 +46,6 @@ setup(
     packages=find_packages(include=["mihifepe"]),
     python_requires=">= 3.5",
     url="https://github.com/cloudbopper/mihifepe",
-    version="version='0.1.0'",
+    version="0.1.0",
     zip_safe=False,
 )
