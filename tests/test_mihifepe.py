@@ -22,12 +22,12 @@ def test_simulation_random_hierarchy(file_regression, tmpdir):
            " -hierarchy_type random -perturbation zeroing -output_dir %s" % output_dir)
     subprocess.check_call(cmd, shell=True)
     with open(pvalues_filename, "r") as pvalues_file:
-        pvalues = pvalues_file.read()
-    file_regression.check(pvalues, extension="_pvalues.csv")
+        pvalues = sorted(pvalues_file.readlines())
+    file_regression.check("\n".join(pvalues), extension="_pvalues.csv")
     fdr_filename = "%s/%s/%s.csv" % (output_dir, constants.HIERARCHICAL_FDR_DIR, constants.HIERARCHICAL_FDR_OUTPUTS)
     with open(fdr_filename, "r") as fdr_file:
-        fdr = fdr_file.read()
-    file_regression.check(fdr, extension="_fdr.json")
+        fdr = sorted(fdr_file.readlines())
+    file_regression.check("\n".join(fdr), extension="_fdr.json")
 
 
 def test_simulation_clustering_hierarchy(file_regression, tmpdir):
@@ -39,9 +39,9 @@ def test_simulation_clustering_hierarchy(file_regression, tmpdir):
            " -hierarchy_type cluster_from_data -perturbation zeroing -output_dir %s" % output_dir)
     subprocess.check_call(cmd, shell=True)
     with open(pvalues_filename, "r") as pvalues_file:
-        pvalues = pvalues_file.read()
-    file_regression.check(pvalues, extension="_pvalues.csv")
+        pvalues = sorted(pvalues_file.readlines())
+    file_regression.check("\n".join(pvalues), extension="_pvalues.csv")
     fdr_filename = "%s/%s/%s.csv" % (output_dir, constants.HIERARCHICAL_FDR_DIR, constants.HIERARCHICAL_FDR_OUTPUTS)
     with open(fdr_filename, "r") as fdr_file:
-        fdr = fdr_file.read()
-    file_regression.check(fdr, extension="_fdr.json")
+        fdr = sorted(fdr_file.readlines())
+    file_regression.check("\n".join(fdr), extension="_fdr.json")
