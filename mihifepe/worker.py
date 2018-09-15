@@ -18,6 +18,7 @@ import numpy as np
 from . import constants
 from .feature import Feature
 
+
 def main():
     """Main"""
     parser = argparse.ArgumentParser()
@@ -156,7 +157,6 @@ class Perturber():
         self.losses = {feature.name: np.zeros(self.num_records) for feature in self.features}
         self.predictions = {feature.name: np.zeros(self.num_records) for feature in self.features}
 
-
     def perturb_features_for_record(self, record_idx):
         """Perturbs all features for given record"""
         # Data
@@ -181,7 +181,6 @@ class Perturber():
             self.losses[feature.name][record_idx] = loss
             self.predictions[feature.name][record_idx] = prediction
 
-
     def perturb_static_data(self, feature, static_data):
         """Perturb static data for given feature"""
         if len(static_data) == 0 or len(feature.static_indices) == 0:
@@ -193,7 +192,6 @@ class Perturber():
             replace_idx = np.random.randint(0, self.num_records)
             sdata[feature.static_indices] = self.static_dataset[replace_idx][feature.static_indices]
         return sdata
-
 
     def perturb_temporal_data(self, feature, temporal_data):
         """Perturb temporal data for given feature"""

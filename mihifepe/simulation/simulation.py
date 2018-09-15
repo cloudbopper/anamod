@@ -23,6 +23,7 @@ from .. import constants
 Results = namedtuple(constants.SIMULATION_RESULTS, [constants.FDR, constants.POWER, constants.OUTER_NODES_FDR,
                                                     constants.OUTER_NODES_POWER, constants.BASE_FEATURES_FDR, constants.BASE_FEATURES_POWER])
 
+
 def main():
     """Main"""
     parser = argparse.ArgumentParser()

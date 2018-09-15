@@ -6,6 +6,7 @@ from scipy.stats import find_repeats, rankdata, norm, ttest_rel
 
 from . import constants
 
+
 def compute_p_value(baseline, perturbed, test=constants.WILCOXON_TEST):
     """Compute p-value using paired difference test on input numpy arrays"""
     valid_tests = [constants.PAIRED_TTEST, constants.WILCOXON_TEST]
@@ -39,7 +40,7 @@ def wilcoxon_test(x, y, alternative=constants.LESS):
     se = count * (count + 1.) * (2. * count + 1.)
 
     if se < 1e-20:
-        return 1. # Degenerate case
+        return 1.  # Degenerate case
 
     _, repnum = find_repeats(r)
     if repnum.size != 0:
@@ -54,4 +55,4 @@ def wilcoxon_test(x, y, alternative=constants.LESS):
         return prob if z < 0 else 1 - prob
     if alternative == constants.GREATER:
         return prob if z > 0 else 1 - prob
-    return 2 * prob # Two-sided
+    return 2 * prob  # Two-sided

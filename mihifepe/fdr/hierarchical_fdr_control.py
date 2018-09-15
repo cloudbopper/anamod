@@ -16,6 +16,7 @@ from .fdr_algorithms import hierarchical_fdr_control
 
 # pylint: disable = invalid-name
 
+
 def main():
     """Main"""
     parser = argparse.ArgumentParser()
@@ -87,7 +88,7 @@ def generate_tree_of_rejected_hypotheses(args, logger, tree):
             newnode = anytree.Node(node.name, parent=parent, adjusted_pvalue=node.adjusted_pvalue,
                                    description=node.description, effect_size=node.effect_size, was_leaf=node.is_leaf)
             nodes[newnode.name] = newnode
-    newtree = next(iter(nodes.values())).root # identify root
+    newtree = next(iter(nodes.values())).root  # identify root
     prune_tree_on_effect_size(args, newtree)
     color_nodes(args, newtree)
     render_tree(args, newtree)
@@ -98,7 +99,7 @@ def render_tree(args, tree):
     with codecs.open("{0}/{1}.txt".format(args.output_dir, constants.TREE), "w", encoding="utf8") as txt_file:
         for pre, _, node in anytree.RenderTree(tree):
             txt_file.write("%s%s: %s (%s: %s)\n" % (pre, node.name, node.description.title(), args.effect_name, str(node.effect_size)))
-    graph_options = [] # Example: graph_options = ["dpi=300.0;", "style=filled;", "bgcolor=yellow;"]
+    graph_options = []  # Example: graph_options = ["dpi=300.0;", "style=filled;", "bgcolor=yellow;"]
     DotExporter(tree, options=graph_options, nodeattrfunc=lambda node: nodeattrfunc(args, node)
                 ).to_dotfile("{0}/{1}.dot".format(args.output_dir, constants.TREE))
     try:
@@ -111,7 +112,7 @@ def render_tree(args, tree):
 def prune_tree_on_effect_size(args, tree):
     """Prune tree by thresholding on effect size"""
     if not tree.effect_size:
-        return # No effect_size column in input file
+        return  # No effect_size column in input file
     effect_size_threshold = tree.effect_size * (1 + args.tree_effect_size_threshold)
     for node in anytree.LevelOrderIter(tree):
         if node.effect_size > effect_size_threshold:
@@ -120,8 +121,12 @@ def prune_tree_on_effect_size(args, tree):
 
 def color_nodes(args, tree):
     """Add fill and font color to nodes based on partition in sorted list"""
-    differentiator = lambda node: node.adjusted_pvalue if args.sorting_param == constants.ADJUSTED_PVALUE else node.effect_size
-    nodes_sorted = sorted(anytree.LevelOrderIter(tree), key=differentiator, reverse=True) # sort nodes for color grading
+
+    def differentiator(node):
+        """Differentiates between nodes"""
+        return node.adjusted_pvalue if args.sorting_param == constants.ADJUSTED_PVALUE else node.effect_size
+
+    nodes_sorted = sorted(anytree.LevelOrderIter(tree), key=differentiator, reverse=True)  # sort nodes for color grading
     num_nodes = len(nodes_sorted)
     lower, upper = args.color_range
     num_colors = upper - lower + 1
@@ -163,7 +168,7 @@ def nodeattrfunc(args, node):
 def build_tree(args, logger):
     """Build tree from CSV file"""
     logger.info("Begin building tree")
-    nodes = {} # map of all nodes in tree
+    nodes = {}  # map of all nodes in tree
     root = None
     with open(args.csv_filename) as csv_file:
         reader = csv.DictReader(csv_file)
@@ -181,11 +186,11 @@ def build_tree(args, logger):
                 nodes[node_name] = node
             else:
                 node = nodes[node_name]
-                assert not node.parent # to ensure no rows have the same node name
+                assert not node.parent  # to ensure no rows have the same node name
             # Create or retrieve parent node
             if not parent_name:
                 # Root node
-                assert root is None # to ensure root has not already been assigned
+                assert root is None  # to ensure root has not already been assigned
                 root = node
                 parent = None
             elif parent_name not in nodes:
@@ -197,7 +202,7 @@ def build_tree(args, logger):
             node.pvalue = pvalue if not math.isnan(pvalue) else 1.
             node.description = description
             node.effect_size = effect_size
-    assert root # to ensure root exists and has an assigned p-value
+    assert root  # to ensure root exists and has an assigned p-value
     logger.info("End building tree")
     return root
 
@@ -205,26 +210,26 @@ def build_tree(args, logger):
 def process_tree(logger, tree):
     """Processes tree and builds intermediate data structures"""
     logger.info("Begin processing tree")
-    F = [] # hypotheses organized by level/depth (0-indexed, unlike 1-indexed as used in paper)
-    M = [] # list of all hypotheses
+    F = []  # hypotheses organized by level/depth (0-indexed, unlike 1-indexed as used in paper)
+    M = []  # list of all hypotheses
     for level in anytree.LevelOrderGroupIter(tree):
-        level = sorted(level, key=lambda node: node.pvalue) # sorting by p-value at each level; TODO: decide if needed
+        level = sorted(level, key=lambda node: node.pvalue)  # sorting by p-value at each level; TODO: decide if needed
         F.append(level)
         M.extend(level)
         for node in level:
-            node.G_j_cardinality = len(level) # number of nodes in tree upto and including this level
+            node.G_j_cardinality = len(level)  # number of nodes in tree upto and including this level
             if node.parent:
                 node.G_j_cardinality += node.parent.G_j_cardinality
-            node.rejected = False # no hypothesis rejected to start with
-            node.critical_constant = -1. # populated later
-            node.adjusted_pvalue = -1. # populated later
+            node.rejected = False  # no hypothesis rejected to start with
+            node.critical_constant = -1.  # populated later
+            node.adjusted_pvalue = -1.  # populated later
     for level in reversed(F):
         # Iterate over tree bottom-up to identify l (number of leaves) and m (number of hypotheses) for each node
         for node in level:
             node.m = 1
-            node.l = 1
+            node.l = 1  # noqa: E741
             if not node.is_leaf:
-                node.l = sum([child.l for child in node.children])
+                node.l = sum([child.l for child in node.children])  # noqa: E741
                 node.m = 1 + sum([child.m for child in node.children])
     logger.info("End processing tree")
     return F, M

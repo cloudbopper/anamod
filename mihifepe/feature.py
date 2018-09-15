@@ -4,6 +4,7 @@ import anytree
 
 from . import constants
 
+
 class Feature(anytree.Node):
     """Class representing feature/feature group"""
     def __init__(self, name, **kwargs):

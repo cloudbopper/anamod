@@ -26,6 +26,7 @@ from . import constants
 from .feature import Feature
 from . import worker
 
+
 def main():
     """Parse arguments"""
     parser = argparse.ArgumentParser()
@@ -150,9 +151,9 @@ def flatten_hierarchy(hierarchy_root):
         Flattened hierarchy comprising list of features/feature groups
     """
     nodes = list(anytree.PreOrderIter(hierarchy_root))
-    nodes.append(Feature(constants.BASELINE, description="No perturbation")) # Baseline corresponds to no perturbation
-    nodes.sort(key=lambda node: node.name) # For reproducibility across python versions
-    np.random.shuffle(nodes) # To balance load across workers
+    nodes.append(Feature(constants.BASELINE, description="No perturbation"))  # Baseline corresponds to no perturbation
+    nodes.sort(key=lambda node: node.name)  # For reproducibility across python versions
+    np.random.shuffle(nodes)  # To balance load across workers
     return nodes
 
 
@@ -432,7 +433,7 @@ class CondorPipeline():
                             if os.path.isfile(new_filename):
                                 self.logger.warn("File %s already exists, overwriting." % new_filename)
                             os.rename(task[filetype], new_filename)
-                time.sleep(30) # To prevent infinite-idle condor issue
+                time.sleep(30)  # To prevent infinite-idle condor issue
                 for task in rerun_tasks:
                     launch_success = self.launch_task(task)
                     if not launch_success:
@@ -452,7 +453,6 @@ class CondorPipeline():
             os.remove(kill_filename)
         self.logger.info("All workers completed running successfully")
 
-
     def create_tasks(self):
         """Create condor task setup"""
         tasks = []
@@ -468,7 +468,6 @@ class CondorPipeline():
             task_idx += 1
             node_idx += targs.features_per_worker
         return tasks
-
 
     def compile_results(self):
         """Compile condor task results"""
@@ -495,10 +494,9 @@ class CondorPipeline():
                 if idx == 0:
                     # Only first worker outputs labels since they're common
                     # TODO: .value is deprecated (http://docs.h5py.org/en/latest/whatsnew/2.1.html?highlight=value), remove
-                    targets = root[constants.TARGETS].value # pylint: disable = no-member
+                    targets = root[constants.TARGETS].value  # pylint: disable = no-member
         assert targets is not None
         return targets, all_losses, all_predictions
-
 
     def run(self):
         """Run condor pipeline"""

@@ -14,6 +14,7 @@ SUMMARY_FILENAME = "all_trials_summary"
 
 Trial = namedtuple("Trial", ["cmd", "output_dir"])
 
+
 def main():
     """Main"""
     parser = argparse.ArgumentParser()
@@ -47,12 +48,14 @@ def gen_trials(args):
         trials.append(Trial(cmd, output_dir))
     return trials
 
+
 def run_trials(args, trials):
     """Run multiple trials, each with multiple simulations"""
     if not args.summarize_only:
         for trial in trials:
             args.logger.info("Running trial: %s" % trial.cmd)
             subprocess.check_call(trial.cmd, shell=True)
+
 
 def summarize_trials(args, trials):
     """Summarize outputs from trials"""
@@ -70,7 +73,7 @@ def summarize_trials(args, trials):
                     items.append(values)
                 else:
                     items[row_idx] = map(sum, zip(items[row_idx], values))
-    items = [[elem/args.num_trials for elem in item] for item in items]
+    items = [[elem / args.num_trials for elem in item] for item in items]
     # Number formatting
     for item in items:
         if args.type != constants.NOISE_LEVELS:
@@ -88,6 +91,7 @@ def summarize_trials(args, trials):
     # Format nicely
     formatted_summary_filename = "%s/%s_formatted.csv" % (args.output_dir, SUMMARY_FILENAME)
     subprocess.call("column -t -s ',' %s > %s" % (summary_filename, formatted_summary_filename), shell=True)
+
 
 if __name__ == "__main__":
     main()
