@@ -97,7 +97,10 @@ def render_tree(args, tree):
             txt_file.write("%s%s: %s (%s: %s)\n" % (pre, node.name, node.description.title(), args.effect_name, str(node.effect_size)))
     graph_options = [] # Example: graph_options = ["dpi=300.0;", "style=filled;", "bgcolor=yellow;"]
     DotExporter(tree, options=graph_options, nodeattrfunc=lambda node: nodeattrfunc(args, node)).to_dotfile("{0}/{1}.dot".format(args.output_dir, constants.TREE))
-    DotExporter(tree, options=graph_options, nodeattrfunc=lambda node: nodeattrfunc(args, node)).to_picture("{0}/{1}.png".format(args.output_dir, constants.TREE))
+    try:
+        DotExporter(tree, options=graph_options, nodeattrfunc=lambda node: nodeattrfunc(args, node)).to_picture("{0}/{1}.png".format(args.output_dir, constants.TREE))
+    except FileNotFoundError as err:
+        raise FileNotFoundError("Error during tree rendering - is Graphviz installed on your system?\n")
 
 
 def prune_tree_on_effect_size(args, tree):

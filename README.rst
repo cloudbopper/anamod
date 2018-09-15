@@ -36,6 +36,7 @@ Installation
 ------------
 
 Recommended installation method is via `virtual environments`_ and pip_.
+In addition, you also need graphviz_ installed on your system.
 
 When making the virtual environment, specify python3 as the python executable (python3 version must be 3.5+)::
 
@@ -49,8 +50,13 @@ Or to install the latest development version from GitHub::
 
     pip install git+https://github.com/cloudbopper/mihifepe.git@master#egg=mihifepe
 
+On Ubuntu, graphviz may be installed by::
+
+    sudo apt-get install graphviz
+
 .. _pip: https://pip.pypa.io/
 .. _virtual environments: https://python-guide-cn.readthedocs.io/en/latest/dev/virtualenvs.html
+.. _graphviz: https://www.graphviz.org/
 
 -----------
 Development
