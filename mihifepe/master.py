@@ -125,7 +125,8 @@ def load_hierarchy(hierarchy_filename):
         if node.is_leaf:
             assert node.static_indices or node.temporal_indices, "Leaf node %s must have at least one index of either type" % node.name
             assert not all_static_indices.intersection(node.static_indices), "Leaf node %s has static index overlap with other leaf nodes" % node.name
-            assert not all_temporal_indices.intersection(node.temporal_indices), "Leaf node %s has temporal index overlap with other leaf nodes" % node.name
+            assert not all_temporal_indices.intersection(node.temporal_indices), \
+                    "Leaf node %s has temporal index overlap with other leaf nodes" % node.name
         else:
             # Ensure non-leaf nodes have empty initial indices
             assert not node.static_indices, "Non-leaf node %s has non-empty initial indices" % node.name
@@ -328,7 +329,8 @@ class CondorPipeline():
                 self.logger.warn("condor_submit command failed with error: %s;\nRe-attempting..." % err)
                 return self.launch_task(task)
         else:
-            self.logger.error("\nFailed to run cmd: '%s' successfully in the alloted number of attempts %d" % (task[constants.CMD], constants.MAX_ATTEMPTS))
+            self.logger.error("\nFailed to run cmd: '%s' successfully in the alloted number of attempts %d"
+                              % (task[constants.CMD], constants.MAX_ATTEMPTS))
             return False
 
     def monitor_tasks(self, tasks):
@@ -380,7 +382,8 @@ class CondorPipeline():
                             task_updated = True
                             break
                         self.logger.warn("Cmd '%s' terminated normally with invalid return code. Re-running assuming condor failure "
-                                         "(attempt %d of %d)..." % (task[constants.CMD], task[constants.NORMAL_FAILURE_COUNT] + 1, constants.MAX_NORMAL_FAILURE_COUNT + 1))
+                                         "(attempt %d of %d)..."
+                                         % (task[constants.CMD], task[constants.NORMAL_FAILURE_COUNT] + 1, constants.MAX_NORMAL_FAILURE_COUNT + 1))
                         rerun_tasks.append(task)
                         task_updated = True
                         break

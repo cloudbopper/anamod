@@ -20,7 +20,8 @@ def main():
     """Main"""
     parser = argparse.ArgumentParser()
     parser.add_argument("-output_dir", help="name of output directory")
-    parser.add_argument("-dependence_assumption", help="choice of dependence assumption used by Lynch and Guo (2016) procedure", choices=[constants.POSITIVE, constants.ARBITRARY], default=constants.POSITIVE)
+    parser.add_argument("-dependence_assumption", help="choice of dependence assumption used by Lynch and Guo (2016) procedure",
+                        choices=[constants.POSITIVE, constants.ARBITRARY], default=constants.POSITIVE)
     parser.add_argument("-alpha", type=float, default=0.05)
     parser.add_argument("-procedure", default=constants.YEKUTIELI, choices=[constants.YEKUTIELI, constants.LYNCH_GUO])
     parser.add_argument("csv_filename", help="CSV (with header) representing hierarchy, each row corresponding to one node:"
@@ -30,7 +31,8 @@ def main():
                         " only show nodes within given threshold of root (i.e. all nodes erased) effect size", type=float, default=1)
     parser.add_argument("-color_scheme", default="ylorrd9", help="color scheme to use for shading nodes")
     parser.add_argument("-color_range", help="range for chosen color scheme", nargs=2, type=int, default=[1, 9])
-    parser.add_argument("-sorting_param", help="parameter to sort on for color grading", default=constants.ADJUSTED_PVALUE, choices=[constants.ADJUSTED_PVALUE, constants.EFFECT_SIZE])
+    parser.add_argument("-sorting_param", help="parameter to sort on for color grading", default=constants.ADJUSTED_PVALUE,
+                        choices=[constants.ADJUSTED_PVALUE, constants.EFFECT_SIZE])
     parser.add_argument("-minimal_labels", help="do not write descriptions/effect sizes on node labels", action="store_true")
     parser.add_argument("-rectangle_leaves", help="enable to generate rectangular nodes for leaves of original hierarchy", action="store_true")
     args = parser.parse_args()
@@ -82,7 +84,8 @@ def generate_tree_of_rejected_hypotheses(args, logger, tree):
     for node in anytree.LevelOrderIter(tree):
         if node.rejected:
             parent = nodes[node.parent.name] if node.parent else None
-            newnode = anytree.Node(node.name, parent=parent, adjusted_pvalue=node.adjusted_pvalue, description=node.description, effect_size=node.effect_size, was_leaf=node.is_leaf)
+            newnode = anytree.Node(node.name, parent=parent, adjusted_pvalue=node.adjusted_pvalue,
+                                   description=node.description, effect_size=node.effect_size, was_leaf=node.is_leaf)
             nodes[newnode.name] = newnode
     newtree = next(iter(nodes.values())).root # identify root
     prune_tree_on_effect_size(args, newtree)
@@ -96,9 +99,11 @@ def render_tree(args, tree):
         for pre, _, node in anytree.RenderTree(tree):
             txt_file.write("%s%s: %s (%s: %s)\n" % (pre, node.name, node.description.title(), args.effect_name, str(node.effect_size)))
     graph_options = [] # Example: graph_options = ["dpi=300.0;", "style=filled;", "bgcolor=yellow;"]
-    DotExporter(tree, options=graph_options, nodeattrfunc=lambda node: nodeattrfunc(args, node)).to_dotfile("{0}/{1}.dot".format(args.output_dir, constants.TREE))
+    DotExporter(tree, options=graph_options, nodeattrfunc=lambda node: nodeattrfunc(args, node)
+                ).to_dotfile("{0}/{1}.dot".format(args.output_dir, constants.TREE))
     try:
-        DotExporter(tree, options=graph_options, nodeattrfunc=lambda node: nodeattrfunc(args, node)).to_picture("{0}/{1}.png".format(args.output_dir, constants.TREE))
+        DotExporter(tree, options=graph_options, nodeattrfunc=lambda node: nodeattrfunc(args, node)
+                    ).to_picture("{0}/{1}.png".format(args.output_dir, constants.TREE))
     except FileNotFoundError:
         raise FileNotFoundError("Error during tree rendering - is Graphviz installed on your system?\n")
 
@@ -151,7 +156,8 @@ def nodeattrfunc(args, node):
         lines.append(line)
     newlabel = "\n".join(lines)
     shape = "rectangle" if args.rectangle_leaves and node.was_leaf else "ellipse"
-    return "fillcolor=\"/%s/%d\" label=\"%s\" style=filled fontname=\"helvetica bold\" fontsize=15.0 fontcolor=%s shape = %s" % (args.color_scheme, node.color, newlabel, node.fontcolor, shape)
+    return "fillcolor=\"/%s/%d\" label=\"%s\" style=filled fontname=\"helvetica bold\" fontsize=15.0 fontcolor=%s shape = %s" \
+            % (args.color_scheme, node.color, newlabel, node.fontcolor, shape)
 
 
 def build_tree(args, logger):
