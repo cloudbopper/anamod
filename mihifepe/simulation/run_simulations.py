@@ -14,6 +14,7 @@ from mihifepe.simulation.simulation import evaluate
 
 OUTPUTS = "%s/%s_%s"
 
+
 class Simulation():
     """Simulation helper class"""
     # pylint: disable = too-few-public-methods
@@ -22,6 +23,7 @@ class Simulation():
         self.output_dir = output_dir
         self.param = param
         self.popen = popen
+
 
 def main():
     """Main"""

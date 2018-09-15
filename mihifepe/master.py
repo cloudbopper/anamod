@@ -26,6 +26,7 @@ from . import constants
 from .feature import Feature
 from . import worker
 
+
 def main():
     """Parse arguments"""
     parser = argparse.ArgumentParser()
@@ -125,7 +126,8 @@ def load_hierarchy(hierarchy_filename):
         if node.is_leaf:
             assert node.static_indices or node.temporal_indices, "Leaf node %s must have at least one index of either type" % node.name
             assert not all_static_indices.intersection(node.static_indices), "Leaf node %s has static index overlap with other leaf nodes" % node.name
-            assert not all_temporal_indices.intersection(node.temporal_indices), "Leaf node %s has temporal index overlap with other leaf nodes" % node.name
+            assert not all_temporal_indices.intersection(node.temporal_indices), \
+                    "Leaf node %s has temporal index overlap with other leaf nodes" % node.name
         else:
             # Ensure non-leaf nodes have empty initial indices
             assert not node.static_indices, "Non-leaf node %s has non-empty initial indices" % node.name
@@ -149,9 +151,9 @@ def flatten_hierarchy(hierarchy_root):
         Flattened hierarchy comprising list of features/feature groups
     """
     nodes = list(anytree.PreOrderIter(hierarchy_root))
-    nodes.append(Feature(constants.BASELINE, description="No perturbation")) # Baseline corresponds to no perturbation
-    nodes.sort(key=lambda node: node.name) # For reproducibility across python versions
-    np.random.shuffle(nodes) # To balance load across workers
+    nodes.append(Feature(constants.BASELINE, description="No perturbation"))  # Baseline corresponds to no perturbation
+    nodes.sort(key=lambda node: node.name)  # For reproducibility across python versions
+    np.random.shuffle(nodes)  # To balance load across workers
     return nodes
 
 
@@ -328,7 +330,8 @@ class CondorPipeline():
                 self.logger.warn("condor_submit command failed with error: %s;\nRe-attempting..." % err)
                 return self.launch_task(task)
         else:
-            self.logger.error("\nFailed to run cmd: '%s' successfully in the alloted number of attempts %d" % (task[constants.CMD], constants.MAX_ATTEMPTS))
+            self.logger.error("\nFailed to run cmd: '%s' successfully in the alloted number of attempts %d"
+                              % (task[constants.CMD], constants.MAX_ATTEMPTS))
             return False
 
     def monitor_tasks(self, tasks):
@@ -380,7 +383,8 @@ class CondorPipeline():
                             task_updated = True
                             break
                         self.logger.warn("Cmd '%s' terminated normally with invalid return code. Re-running assuming condor failure "
-                                         "(attempt %d of %d)..." % (task[constants.CMD], task[constants.NORMAL_FAILURE_COUNT] + 1, constants.MAX_NORMAL_FAILURE_COUNT + 1))
+                                         "(attempt %d of %d)..."
+                                         % (task[constants.CMD], task[constants.NORMAL_FAILURE_COUNT] + 1, constants.MAX_NORMAL_FAILURE_COUNT + 1))
                         rerun_tasks.append(task)
                         task_updated = True
                         break
@@ -429,7 +433,7 @@ class CondorPipeline():
                             if os.path.isfile(new_filename):
                                 self.logger.warn("File %s already exists, overwriting." % new_filename)
                             os.rename(task[filetype], new_filename)
-                time.sleep(30) # To prevent infinite-idle condor issue
+                time.sleep(30)  # To prevent infinite-idle condor issue
                 for task in rerun_tasks:
                     launch_success = self.launch_task(task)
                     if not launch_success:
@@ -449,7 +453,6 @@ class CondorPipeline():
             os.remove(kill_filename)
         self.logger.info("All workers completed running successfully")
 
-
     def create_tasks(self):
         """Create condor task setup"""
         tasks = []
@@ -465,7 +468,6 @@ class CondorPipeline():
             task_idx += 1
             node_idx += targs.features_per_worker
         return tasks
-
 
     def compile_results(self):
         """Compile condor task results"""
@@ -492,10 +494,9 @@ class CondorPipeline():
                 if idx == 0:
                     # Only first worker outputs labels since they're common
                     # TODO: .value is deprecated (http://docs.h5py.org/en/latest/whatsnew/2.1.html?highlight=value), remove
-                    targets = root[constants.TARGETS].value # pylint: disable = no-member
+                    targets = root[constants.TARGETS].value  # pylint: disable = no-member
         assert targets is not None
         return targets, all_losses, all_predictions
-
 
     def run(self):
         """Run condor pipeline"""

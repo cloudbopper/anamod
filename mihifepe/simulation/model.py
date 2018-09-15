@@ -5,6 +5,7 @@ from pyhashxx import hashxx
 
 from mihifepe import constants
 
+
 class Model():
     """Class implementing model API required by mihifepe"""
     # pylint: disable = too-few-public-methods, unused-argument
@@ -14,7 +15,7 @@ class Model():
         self.noise_multiplier = noise_multiplier
         self.noise_type = noise_type
         self.dim = self.poly_coeff.shape[0]
-        self.irrelevant = np.logical_xor(self.poly_coeff, np.ones(self.dim)) # Zero-valued coefficients correspond to irrelevant features
+        self.irrelevant = np.logical_xor(self.poly_coeff, np.ones(self.dim))  # Zero-valued coefficients correspond to irrelevant features
 
     def predict(self, target, static_data, temporal_data):
         """
@@ -42,5 +43,5 @@ class Model():
             prediction = np.dot(static_data, self.poly_coeff) + prg.normal(0, self.noise_multiplier)
         else:
             raise NotImplementedError("Unknown noise type")
-        loss = np.sqrt(np.power(prediction - target, 2)) # RMSE
+        loss = np.sqrt(np.power(prediction - target, 2))  # RMSE
         return (loss, prediction)
