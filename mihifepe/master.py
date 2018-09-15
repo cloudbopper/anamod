@@ -150,6 +150,7 @@ def flatten_hierarchy(hierarchy_root):
     """
     nodes = list(anytree.PreOrderIter(hierarchy_root))
     nodes.append(Feature(constants.BASELINE, description="No perturbation")) # Baseline corresponds to no perturbation
+    nodes.sort(key=lambda node: node.name) # For reproducibility across python versions
     np.random.shuffle(nodes) # To balance load across workers
     return nodes
 
