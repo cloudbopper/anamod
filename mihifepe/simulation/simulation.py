@@ -208,9 +208,7 @@ def gen_hierarchy_from_clusters(args, clusters):
 def gen_polynomial(args):
     """Generate polynomial which decides the ground truth"""
     # Decide relevant features
-    num_relevant_features = round(args.num_features * args.fraction_relevant_features)
-    if not num_relevant_features:
-        num_relevant_features = 1
+    num_relevant_features = max(1, round(args.num_features * args.fraction_relevant_features))
     relevant_features = np.zeros(args.num_features)
     relevant_features[:num_relevant_features] = 1
     np.random.shuffle(relevant_features)
