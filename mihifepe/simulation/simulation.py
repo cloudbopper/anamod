@@ -1,7 +1,7 @@
 """Generates simulated data and model to test mihifepe algorithm"""
 
 import argparse
-from collections import namedtuple
+from collections import defaultdict, namedtuple
 import csv
 import logging
 import os
@@ -13,6 +13,9 @@ from anytree.importer import JsonImporter
 import h5py
 import numpy as np
 from scipy.cluster.hierarchy import linkage
+import sympy
+from sympy.matrices import matrix_multiply_elementwise
+from sympy.utilities.lambdify import lambdify
 from sklearn.metrics import precision_recall_fscore_support
 
 from .. import constants
@@ -41,6 +44,7 @@ def main():
     parser.add_argument("-clustering_instance_count", type=int, help="If provided, uses this number of instances to "
                         "cluster the data to generate a hierarchy, allowing the hierarchy to remain same across multiple "
                         "sets of instances", default=0)
+    parser.add_argument("-num_interactions", type=int, default=1, help="number of interaction pairs")
     # Arguments passed to mihifepe
     parser.add_argument("-perturbation", default=constants.SHUFFLING, choices=[constants.ZEROING, constants.SHUFFLING])
     parser.add_argument("-num_shuffling_trials", type=int, default=100, help="Number of shuffling trials to average over, "
@@ -74,17 +78,19 @@ def pipeline(args):
     # TODO: Features other than binary
     args.logger.info("Begin mihifepe simulation with args: %s" % args)
     # Synthesize polynomial that generates ground truth
-    relevant_features, poly_coeff = gen_polynomial(args)
+    sym_features, sym_noise, relevant_feature_map, polynomial_fn, sym_model_fn = gen_polynomial(args)
     # Synthesize data
     probs, test_data, clustering_data = synthesize_data(args)
     # Generate hierarchy using clustering
     hierarchy_root = gen_hierarchy(args, clustering_data)
     # Update hierarchy descriptions for future visualization
-    update_hierarchy_relevance(hierarchy_root, relevant_features, poly_coeff, probs)
+    update_hierarchy_relevance(hierarchy_root, relevant_feature_map, probs)
     # Generate targets (ground truth)
-    targets = gen_targets(poly_coeff, test_data)
+    targets = gen_targets(polynomial_fn, test_data)
     # Write outputs - data, gen_model.py, hierarchy
-    data_filename, hierarchy_filename, gen_model_filename = write_outputs(args, test_data, hierarchy_root, targets, poly_coeff)
+    data_filename = write_data(args, test_data, targets)
+    hierarchy_filename = write_hierarchy(args, hierarchy_root)
+    gen_model_filename = write_model(args, sym_features, sym_noise, sym_model_fn)
     # Invoke feature importance algorithm
     run_mihifepe(args, data_filename, hierarchy_filename, gen_model_filename)
     # Compare mihifepe outputs with ground truth outputs
@@ -207,18 +213,40 @@ def gen_hierarchy_from_clusters(args, clusters):
 
 def gen_polynomial(args):
     """Generate polynomial which decides the ground truth"""
-    # Decide relevant features
-    num_relevant_features = max(1, round(args.num_features * args.fraction_relevant_features))
-    relevant_features = np.zeros(args.num_features)
-    relevant_features[:num_relevant_features] = 1
-    np.random.shuffle(relevant_features)
-    # Generate coefficients
     # TODO: higher powers, interaction terms, negative coefficients
-    coefficients = np.multiply(relevant_features, np.random.uniform(size=args.num_features))
-    return relevant_features, coefficients
+    # Feature ids, symbols
+    sym_features = sympy.MatrixSymbol("X", 1, args.num_features)
+    relevant_feature_map = defaultdict(lambda: 0)  # map of relevant feature tuples to coefficients
+    # Select individually relevant features
+    num_relevant_features = max(1, round(args.num_features * args.fraction_relevant_features))
+    orderone_coefficients = np.zeros(args.num_features)
+    orderone_coefficients[:num_relevant_features] = 1
+    np.random.shuffle(orderone_coefficients)
+    relevant_ids = [idx for idx in range(args.num_features) if orderone_coefficients[idx]]
+    orderone_coefficients = np.multiply(orderone_coefficients, np.random.uniform(size=args.num_features))
+    for relevant_id in relevant_ids:
+        relevant_feature_map[(relevant_id)] = orderone_coefficients[relevant_id]
+    # Select interaction features
+    # Some interactions between individually relevant features
+    # Some interactions between individually irrelevant features
+    # Some pairwise interactions
+    # Some higher-order interactions
+    # Generate polynomial expression
+    sym_polynomial_fn = sym_features * sympy.Matrix(orderone_coefficients)
+    polynomial_fn = lambdify(sym_features, sym_polynomial_fn)
+    if args.noise_type == constants.EPSILON_IRRELEVANT:
+        sym_noise = sympy.MatrixSymbol("noise", args.num_features, 1)
+        irrelevant_features = sympy.Matrix((orderone_coefficients == 0).astype(np.int64))
+        sym_model_fn = sym_polynomial_fn + sym_features * matrix_multiply_elementwise(sympy.Matrix(sym_noise), irrelevant_features)
+    elif args.noise_type == constants.ADDITIVE_GAUSSIAN:
+        sym_noise = sympy.MatrixSymbol("noise", 1, 1)
+        sym_model_fn = sym_polynomial_fn + sym_noise
+    else:
+        raise NotImplementedError("Unknown noise type")
+    return sym_features, sym_noise, relevant_feature_map, polynomial_fn, sym_model_fn
 
 
-def update_hierarchy_relevance(hierarchy_root, relevant_features, poly_coeff, probs):
+def update_hierarchy_relevance(hierarchy_root, relevant_feature_map, probs):
     """
     Add feature relevance information to nodes of hierarchy:
     their probabilty of being enabled,
@@ -228,103 +256,100 @@ def update_hierarchy_relevance(hierarchy_root, relevant_features, poly_coeff, pr
         node.description = constants.IRRELEVANT
         if node.is_leaf:
             idx = int(node.static_indices)
-            if relevant_features[idx]:
+            coeff = relevant_feature_map[(idx)]
+            if coeff:
                 node.bin_prob = probs[idx]
-                node.poly_coeff = poly_coeff[idx]
+                node.poly_coeff = coeff
                 node.description = ("%s feature:\nPolynomial coefficient: %f\nBinomial probability: %f"
-                                    % (constants.RELEVANT, poly_coeff[idx], probs[idx]))
+                                    % (constants.RELEVANT, coeff, probs[idx]))
         else:
             for child in node.children:
                 if child.description != constants.IRRELEVANT:
                     node.description = constants.RELEVANT
 
 
-def gen_targets(poly_coeff, data):
+def gen_targets(polynomial_fn, data):
     """Generate targets (ground truth) from polynomial"""
-    return np.dot(data, poly_coeff)
+    return [polynomial_fn(instance)[0] for instance in data]  # [0] since return type is 1x1 matrix
 
 
-def write_outputs(args, data, hierarchy_root, targets, model):
-    """Write outputs to files"""
-    def write_data():
-        """
-        Write data in HDF5 format.
+def write_data(args, data, targets):
+    """
+    Write data in HDF5 format.
 
-        Groups:     /records
-                    /records/<record_id>
+    Groups:     /records
+                /records/<record_id>
 
-        Datasets:   /records/<record_id>/temporal (2-D array)
-                    /records/<record_id>/static (1-D array)
-                    /records/<record_id>/target (scalar)
-        """
-        data_filename = "%s/%s" % (args.output_dir, "data.hdf5")
-        root = h5py.File(data_filename, "w")
-        record_ids = [str(idx).encode("utf8") for idx in range(args.num_instances)]
-        root.create_dataset(constants.RECORD_IDS, data=record_ids)
-        root.create_dataset(constants.TARGETS, data=targets)
-        root.create_dataset(constants.STATIC, data=data)
-        # Temporal data: not used here, but add fields for demonstration
-        temporal = root.create_group(constants.TEMPORAL)
-        for record_id in record_ids:
-            temporal.create_dataset(record_id, data=[])
-        root.close()
-        return data_filename
+    Datasets:   /records/<record_id>/temporal (2-D array)
+                /records/<record_id>/static (1-D array)
+                /records/<record_id>/target (scalar)
+    """
+    data_filename = "%s/%s" % (args.output_dir, "data.hdf5")
+    root = h5py.File(data_filename, "w")
+    record_ids = [str(idx).encode("utf8") for idx in range(args.num_instances)]
+    root.create_dataset(constants.RECORD_IDS, data=record_ids)
+    root.create_dataset(constants.TARGETS, data=targets)
+    root.create_dataset(constants.STATIC, data=data)
+    # Temporal data: not used here, but add fields for demonstration
+    temporal = root.create_group(constants.TEMPORAL)
+    for record_id in record_ids:
+        temporal.create_dataset(record_id, data=[])
+    root.close()
+    return data_filename
 
-    def write_hierarchy():
-        """
-        Write hierarchy in CSV format.
 
-        Columns:    *name*:             feature name, must be unique across features
-                    *parent_name*:      name of parent if it exists, else '' (root node)
-                    *description*:      node description
-                    *static_indices*:   [only required for leaf nodes] list of tab-separated indices corresponding to the indices
-                                        of these features in the static data
-                    *temporal_indices*: [only required for leaf nodes] list of tab-separated indices corresponding to the indices
-                                        of these features in the temporal data
-        """
-        hierarchy_filename = "%s/%s" % (args.output_dir, "hierarchy.csv")
-        with open(hierarchy_filename, "w", newline="") as hierarchy_file:
-            writer = csv.writer(hierarchy_file, delimiter=",")
-            writer.writerow([constants.NODE_NAME, constants.PARENT_NAME,
-                             constants.DESCRIPTION, constants.STATIC_INDICES, constants.TEMPORAL_INDICES])
-            for node in anytree.PreOrderIter(hierarchy_root):
-                static_indices = node.static_indices if node.is_leaf else ""
-                parent_name = node.parent.name if node.parent else ""
-                writer.writerow([node.name, parent_name, node.description, static_indices, ""])
-        return hierarchy_filename
+def write_hierarchy(args, hierarchy_root):
+    """
+    Write hierarchy in CSV format.
 
-    def write_model():
-        """
-        Write model to file in output directory.
-        Write model_filename to config file in script directory.
-        gen_model.py uses config file to load model.
-        """
-        # Write model to file
-        model_filename = "%s/%s" % (args.output_dir, constants.MODEL_FILENAME)
-        np.save(model_filename, model)
-        # Write model_filename to config
-        gen_model_config_filename = "%s/%s" % (args.output_dir, constants.GEN_MODEL_CONFIG_FILENAME)
-        with open(gen_model_config_filename, "wb") as gen_model_config_file:
-            pickle.dump(model_filename, gen_model_config_file)
-            pickle.dump(args.noise_multiplier, gen_model_config_file)
-            pickle.dump(args.noise_type, gen_model_config_file)
-        # Write gen_model.py to output_dir
-        gen_model_filename = "%s/%s" % (args.output_dir, constants.GEN_MODEL_FILENAME)
-        gen_model_template_filename = "%s/%s" % (os.path.dirname(os.path.abspath(__file__)), constants.GEN_MODEL_TEMPLATE_FILENAME)
-        gen_model_file = open(gen_model_filename, "w")
-        with open(gen_model_template_filename, "r") as gen_model_template_file:
-            for line in gen_model_template_file:
-                line = line.replace(constants.GEN_MODEL_CONFIG_FILENAME_PLACEHOLDER, gen_model_config_filename)
-                gen_model_file.write(line)
-        gen_model_file.close()
-        return gen_model_filename
+    Columns:    *name*:             feature name, must be unique across features
+                *parent_name*:      name of parent if it exists, else '' (root node)
+                *description*:      node description
+                *static_indices*:   [only required for leaf nodes] list of tab-separated indices corresponding to the indices
+                                    of these features in the static data
+                *temporal_indices*: [only required for leaf nodes] list of tab-separated indices corresponding to the indices
+                                    of these features in the temporal data
+    """
+    hierarchy_filename = "%s/%s" % (args.output_dir, "hierarchy.csv")
+    with open(hierarchy_filename, "w", newline="") as hierarchy_file:
+        writer = csv.writer(hierarchy_file, delimiter=",")
+        writer.writerow([constants.NODE_NAME, constants.PARENT_NAME,
+                         constants.DESCRIPTION, constants.STATIC_INDICES, constants.TEMPORAL_INDICES])
+        for node in anytree.PreOrderIter(hierarchy_root):
+            static_indices = node.static_indices if node.is_leaf else ""
+            parent_name = node.parent.name if node.parent else ""
+            writer.writerow([node.name, parent_name, node.description, static_indices, ""])
+    return hierarchy_filename
 
-    args.logger.info("Begin writing simulation files")
-    data_filename = write_data()
-    hierarchy_filename = write_hierarchy()
-    gen_model_filename = write_model()
-    args.logger.info("End writing simulation files")
-    return data_filename, hierarchy_filename, gen_model_filename
+
+def write_model(args, sym_features, sym_noise, sym_model_fn):
+    """
+    Write model to file in output directory.
+    Write model_filename to config file in script directory.
+    gen_model.py uses config file to load model.
+    """
+    # Write model to file
+    model_filename = "%s/%s" % (args.output_dir, constants.MODEL_FILENAME)
+    with open(model_filename, "wb") as model_file:
+        pickle.dump(sym_features, model_file)
+        pickle.dump(sym_noise, model_file)
+        pickle.dump(sym_model_fn, model_file)
+    # Write model_filename to config
+    gen_model_config_filename = "%s/%s" % (args.output_dir, constants.GEN_MODEL_CONFIG_FILENAME)
+    with open(gen_model_config_filename, "wb") as gen_model_config_file:
+        pickle.dump(model_filename, gen_model_config_file)
+        pickle.dump(args.noise_multiplier, gen_model_config_file)
+        pickle.dump(args.noise_type, gen_model_config_file)
+    # Write gen_model.py to output_dir
+    gen_model_filename = "%s/%s" % (args.output_dir, constants.GEN_MODEL_FILENAME)
+    gen_model_template_filename = "%s/%s" % (os.path.dirname(os.path.abspath(__file__)), constants.GEN_MODEL_TEMPLATE_FILENAME)
+    gen_model_file = open(gen_model_filename, "w")
+    with open(gen_model_template_filename, "r") as gen_model_template_file:
+        for line in gen_model_template_file:
+            line = line.replace(constants.GEN_MODEL_CONFIG_FILENAME_PLACEHOLDER, gen_model_config_filename)
+            gen_model_file.write(line)
+    gen_model_file.close()
+    return gen_model_filename
 
 
 def run_mihifepe(args, data_filename, hierarchy_filename, gen_model_filename):

@@ -37,7 +37,8 @@ setup(
         "numpy~=1.15.0",
         "pyhashxx~=0.1.3",
         "scikit-learn~=0.19.2",
-        "scipy~=1.1.0"
+        "scipy~=1.1.0",
+        "sympy~=1.3"
     ],
     keywords="mihifepe",
     license="MIT",

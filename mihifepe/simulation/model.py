@@ -10,12 +10,15 @@ class Model():
     """Class implementing model API required by mihifepe"""
     # pylint: disable = too-few-public-methods, unused-argument
 
-    def __init__(self, poly_coeff, noise_multiplier, noise_type):
-        self.poly_coeff = poly_coeff
+    def __init__(self, model_fn, noise_multiplier, noise_type):
+        """Args:
+            model_fn: function that returns model prediction given input vector and noise
+            noise_multiplier: factor that determines amount of noise
+            noise_type: indicator for type of noise
+        """
+        self.model_fn = model_fn
         self.noise_multiplier = noise_multiplier
         self.noise_type = noise_type
-        self.dim = self.poly_coeff.shape[0]
-        self.irrelevant = np.logical_xor(self.poly_coeff, np.ones(self.dim))  # Zero-valued coefficients correspond to irrelevant features
 
     def predict(self, target, static_data, temporal_data):
         """
@@ -36,11 +39,11 @@ class Model():
         prg = np.random.RandomState(hashval)
         if self.noise_type == constants.EPSILON_IRRELEVANT:
             # Add noise - small random non-zero coefficients for irrelevant features
-            coeff = self.poly_coeff + self.noise_multiplier * prg.uniform(-1, 1, self.dim) * self.irrelevant
-            prediction = np.dot(static_data, coeff)
+            noise = self.noise_multiplier * prg.uniform(-1, 1, (static_data.size, 1))
+            prediction = self.model_fn(static_data, noise)[0]
         elif self.noise_type == constants.ADDITIVE_GAUSSIAN:
             # Add noise - additive Gaussian, sampled for every instance/perturbed instance
-            prediction = np.dot(static_data, self.poly_coeff) + prg.normal(0, self.noise_multiplier)
+            prediction = self.model_fn(static_data, prg.normal(0, self.noise_multiplier))[0]
         else:
             raise NotImplementedError("Unknown noise type")
         loss = np.sqrt(np.power(prediction - target, 2))  # RMSE

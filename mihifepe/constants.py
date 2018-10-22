@@ -53,7 +53,7 @@ TEMPORAL = "temporal"
 # Simulation
 RELEVANT = "relevant"
 IRRELEVANT = "irrelevant"
-MODEL_FILENAME = "model.npy"
+MODEL_FILENAME = "model.pkl"
 GEN_MODEL_TEMPLATE_FILENAME = "gen_model_template.py"
 GEN_MODEL_CONFIG_FILENAME = "gen_model_config.pkl"
 GEN_MODEL_CONFIG_FILENAME_PLACEHOLDER = "GEN_MODEL_CONFIG_FILENAME_PLACEHOLDER"
