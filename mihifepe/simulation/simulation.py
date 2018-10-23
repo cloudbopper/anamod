@@ -78,7 +78,7 @@ def pipeline(args):
     # TODO: Features other than binary
     args.logger.info("Begin mihifepe simulation with args: %s" % args)
     # Synthesize polynomial that generates ground truth
-    sym_features, sym_noise, relevant_feature_map, polynomial_fn, sym_model_fn = gen_polynomial(args)
+    sym_vars, relevant_feature_map, polynomial_fn = gen_polynomial(args)
     # Synthesize data
     probs, test_data, clustering_data = synthesize_data(args)
     # Generate hierarchy using clustering
@@ -90,7 +90,7 @@ def pipeline(args):
     # Write outputs - data, gen_model.py, hierarchy
     data_filename = write_data(args, test_data, targets)
     hierarchy_filename = write_hierarchy(args, hierarchy_root)
-    gen_model_filename = write_model(args, sym_features, sym_noise, sym_model_fn)
+    gen_model_filename = write_model(args, sym_vars)
     # Invoke feature importance algorithm
     run_mihifepe(args, data_filename, hierarchy_filename, gen_model_filename)
     # Compare mihifepe outputs with ground truth outputs
@@ -212,7 +212,7 @@ def gen_hierarchy_from_clusters(args, clusters):
 
 
 def gen_polynomial(args):
-    """Generate polynomial which decides the ground truth"""
+    """Generate polynomial which decides the ground truth and noisy model"""
     # TODO: higher powers, interaction terms, negative coefficients
     # Feature ids, symbols
     sym_features = sympy.MatrixSymbol("X", 1, args.num_features)
@@ -243,7 +243,8 @@ def gen_polynomial(args):
         sym_model_fn = sym_polynomial_fn + sym_noise
     else:
         raise NotImplementedError("Unknown noise type")
-    return sym_features, sym_noise, relevant_feature_map, polynomial_fn, sym_model_fn
+    sym_vars = (sym_features, sym_noise, sym_model_fn)
+    return sym_vars, relevant_feature_map, polynomial_fn
 
 
 def update_hierarchy_relevance(hierarchy_root, relevant_feature_map, probs):
@@ -322,7 +323,7 @@ def write_hierarchy(args, hierarchy_root):
     return hierarchy_filename
 
 
-def write_model(args, sym_features, sym_noise, sym_model_fn):
+def write_model(args, sym_vars):
     """
     Write model to file in output directory.
     Write model_filename to config file in script directory.
@@ -331,9 +332,7 @@ def write_model(args, sym_features, sym_noise, sym_model_fn):
     # Write model to file
     model_filename = "%s/%s" % (args.output_dir, constants.MODEL_FILENAME)
     with open(model_filename, "wb") as model_file:
-        pickle.dump(sym_features, model_file)
-        pickle.dump(sym_noise, model_file)
-        pickle.dump(sym_model_fn, model_file)
+        pickle.dump(sym_vars, model_file)
     # Write model_filename to config
     gen_model_config_filename = "%s/%s" % (args.output_dir, constants.GEN_MODEL_CONFIG_FILENAME)
     with open(gen_model_config_filename, "wb") as gen_model_config_file:

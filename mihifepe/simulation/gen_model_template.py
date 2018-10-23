@@ -15,9 +15,8 @@ with open(config_filename, "rb") as config_file:
     noise_type = pickle.load(config_file)
 
 with open(model_filename, "rb") as model_file:
-    x = pickle.load(model_file)
-    noise = pickle.load(model_file)
-    sym_model_fn = pickle.load(model_file)
+    sym_vars = pickle.load(model_file)
+    sym_features, sym_noise, sym_model_fn = sym_vars
 
-model_fn = lambdify([x, noise], sym_model_fn)
+model_fn = lambdify([sym_features, sym_noise], sym_model_fn)
 model = model.Model(model_fn, noise_multiplier, noise_type)
