@@ -3,6 +3,7 @@
 import argparse
 from collections import defaultdict, namedtuple
 import csv
+import functools
 import logging
 import os
 import pickle
@@ -12,6 +13,7 @@ import anytree
 from anytree.importer import JsonImporter
 import h5py
 import numpy as np
+from scipy.misc import comb
 from scipy.cluster.hierarchy import linkage
 import sympy
 from sympy.matrices import matrix_multiply_elementwise
@@ -44,7 +46,7 @@ def main():
     parser.add_argument("-clustering_instance_count", type=int, help="If provided, uses this number of instances to "
                         "cluster the data to generate a hierarchy, allowing the hierarchy to remain same across multiple "
                         "sets of instances", default=0)
-    parser.add_argument("-num_interactions", type=int, default=1, help="number of interaction pairs")
+    parser.add_argument("-num_interactions", type=int, default=0, help="number of interaction pairs")
     # Arguments passed to mihifepe
     parser.add_argument("-perturbation", default=constants.SHUFFLING, choices=[constants.ZEROING, constants.SHUFFLING])
     parser.add_argument("-num_shuffling_trials", type=int, default=100, help="Number of shuffling trials to average over, "
@@ -217,27 +219,20 @@ def gen_polynomial(args):
     # Feature ids, symbols
     sym_features = sympy.MatrixSymbol("X", 1, args.num_features)
     relevant_feature_map = defaultdict(lambda: 0)  # map of relevant feature tuples to coefficients
-    # Select individually relevant features
     num_relevant_features = max(1, round(args.num_features * args.fraction_relevant_features))
-    orderone_coefficients = np.zeros(args.num_features)
-    orderone_coefficients[:num_relevant_features] = 1
-    np.random.shuffle(orderone_coefficients)
-    relevant_ids = [idx for idx in range(args.num_features) if orderone_coefficients[idx]]
-    orderone_coefficients = np.multiply(orderone_coefficients, np.random.uniform(size=args.num_features))
-    for relevant_id in relevant_ids:
-        relevant_feature_map[(relevant_id)] = orderone_coefficients[relevant_id]
-    # Select interaction features
-    # Some interactions between individually relevant features
-    # Some interactions between individually irrelevant features
-    # Some pairwise interactions
-    # Some higher-order interactions
     # Generate polynomial expression
-    sym_polynomial_fn = sym_features * sympy.Matrix(orderone_coefficients)
+    # Order one terms
+    linear_coefficients = get_linear_terms(args, num_relevant_features, relevant_feature_map)
+    sym_polynomial_fn = sym_features * sympy.Matrix(linear_coefficients)
+    # Pairwise interactions
+    sym_polynomial_fn = update_quadratic_terms(args, num_relevant_features, relevant_feature_map,
+                                               sym_features, sym_polynomial_fn)
+    # Generate model expression
     polynomial_fn = lambdify(sym_features, sym_polynomial_fn)
     if args.noise_type == constants.EPSILON_IRRELEVANT:
         sym_noise = sympy.MatrixSymbol("noise", args.num_features, 1)
-        irrelevant_features = sympy.Matrix((orderone_coefficients == 0).astype(np.int64))
-        sym_model_fn = sym_polynomial_fn + sym_features * matrix_multiply_elementwise(sympy.Matrix(sym_noise), irrelevant_features)
+        sym_irrelevant_features = sympy.Matrix((linear_coefficients == 0).astype(np.int64))
+        sym_model_fn = sym_polynomial_fn + sym_features * matrix_multiply_elementwise(sympy.Matrix(sym_noise), sym_irrelevant_features)
     elif args.noise_type == constants.ADDITIVE_GAUSSIAN:
         sym_noise = sympy.MatrixSymbol("noise", 1, 1)
         sym_model_fn = sym_polynomial_fn + sym_noise
@@ -245,6 +240,37 @@ def gen_polynomial(args):
         raise NotImplementedError("Unknown noise type")
     sym_vars = (sym_features, sym_noise, sym_model_fn)
     return sym_vars, relevant_feature_map, polynomial_fn
+
+
+def get_linear_terms(args, num_relevant_features, relevant_feature_map):
+    """Order one terms for polynomial"""
+    coefficients = np.zeros(args.num_features)
+    coefficients[:num_relevant_features] = 1
+    np.random.shuffle(coefficients)
+    relevant_ids = [idx for idx in range(args.num_features) if coefficients[idx]]
+    coefficients = np.multiply(coefficients, np.random.uniform(size=args.num_features))
+    for relevant_id in relevant_ids:
+        relevant_feature_map[(relevant_id,)] = coefficients[relevant_id]
+    return coefficients
+
+
+def update_quadratic_terms(args, num_relevant_features, relevant_feature_map, sym_features, sym_polynomial_fn):
+    """Quadratic (pairwise interaction) terms for polynomial"""
+    # Some interactions between individually relevant features
+    # Some interactions between individually irrelevant features
+    # Some pairwise interactions
+    # Some higher-order interactions
+    num_interactions = min(args.num_interactions, num_relevant_features * (num_relevant_features - 1) / 2)
+    if not num_interactions:
+        return sym_polynomial_fn
+    relevant_ids = [x[0] for x in relevant_feature_map.keys()]
+    potential_pairs = comb(relevant_ids, 2)
+    interaction_pairs = np.random.choice(num_interactions, potential_pairs, replace=False)
+    for interaction_pair in interaction_pairs:
+        coefficient = np.random.uniform()
+        relevant_feature_map[tuple(interaction_pair)] = coefficient
+        sym_polynomial_fn += coefficient * functools.reduce(lambda sym_x, y: sym_x * sym_features[y], interaction_pair, 1)
+    return sym_polynomial_fn
 
 
 def update_hierarchy_relevance(hierarchy_root, relevant_feature_map, probs):
@@ -257,7 +283,7 @@ def update_hierarchy_relevance(hierarchy_root, relevant_feature_map, probs):
         node.description = constants.IRRELEVANT
         if node.is_leaf:
             idx = int(node.static_indices)
-            coeff = relevant_feature_map[(idx)]
+            coeff = relevant_feature_map[(idx,)]
             if coeff:
                 node.bin_prob = probs[idx]
                 node.poly_coeff = coeff
