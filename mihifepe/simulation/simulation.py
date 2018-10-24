@@ -1,9 +1,10 @@
 """Generates simulated data and model to test mihifepe algorithm"""
 
 import argparse
-from collections import defaultdict, namedtuple
+from collections import namedtuple
 import csv
 import functools
+import itertools
 import logging
 import os
 import pickle
@@ -13,10 +14,8 @@ import anytree
 from anytree.importer import JsonImporter
 import h5py
 import numpy as np
-from scipy.misc import comb
 from scipy.cluster.hierarchy import linkage
 import sympy
-from sympy.matrices import matrix_multiply_elementwise
 from sympy.utilities.lambdify import lambdify
 from sklearn.metrics import precision_recall_fscore_support
 
@@ -215,26 +214,23 @@ def gen_hierarchy_from_clusters(args, clusters):
 
 def gen_polynomial(args):
     """Generate polynomial which decides the ground truth and noisy model"""
-    # TODO: higher powers, interaction terms, negative coefficients
-    # Feature ids, symbols
-    sym_features = sympy.MatrixSymbol("X", 1, args.num_features)
-    relevant_feature_map = defaultdict(lambda: 0)  # map of relevant feature tuples to coefficients
+    # Note: using sympy to build function appears to be 1.5-2x slower than erstwhile raw numpy implementation (for linear terms)
+    sym_features = sympy.symbols(["x%d" % x for x in range(args.num_features)])
+    relevant_feature_map = {} # map of relevant feature tuples to coefficients
     num_relevant_features = max(1, round(args.num_features * args.fraction_relevant_features))
     # Generate polynomial expression
     # Order one terms
-    linear_coefficients = get_linear_terms(args, num_relevant_features, relevant_feature_map)
-    sym_polynomial_fn = sym_features * sympy.Matrix(linear_coefficients)
+    sym_polynomial_fn = update_linear_terms(args, num_relevant_features, relevant_feature_map, sym_features)
+    irrelevant_features = np.array([0 if (x,) in relevant_feature_map else 1 for x in range(args.num_features)])
     # Pairwise interactions
-    sym_polynomial_fn = update_quadratic_terms(args, num_relevant_features, relevant_feature_map,
-                                               sym_features, sym_polynomial_fn)
+    sym_polynomial_fn = update_quadratic_terms(args, num_relevant_features, relevant_feature_map, sym_features, sym_polynomial_fn)
     # Generate model expression
-    polynomial_fn = lambdify(sym_features, sym_polynomial_fn)
+    polynomial_fn = lambdify([sym_features], sym_polynomial_fn, "numpy")
     if args.noise_type == constants.EPSILON_IRRELEVANT:
-        sym_noise = sympy.MatrixSymbol("noise", args.num_features, 1)
-        sym_irrelevant_features = sympy.Matrix((linear_coefficients == 0).astype(np.int64))
-        sym_model_fn = sym_polynomial_fn + sym_features * matrix_multiply_elementwise(sympy.Matrix(sym_noise), sym_irrelevant_features)
+        sym_noise = sympy.symbols(["noise%d" % x for x in range(args.num_features)])
+        sym_model_fn = sym_polynomial_fn + (sym_noise * irrelevant_features).dot(sym_features)
     elif args.noise_type == constants.ADDITIVE_GAUSSIAN:
-        sym_noise = sympy.MatrixSymbol("noise", 1, 1)
+        sym_noise = sympy.symbols("noise")
         sym_model_fn = sym_polynomial_fn + sym_noise
     else:
         raise NotImplementedError("Unknown noise type")
@@ -242,7 +238,7 @@ def gen_polynomial(args):
     return sym_vars, relevant_feature_map, polynomial_fn
 
 
-def get_linear_terms(args, num_relevant_features, relevant_feature_map):
+def update_linear_terms(args, num_relevant_features, relevant_feature_map, sym_features):
     """Order one terms for polynomial"""
     coefficients = np.zeros(args.num_features)
     coefficients[:num_relevant_features] = 1
@@ -251,7 +247,8 @@ def get_linear_terms(args, num_relevant_features, relevant_feature_map):
     coefficients = np.multiply(coefficients, np.random.uniform(size=args.num_features))
     for relevant_id in relevant_ids:
         relevant_feature_map[(relevant_id,)] = coefficients[relevant_id]
-    return coefficients
+    sym_polynomial_fn = coefficients.dot(sym_features)
+    return sym_polynomial_fn
 
 
 def update_quadratic_terms(args, num_relevant_features, relevant_feature_map, sym_features, sym_polynomial_fn):
@@ -264,8 +261,10 @@ def update_quadratic_terms(args, num_relevant_features, relevant_feature_map, sy
     if not num_interactions:
         return sym_polynomial_fn
     relevant_ids = [x[0] for x in relevant_feature_map.keys()]
-    potential_pairs = comb(relevant_ids, 2)
-    interaction_pairs = np.random.choice(num_interactions, potential_pairs, replace=False)
+    potential_pairs = list(itertools.combinations(relevant_ids, 2))
+    potential_pairs_arr = np.empty(len(potential_pairs), dtype=np.object)
+    potential_pairs_arr[:] = potential_pairs
+    interaction_pairs = np.random.choice(potential_pairs_arr, size=num_interactions, replace=False)
     for interaction_pair in interaction_pairs:
         coefficient = np.random.uniform()
         relevant_feature_map[tuple(interaction_pair)] = coefficient
@@ -283,7 +282,7 @@ def update_hierarchy_relevance(hierarchy_root, relevant_feature_map, probs):
         node.description = constants.IRRELEVANT
         if node.is_leaf:
             idx = int(node.static_indices)
-            coeff = relevant_feature_map[(idx,)]
+            coeff = relevant_feature_map.get((idx,))
             if coeff:
                 node.bin_prob = probs[idx]
                 node.poly_coeff = coeff
@@ -297,7 +296,7 @@ def update_hierarchy_relevance(hierarchy_root, relevant_feature_map, probs):
 
 def gen_targets(polynomial_fn, data):
     """Generate targets (ground truth) from polynomial"""
-    return [polynomial_fn(instance)[0] for instance in data]  # [0] since return type is 1x1 matrix
+    return [polynomial_fn(instance) for instance in data]
 
 
 def write_data(args, data, targets):

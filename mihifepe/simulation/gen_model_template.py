@@ -18,5 +18,5 @@ with open(model_filename, "rb") as model_file:
     sym_vars = pickle.load(model_file)
     sym_features, sym_noise, sym_model_fn = sym_vars
 
-model_fn = lambdify([sym_features, sym_noise], sym_model_fn)
+model_fn = lambdify([sym_features, sym_noise], sym_model_fn, "numpy")
 model = model.Model(model_fn, noise_multiplier, noise_type)

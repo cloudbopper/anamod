@@ -39,11 +39,11 @@ class Model():
         prg = np.random.RandomState(hashval)
         if self.noise_type == constants.EPSILON_IRRELEVANT:
             # Add noise - small random non-zero coefficients for irrelevant features
-            noise = self.noise_multiplier * prg.uniform(-1, 1, (static_data.size, 1))
-            prediction = self.model_fn(static_data, noise)[0]
+            noise = self.noise_multiplier * prg.uniform(-1, 1, static_data.size)
+            prediction = self.model_fn(static_data, noise)
         elif self.noise_type == constants.ADDITIVE_GAUSSIAN:
             # Add noise - additive Gaussian, sampled for every instance/perturbed instance
-            prediction = self.model_fn(static_data, prg.normal(0, self.noise_multiplier))[0]
+            prediction = self.model_fn(static_data, prg.normal(0, self.noise_multiplier))
         else:
             raise NotImplementedError("Unknown noise type")
         loss = np.sqrt(np.power(prediction - target, 2))  # RMSE
