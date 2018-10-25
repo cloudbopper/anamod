@@ -1,0 +1,59 @@
+0,[0-5] (size: 4),irrelevant,,0.03702,0.5
+
+1,[1-4] (size: 3),"relevant feature:
+
+11,[11-16] (size: 4),irrelevant,,0.04056100000000001,0.007762511591226512
+
+12,[12-15] (size: 3),irrelevant,,0.02902,0.0006967078354495397
+
+13,[13-14] (size: 2),"relevant feature:
+
+14,[13-14] (size: 2),irrelevant,,0.030427,0.024261752315556218
+
+2,[2-3] (size: 2),"relevant feature:
+
+3,[2-3] (size: 2),irrelevant,,0.035897,0.37950313426419857
+
+7,[7-8] (size: 2),"relevant feature:
+
+8,[7-8] (size: 2),"relevant feature:
+
+Binomial probability: 0.065287",,0.050569,0.09072460386071024
+
+Binomial probability: 0.079645",,0.055172000000000006,0.004575844426325035
+
+Binomial probability: 0.428122",,0.077468,5.576702858672402e-09
+
+Binomial probability: 0.494237",,0.321998,3.8124999279330317e-10
+
+Binomial probability: 0.853975",,0.17351000000000003,3.978914107092362e-16
+
+Polynomial coefficient: 0.134580
+
+Polynomial coefficient: 0.204649
+
+Polynomial coefficient: 0.266827
+
+Polynomial coefficient: 0.529142
+
+Polynomial coefficient: 0.619271
+
+[0-17] (size: 10),,relevant,,0.5833740000000001,4.5681406386200995e-18
+
+[0-5] (size: 4),[0-9] (size: 6),relevant,,0.068951,0.004162821316889711
+
+[0-9] (size: 6),[0-17] (size: 10),relevant,,0.430214,2.0520359514670098e-14
+
+[1-4] (size: 3),[0-5] (size: 4),relevant,,0.070249,0.0004147926593229582
+
+[11-16] (size: 4),[0-17] (size: 10),relevant,,0.17453700000000003,4.194187436825044e-17
+
+[12-15] (size: 3),[11-16] (size: 4),relevant,,0.17218400000000003,1.82114734522608e-17
+
+[13-14] (size: 2),[12-15] (size: 3),relevant,,0.175105,1.7426931019300924e-17
+
+[2-3] (size: 2),[1-4] (size: 3),relevant,,0.050293000000000004,0.03849290573548111
+
+[7-8] (size: 2),[0-9] (size: 6),relevant,,0.3848680000000001,2.616545409571414e-13
+
+name,parent_name,description,effect_size,mean_loss,p-value-losses
