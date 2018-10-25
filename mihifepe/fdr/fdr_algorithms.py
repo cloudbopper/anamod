@@ -3,7 +3,7 @@
 
 import sys
 
-from ..constants import POSITIVE
+from mihifepe.constants import POSITIVE
 
 
 def num_rejections(args, F, d, total_rejected):

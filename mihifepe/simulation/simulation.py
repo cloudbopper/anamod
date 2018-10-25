@@ -19,7 +19,7 @@ import sympy
 from sympy.utilities.lambdify import lambdify
 from sklearn.metrics import precision_recall_fscore_support
 
-from .. import constants
+from mihifepe import constants
 
 # TODO maybe: write arguments to separate readme.txt for documentating runs
 

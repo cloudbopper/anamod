@@ -2,7 +2,7 @@
 
 import anytree
 
-from . import constants
+from mihifepe import constants
 
 
 class Feature(anytree.Node):

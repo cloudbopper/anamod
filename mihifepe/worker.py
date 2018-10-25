@@ -15,8 +15,8 @@ import sys
 import h5py
 import numpy as np
 
-from . import constants
-from .feature import Feature
+from mihifepe import constants
+from mihifepe.feature import Feature
 
 
 def main():

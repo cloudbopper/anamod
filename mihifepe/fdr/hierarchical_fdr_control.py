@@ -11,8 +11,8 @@ import anytree
 from anytree.exporter import DotExporter
 from anytree.exporter import JsonExporter
 
-from .. import constants
-from .fdr_algorithms import hierarchical_fdr_control
+from mihifepe import constants
+from mihifepe.fdr.fdr_algorithms import hierarchical_fdr_control
 
 # pylint: disable = invalid-name
 

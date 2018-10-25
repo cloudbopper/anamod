@@ -4,7 +4,7 @@ import numpy as np
 from numpy import asarray, compress, sqrt
 from scipy.stats import find_repeats, rankdata, norm, ttest_rel
 
-from . import constants
+from mihifepe import constants
 
 
 def compute_p_value(baseline, perturbed, test=constants.WILCOXON_TEST):
