@@ -92,6 +92,12 @@ Ready to contribute? Here's how to set up `mihifepe` for local development.
 
         pytest tests/condor_tests
 
+   If regression tests fail because the new data is correct, you can use the --force-regen flag to update
+   the expected file (see pytest-regressions_)::
+
+        pytest --force-regen
+
+.. _pytest-regressions: https://pytest-regressions.readthedocs.io/en/latest/
 .. _pyenv: https://github.com/pyenv/pyenv
 .. _HTCondor: https://research.cs.wisc.edu/htcondor/
 
