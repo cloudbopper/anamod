@@ -83,7 +83,17 @@ Ready to contribute? Here's how to set up `mihifepe` for local development.
 
    You may use pyenv_ to install and test with multiple python versions.
 
+   While testing with a specific python version, you may invoke the tests as follows::
+
+        pytest
+
+   If the change affects the distributed (HTCondor_) implementation, you should also run condor tests in an
+   environment that supports condor with a shared filesystem (these tests are disabled by default)::
+
+        pytest tests/condor_tests
+
 .. _pyenv: https://github.com/pyenv/pyenv
+.. _HTCondor: https://research.cs.wisc.edu/htcondor/
 
 6. Commit your changes and push your branch to GitHub::
 
@@ -113,7 +123,7 @@ Tips
 
 To run a subset of tests::
 
-    py.test tests.test_mihifepe
+    pytest tests.test_mihifepe
 
 To run pylint::
 
