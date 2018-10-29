@@ -41,7 +41,7 @@ WILCOXON_TEST = "wilcoxon-test"
 PVALUES_FILENAME = "pvalues.csv"
 LESS = "less"
 GREATER = "greater"
-BOTH = "both"
+TWOSIDED = "two-sided"
 
 # Interactions
 INTERACTIONS_PVALUES_FILENAME = "interaction_pvalues.csv"

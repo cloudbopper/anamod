@@ -49,6 +49,8 @@ class Model():
         loss = self.loss(prediction, target)
         return (loss, prediction)
 
-    def loss(self, prediction, target):
+    @staticmethod
+    def loss(prediction, target):
         """Compute RMSE"""
-        return np.sqrt(np.power(prediction - target, 2))
+        # Single-sample RMSE is just the absolute value
+        return np.abs(prediction - target)

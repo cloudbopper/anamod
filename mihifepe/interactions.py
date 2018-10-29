@@ -9,13 +9,12 @@ from anytree.importer import JsonImporter
 from mihifepe.compute_p_values import compute_p_value
 from mihifepe import constants
 from mihifepe.feature import Feature
-from mihifepe.pipelines import CondorPipeline, SerialPipeline, round_vector
+from mihifepe.pipelines import CondorPipeline, SerialPipeline, round_vectordict, round_vector
+from mihifepe.worker import load_model
 
-def analyze_interactions(args, logger, feature_nodes, predictions):
+def analyze_interactions(args, logger, feature_nodes, targets, predictions):
     """Analyzes pairwise interactions among (relevant) features"""
     logger.info("Begin analyzing interactions")
-    # TODO: decide if using predictions or losses for analyzing interactions
-    # (losses require some additional computation & unraveling of the black box)
     if args.analyze_all_pairwise_interactions:
         None # TODO
     # Load post-hierarchical FDR tree
@@ -28,9 +27,9 @@ def analyze_interactions(args, logger, feature_nodes, predictions):
     # Transform into nodes for testing
     interaction_nodes = get_interaction_nodes(potential_interactions)
     # Perturb interaction nodes
-    interaction_predictions = perturb_interaction_nodes(args, logger, interaction_nodes)
+    interaction_losses = perturb_interaction_nodes(args, logger, interaction_nodes)
     # Compute p-values
-    compute_p_values(args, interaction_predictions, predictions)
+    compute_p_values(args, logger, interaction_losses, targets, predictions)
     # Perform BH procedure on interaction p-values
     bh_procedure(args, logger)
     logger.info("End analyzing interactions")
@@ -47,39 +46,41 @@ def bh_procedure(args, logger):
     subprocess.check_call(cmd, shell=True)
 
 
-def compute_p_values(args, interaction_predictions, predictions):
+def compute_p_values(args, logger, interaction_losses, targets, predictions):
     """Computes p-values for assessing interaction significance"""
     # TODO: handle non-identity transfer function
+    model = load_model(logger, args.model_generator_filename)
+    interaction_losses = round_vectordict(interaction_losses)
     outfile = open("%s/%s" % (args.output_dir, constants.INTERACTIONS_PVALUES_FILENAME), "w", newline="")
     writer = csv.writer(outfile, delimiter=",")
     # Construct two-level hierarchy with dummy root node and interactions as its children
     # Leverages existing hierarchical FDR code to perform BH procedure on interactions
     # TODO: Directly use BH procedure
-    # TODO: If continuing to use predictions, change output file headers to match
     # TODO: Verify this approach works for shuffling perturbations, since shuffling randomization may
     # be different when A and B perturbed together vs. when A and B perturbed separately
     writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.DESCRIPTION, constants.EFFECT_SIZE,
                      constants.MEAN_LOSS, constants.PVALUE_LOSSES])
     writer.writerow([constants.DUMMY_ROOT, "", "", "", "", 0.])
     baseline_prediction = predictions[constants.BASELINE]
-    for name in interaction_predictions.keys():
+    for name in interaction_losses.keys():
         left, right = name.split(" + ")
-        lhs = round_vector(interaction_predictions[name])
-        rhs = round_vector(predictions[left] + predictions[right] - baseline_prediction)
-        pvalue = compute_p_value(lhs, rhs, test=constants.PAIRED_TTEST)
+        lhs = interaction_losses[name]
+        # TODO: Handle non-vectorized model.loss implementation
+        rhs = round_vector(model.loss(predictions[left] + predictions[right] - baseline_prediction, targets))
+        pvalue = compute_p_value(lhs, rhs, alternative=constants.TWOSIDED)
         writer.writerow([name, constants.DUMMY_ROOT, "", "", "", pvalue])
     outfile.close()
 
 
 def perturb_interaction_nodes(args, logger, interaction_nodes):
-    """Perturb interaction nodes, observe effect on model predictions/loss and aggregate results"""
+    """Perturb interaction nodes, observe effect on model loss and aggregate results"""
     logger.info("Begin perturbing interaction nodes")
     worker_pipeline = SerialPipeline(args, logger, interaction_nodes)
     if args.condor:
         worker_pipeline = CondorPipeline(args, logger, interaction_nodes)
-    _, _, interaction_predictions = worker_pipeline.run()
+    _, interaction_losses, _ = worker_pipeline.run()
     logger.info("End perturbing interaction nodes")
-    return interaction_predictions
+    return interaction_losses
 
 
 def get_interaction_nodes(potential_interactions):
