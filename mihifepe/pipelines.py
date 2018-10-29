@@ -310,6 +310,7 @@ def round_vectordict(vectordict):
     """Round dictionary of vectors to 4 decimals to avoid floating-point errors"""
     return {key: round_vector(value) for (key, value) in vectordict.items()}
 
+
 def round_vector(vector):
     """Round vector to 4 decimals to avoid floating-point errors"""
     return np.around(vector, decimals=4)

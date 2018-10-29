@@ -59,7 +59,6 @@ def wilcoxon_test(x, y, alternative):
 
     if alternative == constants.LESS:
         return norm.cdf(z)
-    elif alternative == constants.GREATER:
+    if alternative == constants.GREATER:
         return norm.sf(z)
-    else:
-        return 2 * min(norm.cdf(z), norm.sf(z))  # two-sided
+    return 2 * min(norm.cdf(z), norm.sf(z))  # two-sided

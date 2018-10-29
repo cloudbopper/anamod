@@ -12,11 +12,11 @@ from mihifepe.feature import Feature
 from mihifepe.pipelines import CondorPipeline, SerialPipeline, round_vectordict, round_vector
 from mihifepe.worker import load_model
 
+
 def analyze_interactions(args, logger, feature_nodes, targets, predictions):
     """Analyzes pairwise interactions among (relevant) features"""
     logger.info("Begin analyzing interactions")
-    if args.analyze_all_pairwise_interactions:
-        None # TODO
+    # TODO: if args.analyze_all_pairwise_interactions:
     # Load post-hierarchical FDR tree
     fdr_tree_node_map = get_fdr_tree_node_map(args)
     # Identify relevant features and feature pairs
@@ -97,7 +97,7 @@ def get_interaction_nodes(potential_interactions):
 def get_relevant_features(feature_nodes, fdr_tree_node_map):
     """Identify relevant features and feature pairs"""
     relevant_feature_nodes = []
-    relevant_pair_map = {} # map of relevant feature pair names to nodes
+    relevant_pair_map = {}  # map of relevant feature pair names to nodes
     for node in feature_nodes:
         name = node.name
         if name == constants.BASELINE or not fdr_tree_node_map[name].rejected:

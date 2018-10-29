@@ -217,7 +217,7 @@ def gen_polynomial(args):
     """Generate polynomial which decides the ground truth and noisy model"""
     # Note: using sympy to build function appears to be 1.5-2x slower than erstwhile raw numpy implementation (for linear terms)
     sym_features = sympy.symbols(["x%d" % x for x in range(args.num_features)])
-    relevant_feature_map = {} # map of relevant feature tuples to coefficients
+    relevant_feature_map = {}  # map of relevant feature tuples to coefficients
     num_relevant_features = max(1, round(args.num_features * args.fraction_relevant_features))
     # Generate polynomial expression
     # Order one terms
