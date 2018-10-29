@@ -10,6 +10,7 @@ import subprocess
 import time
 
 import h5py
+import numpy as np
 
 from mihifepe import constants, worker
 from mihifepe.feature import Feature
@@ -303,3 +304,12 @@ class CondorPipeline():
         targets, losses, predictions = self.compile_results()
         self.logger.info("End condor pipeline")
         return targets, losses, predictions
+
+
+def round_vectordict(vectordict):
+    """Round dictionary of vectors to 4 decimals to avoid floating-point errors"""
+    return {key: round_vector(value) for (key, value) in vectordict.items()}
+
+def round_vector(vector):
+    """Round vector to 4 decimals to avoid floating-point errors"""
+    return np.around(vector, decimals=4)

@@ -7,7 +7,7 @@ from scipy.stats import find_repeats, rankdata, norm, ttest_rel
 from mihifepe import constants
 
 
-def compute_p_value(baseline, perturbed, test=constants.WILCOXON_TEST):
+def compute_p_value(baseline, perturbed, test=constants.WILCOXON_TEST, alternative=constants.LESS):
     """Compute p-value using paired difference test on input numpy arrays"""
     valid_tests = [constants.PAIRED_TTEST, constants.WILCOXON_TEST]
     assert test in valid_tests, "Invalid test name %s" % test
@@ -15,10 +15,10 @@ def compute_p_value(baseline, perturbed, test=constants.WILCOXON_TEST):
         # Two-tailed paired t-test
         return ttest_rel(baseline, perturbed)[1]
     # One-tailed Wilcoxon signed-rank test
-    return wilcoxon_test(baseline, perturbed, alternative="less")
+    return wilcoxon_test(baseline, perturbed, alternative=alternative)
 
 
-def wilcoxon_test(x, y, alternative=constants.LESS):
+def wilcoxon_test(x, y, alternative):
     """
     One-sided Wilcoxon signed-rank test derived from Scipy's two-sided test
     Returns p-value

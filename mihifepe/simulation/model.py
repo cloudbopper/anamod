@@ -46,5 +46,9 @@ class Model():
             prediction = self.model_fn(static_data, prg.normal(0, self.noise_multiplier))
         else:
             raise NotImplementedError("Unknown noise type")
-        loss = np.sqrt(np.power(prediction - target, 2))  # RMSE
+        loss = self.loss(prediction, target)
         return (loss, prediction)
+
+    def loss(self, prediction, target):
+        """Compute RMSE"""
+        return np.sqrt(np.power(prediction - target, 2))

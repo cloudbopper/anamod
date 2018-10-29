@@ -41,6 +41,12 @@ WILCOXON_TEST = "wilcoxon-test"
 PVALUES_FILENAME = "pvalues.csv"
 LESS = "less"
 GREATER = "greater"
+BOTH = "both"
+
+# Interactions
+INTERACTIONS_PVALUES_FILENAME = "interaction_pvalues.csv"
+DUMMY_ROOT = "dummy_root"
+INTERACTIONS_FDR_DIR = "interaction_fdr_results"
 
 # HDF5
 LOSSES = "losses"

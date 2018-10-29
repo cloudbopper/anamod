@@ -45,7 +45,6 @@ def main():
     parser.add_argument("-clustering_instance_count", type=int, help="If provided, uses this number of instances to "
                         "cluster the data to generate a hierarchy, allowing the hierarchy to remain same across multiple "
                         "sets of instances", default=0)
-    parser.add_argument("-num_interactions", type=int, default=0, help="number of interaction pairs")
     # Arguments passed to mihifepe
     parser.add_argument("-perturbation", default=constants.SHUFFLING, choices=[constants.ZEROING, constants.SHUFFLING])
     parser.add_argument("-num_shuffling_trials", type=int, default=100, help="Number of shuffling trials to average over, "
@@ -57,6 +56,8 @@ def main():
     parser.add_argument("-features_per_worker", type=int, default=10, help="worker load")
     parser.add_argument("-eviction_timeout", type=int, default=7200)
     parser.add_argument("-idle_timeout", type=int, default=7200)
+    parser.add_argument("-analyze_interactions", help="enable analyzing interactions", action="store_true")
+    parser.add_argument("-num_interactions", type=int, default=0, help="number of interaction pairs in model")
 
     args = parser.parse_args()
     if not args.output_dir:
@@ -224,6 +225,7 @@ def gen_polynomial(args):
     irrelevant_features = np.array([0 if (x,) in relevant_feature_map else 1 for x in range(args.num_features)])
     # Pairwise interactions
     sym_polynomial_fn = update_quadratic_terms(args, num_relevant_features, relevant_feature_map, sym_features, sym_polynomial_fn)
+    args.logger.info("Ground truth polynomial:\ny = %s" % sym_polynomial_fn)
     # Generate model expression
     polynomial_fn = lambdify([sym_features], sym_polynomial_fn, "numpy")
     if args.noise_type == constants.EPSILON_IRRELEVANT:
@@ -380,14 +382,15 @@ def run_mihifepe(args, data_filename, hierarchy_filename, gen_model_filename):
     """Run mihifepe algorithm"""
     args.logger.info("Begin running mihifepe")
     condor_val = "-condor" if args.condor else "-no-condor"
+    analyze_interactions = "-analyze_interactions" if args.analyze_interactions else ""
     # Compute approximate memory requirement in GB
     memory_requirement = 1 + (os.stat(data_filename).st_size // (2 ** 30))
     cmd = ("python -m mihifepe.master -data_filename '%s' -hierarchy_filename '%s' -model_generator_filename '%s' -output_dir '%s' "
            "-perturbation %s -num_shuffling_trials %d %s -features_per_worker %d -memory_requirement %d "
-           "-eviction_timeout %d -idle_timeout %d"
+           "-eviction_timeout %d -idle_timeout %d %s"
            % (data_filename, hierarchy_filename, gen_model_filename, args.output_dir,
               args.perturbation, args.num_shuffling_trials, condor_val, args.features_per_worker, memory_requirement,
-              args.eviction_timeout, args.idle_timeout))
+              args.eviction_timeout, args.idle_timeout, analyze_interactions))
     args.logger.info("Running cmd: %s" % cmd)
     subprocess.check_call(cmd, shell=True)
     args.logger.info("End running mihifepe")

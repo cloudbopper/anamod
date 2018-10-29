@@ -15,10 +15,11 @@ import anytree
 import numpy as np
 from sklearn.metrics import roc_auc_score
 
-from mihifepe import constants
 from mihifepe.compute_p_values import compute_p_value
+from mihifepe import constants
 from mihifepe.feature import Feature
-from mihifepe.pipelines import SerialPipeline, CondorPipeline
+from mihifepe.interactions import analyze_interactions
+from mihifepe.pipelines import CondorPipeline, SerialPipeline, round_vectordict
 
 
 def main():
@@ -52,6 +53,11 @@ def main():
     parser.add_argument("-model_type", default=constants.REGRESSION,
                         help="Model type - output includes perturbed AUROCs for binary classifiers",
                         choices=[constants.BINARY_CLASSIFIER, constants.CLASSIFIER, constants.REGRESSION],)
+    parser.add_argument("-analyze_interactions", help="flag to enable testing interaction significance",
+                        action="store_true")
+    parser.add_argument("-analyze_all_pairwise_interactions", help="analyze all pairwise interactions, "
+                        "instead of just pairwise interactions of features identified by hierarchical FDR",
+                        action="store_true")
 
     args = parser.parse_args()
 
@@ -74,10 +80,12 @@ def pipeline(args, logger):
     # Perturb features
     targets, losses, predictions = perturb_features(args, logger, feature_nodes)
     # Compute p-values
-    losses, predictions = round_vectors(losses, predictions)
     compute_p_values(args, hierarchy_root, targets, losses, predictions)
     # Run hierarchical FDR
     hierarchical_fdr(args, logger)
+    # Analyze pairwise interactions
+    if args.analyze_interactions:
+        analyze_interactions(args, logger, feature_nodes, predictions)
     logger.info("End mihifepe master pipeline")
 
 
@@ -169,21 +177,11 @@ def perturb_features(args, logger, feature_nodes):
     return worker_pipeline.run()
 
 
-def round_vectors(losses, predictions):
-    """Round to 4 decimals to avoid floating-point errors"""
-
-    def round_vectordict(vectordict):
-        """Round dictionary of vectors"""
-        return {key: np.around(value, decimals=4) for (key, value) in vectordict.items()}
-
-    losses = round_vectordict(losses)
-    predictions = round_vectordict(predictions)
-    return losses, predictions
-
-
 def compute_p_values(args, hierarchy_root, targets, losses, predictions):
     """Evaluates and compares different feature erasures"""
     # pylint: disable = too-many-locals
+    losses = round_vectordict(losses)
+    predictions = round_vectordict(predictions)
     outfile = open("%s/%s" % (args.output_dir, constants.PVALUES_FILENAME), "w", newline="")
     writer = csv.writer(outfile, delimiter=",")
     writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.DESCRIPTION, constants.EFFECT_SIZE,
