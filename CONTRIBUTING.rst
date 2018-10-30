@@ -90,12 +90,15 @@ Ready to contribute? Here's how to set up `mihifepe` for local development.
    If the change affects the distributed (HTCondor_) implementation, you should also run condor tests in an
    environment that supports condor with a shared filesystem (these tests are disabled by default)::
 
-        pytest tests/condor_tests
+        pytest --basetemp=condor_test_outputs tests/condor_tests
 
    If regression tests fail because the new data is correct, you can use the --force-regen flag to update
    the expected file (see pytest-regressions_)::
 
         pytest --force-regen
+
+   Note: Mosts regression tests perform two comparisons - the output p-values and the FDR output, so the tests
+   must be run with the --force-regen flag twice to update both the expected output files.
 
 .. _pytest-regressions: https://pytest-regressions.readthedocs.io/en/latest/
 .. _pyenv: https://github.com/pyenv/pyenv
