@@ -3,6 +3,7 @@
 import copy
 import csv
 from datetime import datetime
+import glob
 import os
 import pickle
 import re
@@ -247,7 +248,12 @@ class CondorPipeline():
 
         if os.path.isfile(kill_filename):
             os.remove(kill_filename)
-        self.logger.info("All workers completed running successfully")
+        self.logger.info("All workers completed running successfully, cleaning up condor files")
+        condor_filetypes = ["err*", "out*", "log*", "args*", "condor_task*"]
+        for filetype in condor_filetypes:
+            for filename in glob.glob("%s/%s" % (self.master_args.output_dir, filetype)):
+                os.remove(filename)
+        self.logger.info("Completed condor file cleanup")
 
     def create_tasks(self):
         """Create condor task setup"""
