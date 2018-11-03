@@ -37,7 +37,10 @@ class SerialPipeline():
             # Run worker pipeline
             worker.pipeline(self.args, self.logger)
         # Aggregate results
-        return condor_helper.compile_results()
+        results = condor_helper.compile_results()
+        if self.args.cleanup:
+            condor_helper.cleanup()
+        return results
 
 
 class CondorPipeline():
@@ -249,11 +252,6 @@ class CondorPipeline():
         if os.path.isfile(kill_filename):
             os.remove(kill_filename)
         self.logger.info("All workers completed running successfully, cleaning up condor files")
-        condor_filetypes = ["err*", "out*", "log*", "args*", "condor_task*"]
-        for filetype in condor_filetypes:
-            for filename in glob.glob("%s/%s" % (self.master_args.output_dir, filetype)):
-                os.remove(filename)
-        self.logger.info("Completed condor file cleanup")
 
     def create_tasks(self):
         """Create condor task setup"""
@@ -300,6 +298,15 @@ class CondorPipeline():
         assert targets is not None
         return targets, all_losses, all_predictions
 
+    def cleanup(self):
+        """Clean files after completion"""
+        self.logger.info("Begin file cleanup")
+        filetypes = ["err*", "out*", "log*", "args*", "condor_task*", "results*", "features*", "worker*"]
+        for filetype in filetypes:
+            for filename in glob.glob("%s/%s" % (self.master_args.output_dir, filetype)):
+                os.remove(filename)
+        self.logger.info("End file cleanup")
+
     def run(self):
         """Run condor pipeline"""
         self.logger.info("Begin condor pipeline")
@@ -308,6 +315,8 @@ class CondorPipeline():
             self.launch_tasks(tasks)
             self.monitor_tasks(tasks)
         targets, losses, predictions = self.compile_results()
+        if self.master_args.cleanup:
+            self.cleanup()
         self.logger.info("End condor pipeline")
         return targets, losses, predictions
 

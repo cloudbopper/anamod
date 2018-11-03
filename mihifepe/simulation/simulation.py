@@ -390,7 +390,7 @@ def run_mihifepe(args, data_filename, hierarchy_filename, gen_model_filename):
     memory_requirement = 1 + (os.stat(data_filename).st_size // (2 ** 30))
     cmd = ("python -m mihifepe.master -data_filename '%s' -hierarchy_filename '%s' -model_generator_filename '%s' -output_dir '%s' "
            "-perturbation %s -num_shuffling_trials %d %s -features_per_worker %d -memory_requirement %d "
-           "-eviction_timeout %d -idle_timeout %d %s"
+           "-eviction_timeout %d -idle_timeout %d -cleanup %s"
            % (data_filename, hierarchy_filename, gen_model_filename, args.output_dir,
               args.perturbation, args.num_shuffling_trials, condor_val, args.features_per_worker, memory_requirement,
               args.eviction_timeout, args.idle_timeout, analyze_interactions))

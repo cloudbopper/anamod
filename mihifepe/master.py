@@ -58,6 +58,7 @@ def main():
     parser.add_argument("-analyze_all_pairwise_interactions", help="analyze all pairwise interactions, "
                         "instead of just pairwise interactions of features identified by hierarchical FDR",
                         action="store_true")
+    parser.add_argument("-cleanup", action="store_true", help="flag to remove intermediate files after completion to clear space")
 
     args = parser.parse_args()
 
