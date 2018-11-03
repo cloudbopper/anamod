@@ -21,7 +21,7 @@ def main():
     parser.add_argument("-num_trials", type=int, default=3)
     parser.add_argument("-start_seed", type=int, default=100000)
     parser.add_argument("-type", choices=[constants.INSTANCE_COUNTS, constants.FEATURE_COUNTS,
-                                           constants.NOISE_LEVELS, constants.SHUFFLING_COUNTS],
+                                          constants.NOISE_LEVELS, constants.SHUFFLING_COUNTS],
                         default=constants.INSTANCE_COUNTS)
     parser.add_argument("-summarize_only", help="enable to assume that the results are already generated,"
                         " and just summarize them", action="store_true")

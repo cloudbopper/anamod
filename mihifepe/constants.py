@@ -80,6 +80,7 @@ NOISE_LEVELS = "noise_levels"
 FEATURE_COUNTS = "feature_counts"
 SHUFFLING_COUNTS = "shuffling_counts"
 ALL_SIMULATION_RESULTS = "all_simulation_results"
+CONFIG_TRIAL = "config_run_simulations.ini"
 
 # Hierarchical FDR
 HIERARCHICAL_FDR_DIR = "hierarchical_fdr_results"
