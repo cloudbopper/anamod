@@ -70,6 +70,7 @@ def load_config(args):
         sconfig += "%s " % value
     return sconfig
 
+
 def parametrize_simulations(args):
     """Parametrize simulations"""
     if args.type == INSTANCE_COUNTS:
