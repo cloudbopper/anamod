@@ -58,6 +58,8 @@ def main():
     parser.add_argument("-idle_timeout", type=int, default=7200)
     parser.add_argument("-analyze_interactions", help="enable analyzing interactions", action="store_true")
     parser.add_argument("-num_interactions", type=int, default=0, help="number of interaction pairs in model")
+    parser.add_argument("-contiguous_node_names", action="store_true", help="enable to change node names in hierarchy "
+                        "to be contiguous for better visualization (but creating mismatch between node names and features indices)")
 
     args = parser.parse_args()
     if not args.output_dir:
@@ -141,18 +143,19 @@ def gen_hierarchy(args, clustering_data):
     else:
         raise NotImplementedError("Need valid hierarchy type")
     # Improve visualization - contiguous feature names
-    for idx, node in enumerate(anytree.PostOrderIter(hierarchy_root)):
-        node.idx = idx
-        if node.is_leaf:
-            node.min_child_idx = idx
-            node.max_child_idx = idx
-            node.num_base_features = 1
-            node.name = str(idx)
-        else:
-            node.min_child_idx = min([child.min_child_idx for child in node.children])
-            node.max_child_idx = max([child.idx for child in node.children])
-            node.num_base_features = sum([child.num_base_features for child in node.children])
-            node.name = "[%d-%d] (size: %d)" % (node.min_child_idx, node.max_child_idx, node.num_base_features)
+    if args.contiguous_node_names:
+        for idx, node in enumerate(anytree.PostOrderIter(hierarchy_root)):
+            node.idx = idx
+            if node.is_leaf:
+                node.min_child_idx = idx
+                node.max_child_idx = idx
+                node.num_base_features = 1
+                node.name = str(idx)
+            else:
+                node.min_child_idx = min([child.min_child_idx for child in node.children])
+                node.max_child_idx = max([child.idx for child in node.children])
+                node.num_base_features = sum([child.num_base_features for child in node.children])
+                node.name = "[%d-%d] (size: %d)" % (node.min_child_idx, node.max_child_idx, node.num_base_features)
     return hierarchy_root
 
 
@@ -224,7 +227,7 @@ def gen_polynomial(args):
     sym_polynomial_fn = update_linear_terms(args, num_relevant_features, relevant_feature_map, sym_features)
     irrelevant_features = np.array([0 if (x,) in relevant_feature_map else 1 for x in range(args.num_features)])
     # Pairwise interactions
-    sym_polynomial_fn = update_quadratic_terms(args, num_relevant_features, relevant_feature_map, sym_features, sym_polynomial_fn)
+    sym_polynomial_fn = update_interaction_terms(args, num_relevant_features, relevant_feature_map, sym_features, sym_polynomial_fn)
     args.logger.info("Ground truth polynomial:\ny = %s" % sym_polynomial_fn)
     # Generate model expression
     polynomial_fn = lambdify([sym_features], sym_polynomial_fn, "numpy")
@@ -253,8 +256,8 @@ def update_linear_terms(args, num_relevant_features, relevant_feature_map, sym_f
     return sym_polynomial_fn
 
 
-def update_quadratic_terms(args, num_relevant_features, relevant_feature_map, sym_features, sym_polynomial_fn):
-    """Quadratic (pairwise interaction) terms for polynomial"""
+def update_interaction_terms(args, num_relevant_features, relevant_feature_map, sym_features, sym_polynomial_fn):
+    """Pairwise interaction terms for polynomial"""
     # Some interactions between individually relevant features
     # Some interactions between individually irrelevant features
     # Some pairwise interactions
@@ -457,6 +460,7 @@ def evaluate(output_dir):
         # Base features FDR/power
         bf_relevant, bf_rejected = get_relevant_rejected(nodes, leaves=True)
         bf_precision, bf_recall, _, _ = precision_recall_fscore_support(bf_relevant, bf_rejected, average="binary")
+        # TODO: Interactions FDR/power
         return Results(1 - precision, recall, 1 - outer_precision, outer_recall, 1 - bf_precision, bf_recall)
 
 
