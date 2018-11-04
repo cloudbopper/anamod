@@ -27,7 +27,9 @@ def main():
                         " and just summarize them", action="store_true")
     parser.add_argument("-output_dir", required=True)
 
-    args = parser.parse_args()
+    args, pass_arglist = parser.parse_known_args()
+    args.pass_arglist = " ".join(pass_arglist)
+
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
@@ -46,7 +48,8 @@ def gen_trials(args):
     trials = []
     for seed in range(args.start_seed, args.start_seed + args.num_trials):
         output_dir = "%s/trial_%s_%d" % (args.output_dir, args.type, seed)
-        cmd = "python -m mihifepe.simulation.run_simulations -seed %d -type %s -output_dir %s" % (seed, args.type, output_dir)
+        cmd = ("python -m mihifepe.simulation.run_simulations -seed %d -type %s -output_dir %s %s" %
+               (seed, args.type, output_dir, args.pass_arglist))
         trials.append(Trial(cmd, output_dir))
     return trials
 
