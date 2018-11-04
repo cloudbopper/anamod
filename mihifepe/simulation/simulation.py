@@ -268,7 +268,7 @@ def update_interaction_terms(args, relevant_features, relevant_feature_map, sym_
     num_interactions = min(args.num_interactions, num_relevant_features * (num_relevant_features - 1) / 2)
     if not num_interactions:
         return sym_polynomial_fn
-    potential_pairs = list(itertools.combinations(relevant_features, 2))
+    potential_pairs = list(itertools.combinations(sorted(relevant_features), 2))
     potential_pairs_arr = np.empty(len(potential_pairs), dtype=np.object)
     potential_pairs_arr[:] = potential_pairs
     interaction_pairs = np.random.choice(potential_pairs_arr, size=num_interactions, replace=False)
@@ -287,10 +287,10 @@ def update_linear_terms(args, relevant_features, relevant_feature_map, sym_featu
     # Let half the interaction features have nonzero interaction coefficients but zero linear coefficients
     interaction_only_features = []
     if interaction_features:
-        interaction_only_features = np.random.choice(list(interaction_features),
+        interaction_only_features = np.random.choice(sorted(interaction_features),
                                                      len(interaction_features) // 2,
                                                      replace=False)
-    linear_features = list(relevant_features.difference(interaction_only_features))
+    linear_features = sorted(relevant_features.difference(interaction_only_features))
     coefficients = np.zeros(args.num_features)
     coefficients[linear_features] = np.random.uniform(size=len(linear_features))
     for linear_feature in linear_features:
