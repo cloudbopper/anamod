@@ -24,8 +24,10 @@ from mihifepe import constants
 # TODO maybe: write arguments to separate readme.txt for documentating runs
 
 # Simulation results object
-Results = namedtuple(constants.SIMULATION_RESULTS, [constants.FDR, constants.POWER, constants.OUTER_NODES_FDR,
-                                                    constants.OUTER_NODES_POWER, constants.BASE_FEATURES_FDR, constants.BASE_FEATURES_POWER])
+Results = namedtuple(constants.SIMULATION_RESULTS, [constants.FDR, constants.POWER,
+                                                    constants.OUTER_NODES_FDR, constants.OUTER_NODES_POWER,
+                                                    constants.BASE_FEATURES_FDR, constants.BASE_FEATURES_POWER,
+                                                    constants.INTERACTIONS_FDR, constants.INTERACTIONS_POWER])
 
 
 def main():
@@ -100,8 +102,9 @@ def pipeline(args):
     # Compare mihifepe outputs with ground truth outputs
     compare_results(args, hierarchy_root)
     # Evaluate mihifepe outputs - power/FDR for all nodes/outer nodes/base features
-    results = evaluate(args.output_dir)
+    results = evaluate(args, relevant_feature_map)
     args.logger.info("Results:\n%s" % str(results))
+    write_results(args, results)
     args.logger.info("End mihifepe simulation")
 
 
@@ -219,20 +222,23 @@ def gen_hierarchy_from_clusters(args, clusters):
 def gen_polynomial(args):
     """Generate polynomial which decides the ground truth and noisy model"""
     # Note: using sympy to build function appears to be 1.5-2x slower than erstwhile raw numpy implementation (for linear terms)
+    # TODO: possibly negative coefficients
     sym_features = sympy.symbols(["x%d" % x for x in range(args.num_features)])
-    relevant_feature_map = {}  # map of relevant feature tuples to coefficients
-    num_relevant_features = max(1, round(args.num_features * args.fraction_relevant_features))
+    relevant_feature_map = {}  # map of relevant feature sets to coefficients
     # Generate polynomial expression
-    # Order one terms
-    sym_polynomial_fn = update_linear_terms(args, num_relevant_features, relevant_feature_map, sym_features)
-    irrelevant_features = np.array([0 if (x,) in relevant_feature_map else 1 for x in range(args.num_features)])
-    # Pairwise interactions
-    sym_polynomial_fn = update_interaction_terms(args, num_relevant_features, relevant_feature_map, sym_features, sym_polynomial_fn)
+    # Get relevant feature identifiers
+    relevant_features = get_relevant_features(args)
+    # Pairwise interaction terms
+    sym_polynomial_fn = 0
+    sym_polynomial_fn = update_interaction_terms(args, relevant_features, relevant_feature_map, sym_features, sym_polynomial_fn)
+    # Linear terms
+    sym_polynomial_fn = update_linear_terms(args, relevant_features, relevant_feature_map, sym_features, sym_polynomial_fn)
     args.logger.info("Ground truth polynomial:\ny = %s" % sym_polynomial_fn)
     # Generate model expression
     polynomial_fn = lambdify([sym_features], sym_polynomial_fn, "numpy")
     if args.noise_type == constants.EPSILON_IRRELEVANT:
         sym_noise = sympy.symbols(["noise%d" % x for x in range(args.num_features)])
+        irrelevant_features = np.array([0 if x in relevant_features else 1 for x in range(args.num_features)])
         sym_model_fn = sym_polynomial_fn + (sym_noise * irrelevant_features).dot(sym_features)
     elif args.noise_type == constants.ADDITIVE_GAUSSIAN:
         sym_noise = sympy.symbols("noise")
@@ -243,37 +249,53 @@ def gen_polynomial(args):
     return sym_vars, relevant_feature_map, polynomial_fn
 
 
-def update_linear_terms(args, num_relevant_features, relevant_feature_map, sym_features):
-    """Order one terms for polynomial"""
+def get_relevant_features(args):
+    """Get set of relevant feature identifiers"""
+    num_relevant_features = max(1, round(args.num_features * args.fraction_relevant_features))
     coefficients = np.zeros(args.num_features)
     coefficients[:num_relevant_features] = 1
     np.random.shuffle(coefficients)
-    relevant_ids = [idx for idx in range(args.num_features) if coefficients[idx]]
-    coefficients = np.multiply(coefficients, np.random.uniform(size=args.num_features))
-    for relevant_id in relevant_ids:
-        relevant_feature_map[(relevant_id,)] = coefficients[relevant_id]
-    sym_polynomial_fn = coefficients.dot(sym_features)
-    return sym_polynomial_fn
+    relevant_features = {idx for idx in range(args.num_features) if coefficients[idx]}
+    return relevant_features
 
 
-def update_interaction_terms(args, num_relevant_features, relevant_feature_map, sym_features, sym_polynomial_fn):
+def update_interaction_terms(args, relevant_features, relevant_feature_map, sym_features, sym_polynomial_fn):
     """Pairwise interaction terms for polynomial"""
-    # Some interactions between individually relevant features
-    # Some interactions between individually irrelevant features
-    # Some pairwise interactions
-    # Some higher-order interactions
+    # TODO: higher-order interactions
+    num_relevant_features = len(relevant_features)
     num_interactions = min(args.num_interactions, num_relevant_features * (num_relevant_features - 1) / 2)
     if not num_interactions:
         return sym_polynomial_fn
-    relevant_ids = [x[0] for x in relevant_feature_map.keys()]
-    potential_pairs = list(itertools.combinations(relevant_ids, 2))
+    potential_pairs = list(itertools.combinations(relevant_features, 2))
     potential_pairs_arr = np.empty(len(potential_pairs), dtype=np.object)
     potential_pairs_arr[:] = potential_pairs
     interaction_pairs = np.random.choice(potential_pairs_arr, size=num_interactions, replace=False)
     for interaction_pair in interaction_pairs:
         coefficient = np.random.uniform()
-        relevant_feature_map[tuple(interaction_pair)] = coefficient
+        relevant_feature_map[frozenset(interaction_pair)] = coefficient
         sym_polynomial_fn += coefficient * functools.reduce(lambda sym_x, y: sym_x * sym_features[y], interaction_pair, 1)
+    return sym_polynomial_fn
+
+
+def update_linear_terms(args, relevant_features, relevant_feature_map, sym_features, sym_polynomial_fn):
+    """Order one terms for polynomial"""
+    interaction_features = set()
+    for interaction in relevant_feature_map.keys():
+        interaction_features.update(interaction)
+    # Let half the interaction features have nonzero interaction coefficients but zero linear coefficients
+    interaction_only_features = []
+    if interaction_features:
+        interaction_only_features = np.random.choice(list(interaction_features),
+                                                     len(interaction_features) // 2,
+                                                     replace=False)
+    linear_features = list(relevant_features.difference(interaction_only_features))
+    coefficients = np.zeros(args.num_features)
+    # coefficients[linear_features] = np.random.uniform(size=len(linear_features))
+    coefficients[linear_features] = 1
+    coefficients *= np.random.uniform(size=args.num_features)
+    for linear_feature in linear_features:
+        relevant_feature_map[frozenset([linear_feature])] = coefficients[linear_feature]
+    sym_polynomial_fn += coefficients.dot(sym_features)
     return sym_polynomial_fn
 
 
@@ -283,16 +305,22 @@ def update_hierarchy_relevance(hierarchy_root, relevant_feature_map, probs):
     their probabilty of being enabled,
     their polynomial coefficient
     """
+    relevant_features = set()
+    for key in relevant_feature_map:
+        relevant_features.update(key)
     for node in anytree.PostOrderIter(hierarchy_root):
         node.description = constants.IRRELEVANT
         if node.is_leaf:
             idx = int(node.static_indices)
-            coeff = relevant_feature_map.get((idx,))
+            node.poly_coeff = 0.0
+            node.bin_prob = probs[idx]
+            coeff = relevant_feature_map.get(frozenset([idx]))
             if coeff:
-                node.bin_prob = probs[idx]
                 node.poly_coeff = coeff
                 node.description = ("%s feature:\nPolynomial coefficient: %f\nBinomial probability: %f"
                                     % (constants.RELEVANT, coeff, probs[idx]))
+            elif idx in relevant_features:
+                node.description = ("%s feature\n(Interaction-only)" % constants.RELEVANT)
         else:
             for child in node.children:
                 if child.description != constants.IRRELEVANT:
@@ -414,7 +442,9 @@ def compare_results(args, hierarchy_root):
             node.pvalue = 1.0
             if node.description != constants.IRRELEVANT:
                 if node.is_leaf:
-                    node.pvalue = min(0.001, 1e-10 / (node.poly_coeff * node.bin_prob) ** 3)
+                    node.pvalue = 0.001
+                    if node.poly_coeff:
+                        node.pvalue = min(node.pvalue, 1e-10 / (node.poly_coeff * node.bin_prob) ** 3)
                 else:
                     node.pvalue = 0.999 * min([child.pvalue for child in node.children])
             writer.writerow([node.name, parent_name, node.pvalue, node.description])
@@ -431,9 +461,9 @@ def compare_results(args, hierarchy_root):
     args.logger.info("mihifepe results: %s" % mihifepe_outputs_filename)
 
 
-def evaluate(output_dir):
+def evaluate(args, relevant_feature_map):
     """
-    Evaluate mihifepe results - obtain power/FDR measures for all nodes/outer nodes/base features
+    Evaluate mihifepe results - obtain power/FDR measures for all nodes/outer nodes/base features/interactions
     """
     # pylint: disable = too-many-locals
     def get_relevant_rejected(nodes, outer=False, leaves=False):
@@ -447,7 +477,7 @@ def evaluate(output_dir):
         rejected = [1 if node.rejected else 0 for node in nodes]
         return relevant, rejected
 
-    tree_filename = "%s/%s/%s.json" % (output_dir, constants.HIERARCHICAL_FDR_DIR, constants.HIERARCHICAL_FDR_OUTPUTS)
+    tree_filename = "%s/%s/%s.json" % (args.output_dir, constants.HIERARCHICAL_FDR_DIR, constants.HIERARCHICAL_FDR_OUTPUTS)
     with open(tree_filename, "r") as tree_file:
         tree = JsonImporter().read(tree_file)
         nodes = list(anytree.PreOrderIter(tree))
@@ -460,8 +490,56 @@ def evaluate(output_dir):
         # Base features FDR/power
         bf_relevant, bf_rejected = get_relevant_rejected(nodes, leaves=True)
         bf_precision, bf_recall, _, _ = precision_recall_fscore_support(bf_relevant, bf_rejected, average="binary")
-        # TODO: Interactions FDR/power
-        return Results(1 - precision, recall, 1 - outer_precision, outer_recall, 1 - bf_precision, bf_recall)
+        # Interactions FDR/power
+        interaction_precision, interaction_recall = get_precision_recall_interactions(args, relevant_feature_map)
+
+        return Results(1 - precision, recall, 1 - outer_precision, outer_recall,
+                       1 - bf_precision, bf_recall, 1 - interaction_precision, interaction_recall)
+
+
+def get_precision_recall_interactions(args, relevant_feature_map):
+    """Computes precision (1 - FDR) and recall (power) for detecting interactions"""
+    # pylint: disable = invalid-name, too-many-locals
+    # The set of all possible interactions might be very big, so don't construct label vector for all
+    # possible interactions - compute precision/recall from basics
+    # TODO: alter to handle higher-order interactions
+    if not args.analyze_interactions:
+        return (0.0, 0.0)
+    true_interactions = {key for key in relevant_feature_map.keys() if len(key) > 1}
+    tree_filename = "%s/%s/%s.json" % (args.output_dir, constants.INTERACTIONS_FDR_DIR, constants.HIERARCHICAL_FDR_OUTPUTS)
+    tp = 0
+    fp = 0
+    tn = 0
+    fn = 0
+    tested = set()
+    with open(tree_filename, "r") as tree_file:
+        tree = JsonImporter().read(tree_file)
+        # Two-level tree with tested interactions on level 2
+        for node in tree.children:
+            pair = frozenset({int(idx) for idx in node.name.split(" + ")})
+            tested.add(pair)
+            if node.rejected:
+                if relevant_feature_map.get(pair):
+                    tp += 1
+                else:
+                    fp += 1
+            else:
+                if relevant_feature_map.get(pair):
+                    fn += 1
+                else:
+                    tn += 1
+    missed = true_interactions.difference(tested)
+    fn += len(missed)
+    precision = tp / (tp + fp)
+    recall = tp / (tp + fn)
+    return precision, recall
+
+
+def write_results(args, results):
+    """Write results to pickle file"""
+    results_filename = "%s/%s" % (args.output_dir, constants.SIMULATION_RESULTS_FILENAME)
+    with open(results_filename, "wb") as results_file:
+        pickle.dump(results._asdict(), results_file)
 
 
 if __name__ == "__main__":

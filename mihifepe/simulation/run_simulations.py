@@ -5,13 +5,12 @@ import configparser
 import csv
 import logging
 import os
+import pickle
 import time
 import subprocess
 
 from mihifepe import constants
-from mihifepe.constants import INSTANCE_COUNTS, NOISE_LEVELS, FEATURE_COUNTS, SHUFFLING_COUNTS, ALL_SIMULATION_RESULTS, CONFIG_TRIAL
-from mihifepe.simulation.simulation import evaluate
-# TODO: change all import paths to absolute
+from mihifepe.constants import INSTANCE_COUNTS, NOISE_LEVELS, FEATURE_COUNTS, SHUFFLING_COUNTS, ALL_SIMULATION_RESULTS
 
 OUTPUTS = "%s/%s_%s"
 
@@ -57,7 +56,7 @@ def main():
 
 def load_config(args):
     """Load simulation configuration"""
-    config_filename = "%s/%s" % (os.path.dirname(__file__), CONFIG_TRIAL)
+    config_filename = "%s/%s" % (os.path.dirname(__file__), constants.CONFIG_TRIAL)
     assert os.path.exists(config_filename)
     config = configparser.ConfigParser()
     config.read(config_filename)
@@ -155,11 +154,15 @@ def analyze_simulations(args, simulations):
     results_filename = "%s/%s_%s.csv" % (args.output_dir, ALL_SIMULATION_RESULTS, args.type)
     with open(results_filename, "w", newline="") as results_file:
         writer = csv.writer(results_file, delimiter=",")
-        writer.writerow([args.type, constants.FDR, constants.POWER, constants.OUTER_NODES_FDR, constants.OUTER_NODES_POWER,
-                         constants.BASE_FEATURES_FDR, constants.BASE_FEATURES_POWER])
+        writer.writerow([args.type, constants.FDR, constants.POWER,
+                         constants.OUTER_NODES_FDR, constants.OUTER_NODES_POWER,
+                         constants.BASE_FEATURES_FDR, constants.BASE_FEATURES_POWER,
+                         constants.INTERACTIONS_FDR, constants.INTERACTIONS_POWER])
         for sim in simulations:
-            results = evaluate(sim.output_dir)
-            writer.writerow([str(x) for x in [sim.param] + list(results)])
+            results_filename = "%s/%s" % (sim.output_dir, constants.SIMULATION_RESULTS_FILENAME)
+            with open(results_filename, "rb") as results_file:
+                results = pickle.load(results_file)
+                writer.writerow([str(x) for x in [sim.param] + results.values()])
     # Format nicely
     formatted_results_filename = "%s/%s_%s_formatted.csv" % (args.output_dir, ALL_SIMULATION_RESULTS, args.type)
     subprocess.call("column -t -s ',' %s > %s" % (results_filename, formatted_results_filename), shell=True)

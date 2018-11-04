@@ -72,7 +72,10 @@ OUTER_NODES_FDR = "Outer_Nodes_FDR"
 OUTER_NODES_POWER = "Outer_Nodes_Power"
 BASE_FEATURES_FDR = "Base_Features_FDR"
 BASE_FEATURES_POWER = "Base_Features_Power"
+INTERACTIONS_FDR = "Interactions_FDR"
+INTERACTIONS_POWER = "Interactions_Power"
 SIMULATION_RESULTS = "simulation_results"
+SIMULATION_RESULTS_FILENAME = "simulation_results.pkl"
 
 # Trial (multiple simulations)
 INSTANCE_COUNTS = "instance_counts"
