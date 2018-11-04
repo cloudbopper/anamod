@@ -15,6 +15,12 @@ install: pip install -U tox-travis
 # command to run tests, e.g. python setup.py test
 script: tox
 
+# email notifications
+notifications:
+  email:
+    recipients:
+      - sood.iitd@gmail.com
+
 # deploy new versions to PyPI
 deploy:
   provider: pypi
