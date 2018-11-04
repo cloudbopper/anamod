@@ -290,9 +290,7 @@ def update_linear_terms(args, relevant_features, relevant_feature_map, sym_featu
                                                      replace=False)
     linear_features = list(relevant_features.difference(interaction_only_features))
     coefficients = np.zeros(args.num_features)
-    # coefficients[linear_features] = np.random.uniform(size=len(linear_features))
-    coefficients[linear_features] = 1
-    coefficients *= np.random.uniform(size=args.num_features)
+    coefficients[linear_features] = np.random.uniform(size=len(linear_features))
     for linear_feature in linear_features:
         relevant_feature_map[frozenset([linear_feature])] = coefficients[linear_feature]
     sym_polynomial_fn += coefficients.dot(sym_features)
