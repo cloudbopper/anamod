@@ -88,7 +88,7 @@ def pipeline(args):
     # Synthesize data
     probs, test_data, clustering_data = synthesize_data(args)
     # Generate hierarchy using clustering
-    hierarchy_root = gen_hierarchy(args, clustering_data)
+    hierarchy_root, feature_id_map = gen_hierarchy(args, clustering_data)
     # Update hierarchy descriptions for future visualization
     update_hierarchy_relevance(hierarchy_root, relevant_feature_map, probs)
     # Generate targets (ground truth)
@@ -100,9 +100,9 @@ def pipeline(args):
     # Invoke feature importance algorithm
     run_mihifepe(args, data_filename, hierarchy_filename, gen_model_filename)
     # Compare mihifepe outputs with ground truth outputs
-    compare_results(args, hierarchy_root)
+    compare_with_ground_truth(args, hierarchy_root)
     # Evaluate mihifepe outputs - power/FDR for all nodes/outer nodes/base features
-    results = evaluate(args, relevant_feature_map)
+    results = evaluate(args, relevant_feature_map, feature_id_map)
     args.logger.info("Results:\n%s" % str(results))
     write_results(args, results)
     args.logger.info("End mihifepe simulation")
@@ -146,6 +146,7 @@ def gen_hierarchy(args, clustering_data):
     else:
         raise NotImplementedError("Need valid hierarchy type")
     # Improve visualization - contiguous feature names
+    feature_id_map = {}  # mapping from visual feature ids to original ids
     if args.contiguous_node_names:
         for idx, node in enumerate(anytree.PostOrderIter(hierarchy_root)):
             node.idx = idx
@@ -154,12 +155,13 @@ def gen_hierarchy(args, clustering_data):
                 node.max_child_idx = idx
                 node.num_base_features = 1
                 node.name = str(idx)
+                feature_id_map[idx] = int(node.static_indices)
             else:
                 node.min_child_idx = min([child.min_child_idx for child in node.children])
                 node.max_child_idx = max([child.idx for child in node.children])
                 node.num_base_features = sum([child.num_base_features for child in node.children])
                 node.name = "[%d-%d] (size: %d)" % (node.min_child_idx, node.max_child_idx, node.num_base_features)
-    return hierarchy_root
+    return hierarchy_root, feature_id_map
 
 
 def gen_random_hierarchy(args):
@@ -425,7 +427,7 @@ def run_mihifepe(args, data_filename, hierarchy_filename, gen_model_filename):
     args.logger.info("End running mihifepe")
 
 
-def compare_results(args, hierarchy_root):
+def compare_with_ground_truth(args, hierarchy_root):
     """Compare results from mihifepe with ground truth results"""
     # Generate ground truth results
     # Write hierarchical FDR input file for ground truth values
@@ -459,7 +461,7 @@ def compare_results(args, hierarchy_root):
     args.logger.info("mihifepe results: %s" % mihifepe_outputs_filename)
 
 
-def evaluate(args, relevant_feature_map):
+def evaluate(args, relevant_feature_map, feature_id_map):
     """
     Evaluate mihifepe results - obtain power/FDR measures for all nodes/outer nodes/base features/interactions
     """
@@ -489,13 +491,13 @@ def evaluate(args, relevant_feature_map):
         bf_relevant, bf_rejected = get_relevant_rejected(nodes, leaves=True)
         bf_precision, bf_recall, _, _ = precision_recall_fscore_support(bf_relevant, bf_rejected, average="binary")
         # Interactions FDR/power
-        interaction_precision, interaction_recall = get_precision_recall_interactions(args, relevant_feature_map)
+        interaction_precision, interaction_recall = get_precision_recall_interactions(args, relevant_feature_map, feature_id_map)
 
         return Results(1 - precision, recall, 1 - outer_precision, outer_recall,
                        1 - bf_precision, bf_recall, 1 - interaction_precision, interaction_recall)
 
 
-def get_precision_recall_interactions(args, relevant_feature_map):
+def get_precision_recall_interactions(args, relevant_feature_map, feature_id_map):
     """Computes precision (1 - FDR) and recall (power) for detecting interactions"""
     # pylint: disable = invalid-name, too-many-locals
     # The set of all possible interactions might be very big, so don't construct label vector for all
@@ -515,6 +517,8 @@ def get_precision_recall_interactions(args, relevant_feature_map):
         # Two-level tree with tested interactions on level 2
         for node in tree.children:
             pair = frozenset({int(idx) for idx in node.name.split(" + ")})
+            if feature_id_map:
+                pair = frozenset({feature_id_map[visual_id] for visual_id in pair})
             tested.add(pair)
             if node.rejected:
                 if relevant_feature_map.get(pair):
@@ -526,6 +530,8 @@ def get_precision_recall_interactions(args, relevant_feature_map):
                     fn += 1
                 else:
                     tn += 1
+    if not tp > 0:
+        return (0.0, 0.0)
     missed = true_interactions.difference(tested)
     fn += len(missed)
     precision = tp / (tp + fp)
