@@ -21,10 +21,8 @@ def compute_p_value(baseline, perturbed, test=constants.WILCOXON_TEST, alternati
 def wilcoxon_test(x, y, alternative):
     """
     One-sided Wilcoxon signed-rank test derived from Scipy's two-sided test
-    e.g. for alternative == constants.LESS, rejecting the null means that median difference x - y < 0
     Returns p-value
     """
-    # TODO: verify results identical to R's Wilcoxon test for a host of input values
     # pylint: disable = invalid-name, too-many-locals
     x, y = map(asarray, (x, y))
     d = x - y
@@ -34,8 +32,10 @@ def wilcoxon_test(x, y, alternative):
     count = len(d)
 
     r = rankdata(abs(d))
-    T = np.sum((d > 0) * r, axis=0)
+    r_plus = np.sum((d > 0) * r, axis=0)
+    r_minus = np.sum((d < 0) * r, axis=0)
 
+    T = min(r_plus, r_minus)
     mn = count * (count + 1.) * 0.25
     se = count * (count + 1.) * (2. * count + 1.)
 
@@ -48,17 +48,11 @@ def wilcoxon_test(x, y, alternative):
         se -= 0.5 * (repnum * (repnum * repnum - 1)).sum()
 
     se = sqrt(se / 24)
-    if alternative == constants.LESS:
-        correction = -0.5
-    elif alternative == constants.GREATER:
-        correction = 0.5
-    else:
-        correction = 0.5 * np.sign(T - mn)  # two-sided
-
+    correction = 0.5 * np.sign(T - mn)
     z = (T - mn - correction) / se
-
+    prob = norm.sf(abs(z))
     if alternative == constants.LESS:
-        return norm.cdf(z)
+        return prob if z < 0 else 1 - prob
     if alternative == constants.GREATER:
-        return norm.sf(z)
-    return 2 * min(norm.cdf(z), norm.sf(z))  # two-sided
+        return prob if z > 0 else 1 - prob
+    return 2 * prob  # Two-sided

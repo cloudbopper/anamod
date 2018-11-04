@@ -83,8 +83,8 @@ def summarize_trials(args, trials):
         item[1:] = [round(elem, 4) for elem in item[1:]]
     # Write to file
     summary_filename = "%s/%s.csv" % (args.output_dir, SUMMARY_FILENAME)
-    header = ([args.type, constants.FDR, constants.POWER, constants.OUTER_NODES_FDR,
-               constants.OUTER_NODES_POWER, constants.BASE_FEATURES_FDR, constants.BASE_FEATURES_POWER])
+    header = ([args.type, constants.FDR, constants.POWER, constants.OUTER_NODES_FDR, constants.OUTER_NODES_POWER,
+               constants.BASE_FEATURES_FDR, constants.BASE_FEATURES_POWER, constants.INTERACTIONS_FDR, constants.INTERACTIONS_POWER])
     with open(summary_filename, "w", newline="") as summary_file:
         writer = csv.writer(summary_file, delimiter=",")
         writer.writerow(header)

@@ -159,9 +159,9 @@ def analyze_simulations(args, simulations):
                          constants.BASE_FEATURES_FDR, constants.BASE_FEATURES_POWER,
                          constants.INTERACTIONS_FDR, constants.INTERACTIONS_POWER])
         for sim in simulations:
-            results_filename = "%s/%s" % (sim.output_dir, constants.SIMULATION_RESULTS_FILENAME)
-            with open(results_filename, "rb") as results_file:
-                results = pickle.load(results_file)
+            sim_results_filename = "%s/%s" % (sim.output_dir, constants.SIMULATION_RESULTS_FILENAME)
+            with open(sim_results_filename, "rb") as sim_results_file:
+                results = pickle.load(sim_results_file)
                 writer.writerow([str(x) for x in [sim.param] + list(results.values())])
     # Format nicely
     formatted_results_filename = "%s/%s_%s_formatted.csv" % (args.output_dir, ALL_SIMULATION_RESULTS, args.type)
