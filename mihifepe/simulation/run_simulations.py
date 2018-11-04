@@ -162,7 +162,7 @@ def analyze_simulations(args, simulations):
             results_filename = "%s/%s" % (sim.output_dir, constants.SIMULATION_RESULTS_FILENAME)
             with open(results_filename, "rb") as results_file:
                 results = pickle.load(results_file)
-                writer.writerow([str(x) for x in [sim.param] + results.values()])
+                writer.writerow([str(x) for x in [sim.param] + list(results.values())])
     # Format nicely
     formatted_results_filename = "%s/%s_%s_formatted.csv" % (args.output_dir, ALL_SIMULATION_RESULTS, args.type)
     subprocess.call("column -t -s ',' %s > %s" % (results_filename, formatted_results_filename), shell=True)
