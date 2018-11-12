@@ -195,6 +195,10 @@ class Perturber():
 
     def perturb_temporal_data(self, feature, temporal_data):
         """Perturb temporal data for given feature"""
+        # TODO: verify that temporal data perturbation works.
+        # temporal_data should be a list of vectors, but the perturbation below
+        # treats it is a single vector
+        # TODO: perturb_static_data and perturb_temporal_data are nearly identical - possibly merge.
         if len(temporal_data) == 0 or len(feature.temporal_indices) == 0:
             return temporal_data
         tdata = temporal_data
@@ -207,9 +211,7 @@ class Perturber():
 
 
 def write_outputs(args, logger, targets, losses, predictions):
-    """
-    Write outputs to results file
-    """
+    """Write outputs to results file"""
     logger.info("Begin writing outputs")
     results_filename = "%s/results_worker_%d.hdf5" % (args.output_dir, args.task_idx)
     root = h5py.File(results_filename, "w")

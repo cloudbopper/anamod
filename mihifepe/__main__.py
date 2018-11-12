@@ -1,5 +1,5 @@
-"""To run master conveniently from command-line: 'python mihifepe <args>'"""
+"""To run master conveniently from command-line: 'python -m mihifepe <args>'"""
 
-from .master import main
+from mihifepe.master import main
 
 main()

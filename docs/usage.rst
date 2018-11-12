@@ -26,7 +26,7 @@ Inputs
 ------
 
 * **Test data**: *<data_filename.hdf5>* Test data in HDF5 format
-* **Trained model**: *<model_generator_filename.py>* Python script that generates model object for subsequent callbacks to model.predict
+* **Trained model**: *<model_generator_filename.py>* Python script that generates model object for subsequent callbacks to model.predict and model.loss
 * **Hierarchy over features**: *<hierarchy_filename.csv>* CSV specifying hierarchy over features
 
 See `Input specification`_ for a detailed descriptions of the input data.
