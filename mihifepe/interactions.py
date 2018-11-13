@@ -10,10 +10,9 @@ from mihifepe.compute_p_values import compute_p_value
 from mihifepe import constants
 from mihifepe.feature import Feature
 from mihifepe.pipelines import CondorPipeline, SerialPipeline, round_vectordict, round_vector
-from mihifepe.worker import load_model
 
 
-def analyze_interactions(args, logger, feature_nodes, targets, predictions):
+def analyze_interactions(args, logger, feature_nodes, predictions):
     """Analyzes pairwise interactions among (relevant) features"""
     logger.info("Begin analyzing interactions")
     # TODO: if args.analyze_all_pairwise_interactions:
@@ -27,9 +26,9 @@ def analyze_interactions(args, logger, feature_nodes, targets, predictions):
     # Transform into nodes for testing
     interaction_nodes = get_interaction_nodes(potential_interactions)
     # Perturb interaction nodes
-    interaction_losses = perturb_interaction_nodes(args, logger, interaction_nodes)
+    interaction_predictions = perturb_interaction_nodes(args, logger, interaction_nodes)
     # Compute p-values
-    compute_p_values(args, logger, interaction_losses, targets, predictions)
+    compute_p_values(args, interaction_predictions, predictions)
     # Perform BH procedure on interaction p-values
     bh_procedure(args, logger)
     logger.info("End analyzing interactions")
@@ -46,11 +45,10 @@ def bh_procedure(args, logger):
     subprocess.check_call(cmd, shell=True)
 
 
-def compute_p_values(args, logger, interaction_losses, targets, predictions):
+def compute_p_values(args, interaction_predictions, predictions):
     """Computes p-values for assessing interaction significance"""
     # TODO: handle non-identity transfer function
-    model = load_model(logger, args.model_generator_filename)
-    interaction_losses = round_vectordict(interaction_losses)
+    interaction_predictions = round_vectordict(interaction_predictions)
     outfile = open("%s/%s" % (args.output_dir, constants.INTERACTIONS_PVALUES_FILENAME), "w", newline="")
     writer = csv.writer(outfile, delimiter=",")
     # Construct two-level hierarchy with dummy root node and interactions as its children
@@ -62,11 +60,10 @@ def compute_p_values(args, logger, interaction_losses, targets, predictions):
                      constants.MEAN_LOSS, constants.PVALUE_LOSSES])
     writer.writerow([constants.DUMMY_ROOT, "", "", "", "", 0.])
     baseline_prediction = predictions[constants.BASELINE]
-    for name in interaction_losses.keys():
+    for name in interaction_predictions.keys():
         left, right = name.split(" + ")
-        lhs = interaction_losses[name]
-        # TODO: Handle non-vectorized model.loss implementation
-        rhs = round_vector(model.loss(predictions[left] + predictions[right] - baseline_prediction, targets))
+        lhs = interaction_predictions[name]
+        rhs = round_vector(predictions[left] + predictions[right] - baseline_prediction)
         pvalue = compute_p_value(lhs, rhs, alternative=constants.TWOSIDED)
         writer.writerow([name, constants.DUMMY_ROOT, "", "", "", pvalue])
     outfile.close()
@@ -78,9 +75,9 @@ def perturb_interaction_nodes(args, logger, interaction_nodes):
     worker_pipeline = SerialPipeline(args, logger, interaction_nodes)
     if args.condor:
         worker_pipeline = CondorPipeline(args, logger, interaction_nodes)
-    _, interaction_losses, _ = worker_pipeline.run()
+    _, _, interaction_predictions = worker_pipeline.run()
     logger.info("End perturbing interaction nodes")
-    return interaction_losses
+    return interaction_predictions
 
 
 def get_interaction_nodes(potential_interactions):

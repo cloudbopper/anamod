@@ -86,7 +86,7 @@ def pipeline(args, logger):
     hierarchical_fdr(args, logger)
     # Analyze pairwise interactions
     if args.analyze_interactions:
-        analyze_interactions(args, logger, feature_nodes, targets, predictions)
+        analyze_interactions(args, logger, feature_nodes, predictions)
     logger.info("End mihifepe master pipeline")
 
 
