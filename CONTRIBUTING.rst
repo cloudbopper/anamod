@@ -16,7 +16,7 @@ Types of Contributions
 Report Bugs
 ~~~~~~~~~~~
 
-Report bugs at https://github.com/cloudbopper/mihifepe/issues.
+Report bugs at https://github.com/Craven-Biostat-Lab/mihifepe/issues.
 
 If you are reporting a bug, please include:
 
@@ -46,7 +46,7 @@ articles, and such.
 Submit Feedback
 ~~~~~~~~~~~~~~~
 
-The best way to send feedback is to file an issue at https://github.com/cloudbopper/mihifepe/issues.
+The best way to send feedback is to file an issue at https://github.com/Craven-Biostat-Lab/mihifepe/issues.
 
 If you are proposing a feature:
 
@@ -123,7 +123,7 @@ Before you submit a pull request, check that it meets these guidelines:
    your new functionality into a function with a docstring, and add the
    feature to the list in README.rst.
 3. The pull request should work for Python 3.5, 3.6 and 3.7. Check
-   https://travis-ci.org/cloudbopper/mihifepe/pull_requests
+   https://travis-ci.org/Craven-Biostat-Lab/mihifepe/pull_requests
    and make sure that the tests pass for all supported Python versions.
 
 ----
@@ -154,6 +154,6 @@ Then run::
     git push
     git push --tags
 
-.. _`CHANGELOG.rst`: https://github.com/cloudbopper/mihifepe/blob/master/CHANGELOG.rst
+.. _`CHANGELOG.rst`: https://github.com/Craven-Biostat-Lab/mihifepe/blob/master/CHANGELOG.rst
 
 Travis will then deploy to PyPI if tests pass.

@@ -46,7 +46,7 @@ setup(
     name="mihifepe",
     packages=find_packages(include=["mihifepe"]),
     python_requires=">= 3.5",
-    url="https://github.com/cloudbopper/mihifepe",
+    url="https://github.com/Craven-Biostat-Lab/mihifepe",
     version="0.1.1",
     zip_safe=False,
 )
