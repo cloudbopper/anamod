@@ -6,16 +6,16 @@ mihifepe
         :target: https://pypi.python.org/pypi/mihifepe
         :alt: Release status
 
-.. image:: https://img.shields.io/travis/cloudbopper/mihifepe.svg
-        :target: https://travis-ci.org/cloudbopper/mihifepe
+.. image:: https://img.shields.io/travis/Craven-Biostat-Lab/mihifepe.svg
+        :target: https://travis-ci.org/Craven-Biostat-Lab/mihifepe
         :alt: Build status
 
 .. image:: https://readthedocs.org/projects/mihifepe/badge/?version=latest
         :target: https://mihifepe.readthedocs.io/en/latest/?badge=latest
         :alt: Documentation Status
 
-.. image:: https://pyup.io/repos/github/cloudbopper/mihifepe/shield.svg
-        :target: https://pyup.io/repos/github/cloudbopper/mihifepe/
+.. image:: https://pyup.io/repos/github/Craven-Biostat-Lab/mihifepe/shield.svg
+        :target: https://pyup.io/repos/github/Craven-Biostat-Lab/mihifepe/
         :alt: Updates
 
 
