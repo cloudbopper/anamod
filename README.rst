@@ -23,7 +23,7 @@ mihifepe
 Overview
 --------
 
-``mihifepe`` is a library that implements Model Interpretability via Hierarchical Feature Perturbation ([Paper link here])).
+``mihifepe``, or **M**\ odel **I**\ nterpretability via **Hi**\ erarchical **Fe**\ ature **Pe**\ rturbation, is a library implementing a model-agnostic method that, given a learned model and a hierarchy over features, (i) tests feature groups, in addition to base features, and tries to determine the level of resolution at which important features can be determined, (ii) uses hypothesis testing to rigorously assess the effect of each feature on the model's loss, (iii) employs a hierarchical approach to control the false discovery rate when testing feature groups and individual base features for importance, and (iv) uses hypothesis testing to identify important interactions among features and feature groups. [Insert paper link here]
 
 -------------
 Documentation
@@ -48,7 +48,7 @@ To install the latest stable release::
 
 Or to install the latest development version from GitHub::
 
-    pip install git+https://github.com/cloudbopper/mihifepe.git@master#egg=mihifepe
+    pip install git+https://github.com/Craven-Biostat-Lab/mihifepe.git@master#egg=mihifepe
 
 On Ubuntu, graphviz may be installed by::
 
@@ -76,7 +76,7 @@ License
 
 ``mihifepe`` is free, open source software, released under the MIT license. See LICENSE_ for details.
 
-.. _LICENSE: https://github.com/cloudbopper/mihifepe/blob/master/LICENSE
+.. _LICENSE: https://github.com/Craven-Biostat-Lab/mihifepe/blob/master/LICENSE
 
 -------
 Contact
