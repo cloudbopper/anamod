@@ -23,7 +23,7 @@ mihifepe
 Overview
 --------
 
-``mihifepe``, or **M**\ odel **I**\ nterpretability via **Hi**\ erarchical **Fe**\ ature **Pe**\ rturbation, is a library implementing a model-agnostic method that, given a learned model and a hierarchy over features, (i) tests feature groups, in addition to base features, and tries to determine the level of resolution at which important features can be determined, (ii) uses hypothesis testing to rigorously assess the effect of each feature on the model's loss, (iii) employs a hierarchical approach to control the false discovery rate when testing feature groups and individual base features for importance, and (iv) uses hypothesis testing to identify important interactions among features and feature groups. [Insert paper link here]
+``mihifepe``, or **M**\ odel **I**\ nterpretability via **Hi**\ erarchical **Fe**\ ature **Pe**\ rturbation, is a library implementing a model-agnostic method that, given a learned model and a hierarchy over features, (i) tests feature groups, in addition to base features, and tries to determine the level of resolution at which important features can be determined, (ii) uses hypothesis testing to rigorously assess the effect of each feature on the model's loss, (iii) employs a hierarchical approach to control the false discovery rate when testing feature groups and individual base features for importance, and (iv) uses hypothesis testing to identify important interactions among features and feature groups. https://arxiv.org/abs/1811.07279
 
 -------------
 Documentation
