@@ -153,7 +153,7 @@ class Perturber():
         self.static_dataset = hdf5_root[constants.STATIC].value
         self.temporal_grp = hdf5_root[constants.TEMPORAL]
         self.num_records = len(self.record_ids)
-        self.static_data_input = True if self.static_dataset.size else False
+        self.static_data_input = bool(self.static_dataset.size)
         self.losses = {feature.name: np.zeros(self.num_records) for feature in self.features}
         self.predictions = {feature.name: np.zeros(self.num_records) for feature in self.features}
 
