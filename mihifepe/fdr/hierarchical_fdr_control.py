@@ -221,8 +221,8 @@ def process_tree(logger, tree):
             if node.parent:
                 node.G_j_cardinality += node.parent.G_j_cardinality
             node.rejected = False  # no hypothesis rejected to start with
-            node.critical_constant = -1.  # populated later
-            node.adjusted_pvalue = -1.  # populated later
+            node.critical_constant = 0.  # populated later
+            node.adjusted_pvalue = 1.  # populated later
     for level in reversed(F):
         # Iterate over tree bottom-up to identify l (number of leaves) and m (number of hypotheses) for each node
         for node in level:
