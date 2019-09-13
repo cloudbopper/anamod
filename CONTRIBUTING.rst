@@ -132,7 +132,13 @@ Tips
 
 To run a subset of tests::
 
-    pytest tests.test_mihifepe
+    pytest tests.test_mihifepe  # Only run tests from specific file
+    pytest -k test_simulation_interactions tests.test_mihifepe  # Only run specific test from given file
+
+To run debugger within pytest::
+
+    pytest --trace  # Drop to PDB at the start of a test
+    pytest --pdb  # Drop to PDB on failures
 
 To run pylint::
 
