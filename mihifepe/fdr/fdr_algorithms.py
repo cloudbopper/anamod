@@ -44,6 +44,7 @@ def lynch_guo(args, logger, F, M):
     R = num_rejections(args, F, 1, 0)
     assert R in (0, 1)
     root.critical_constant = alpha(args, root, R)
+    root.adjusted_pvalue = root.pvalue / root.critical_constant * args.alpha if root.critical_constant > 0 else 1
     if R == 0 or not root.pvalue <= root.critical_constant:
         return Rs
     root.rejected = True
@@ -59,6 +60,7 @@ def lynch_guo(args, logger, F, M):
         rhs = 0
         for node in level:
             node.critical_constant = alpha_star(args, node, Rs[-1], total_rejected)
+            node.adjusted_pvalue = node.pvalue / node.critical_constant * args.alpha if node.critical_constant > 0 else 1
             if node.pvalue <= node.critical_constant:
                 node.rejected = True
                 rhs += 1
@@ -97,7 +99,7 @@ def yekutieli(args, logger, F, M):
             for idx in range(max_idx):
                 family[idx].rejected = True
             Rs[node.depth + 1] += max_idx
-            for idx in reversed(range(max_idx - 1)):
+            for idx in reversed(range(m - 1)):
                 # Adjusted pvalues - see http://www.biostathandbook.com/multiplecomparisons.html
                 family[idx].adjusted_pvalue = min(family[idx].adjusted_pvalue, family[idx + 1].adjusted_pvalue)
     # Sanity check
