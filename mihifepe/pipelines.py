@@ -165,13 +165,13 @@ class CondorPipeline():
                         rerun_tasks.append(task)
                         task_updated = True
                         break
-                    elif line.find(constants.NORMAL_TERMINATION_SUCCESS) >= 0:
+                    if line.find(constants.NORMAL_TERMINATION_SUCCESS) >= 0:
                         self.logger.info("Cmd '%s' completed successfully" % task[constants.CMD])
                         task[constants.JOB_COMPLETE] = 1
                         unfinished_tasks -= 1
                         task_updated = True
                         break
-                    elif line.find(constants.NORMAL_TERMINATION_FAILURE) >= 0:
+                    if line.find(constants.NORMAL_TERMINATION_FAILURE) >= 0:
                         task[constants.NORMAL_FAILURE_COUNT] += 1
                         if task[constants.NORMAL_FAILURE_COUNT] > constants.MAX_NORMAL_FAILURE_COUNT:
                             self.logger.error("Cmd '%s' terminated with invalid return code. Reached maximum number of "
@@ -188,7 +188,7 @@ class CondorPipeline():
                         rerun_tasks.append(task)
                         task_updated = True
                         break
-                    elif line.find(constants.JOB_HELD) >= 0:
+                    if line.find(constants.JOB_HELD) >= 0:
                         release_tasks.append(task)
                         task_updated = True
                         break
