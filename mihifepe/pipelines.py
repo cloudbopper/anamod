@@ -157,9 +157,10 @@ class CondorPipeline():
                 task_updated = False
 
                 # Parse log file to determine task status
+                # TODO: Potentially use condor_status instead of parsing log file
                 with open(task[constants.LOG_FILENAME]) as log_file:
                     lines = [line.strip() for line in log_file]
-                for line in lines:
+                for line in reversed(lines):
                     if line.find(constants.ABNORMAL_TERMINATION) >= 0:
                         self.logger.warn("Cmd '%s' failed due to abnormal termination. Re-attempting..." % task[constants.CMD])
                         rerun_tasks.append(task)
