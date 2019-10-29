@@ -4,6 +4,7 @@ import copy
 import csv
 from datetime import datetime
 import glob
+import math
 import os
 import pickle
 import re
@@ -28,10 +29,10 @@ class SerialPipeline():
     def run(self):
         """Run serial pipeline"""
         self.logger.info("Begin running serial pipeline")
-        condor_helper = CondorPipeline(self.args, self.logger, None)
+        condor_helper = CondorPipeline(self.args, self.logger, [])
+        condor_helper.task_count = 1
         if not self.args.compile_results_only:
             # Write all features to file
-            self.args.features_filename = "%s/%s" % (self.args.output_dir, "all_features.csv")
             self.args.task_idx = 0
             condor_helper.write_features(self.args, self.feature_nodes)
             # Run worker pipeline
@@ -56,6 +57,7 @@ class CondorPipeline():
         assert self.master_args.memory_requirement >= 1, "Required memory must be 1 or more GB"
         self.memory_requirement = str(self.master_args.memory_requirement)
         self.script_dir = os.path.dirname(os.path.abspath(__file__))
+        self.task_count = math.ceil(len(self.feature_nodes) / self.master_args.features_per_worker)
 
     @staticmethod
     def get_output_filepath(targs, prefix, suffix="txt"):
@@ -64,9 +66,8 @@ class CondorPipeline():
 
     def write_features(self, targs, task_features):
         """Write features to file"""
-        features_filename = self.get_output_filepath(targs, "features")
-        targs.features_filename = features_filename
-        with open(features_filename, "w", newline="") as features_file:
+        targs.features_filename = self.get_output_filepath(targs, "features")
+        with open(targs.features_filename, "w", newline="") as features_file:
             writer = csv.writer(features_file)
             writer.writerow([constants.NODE_NAME,
                              constants.STATIC_INDICES, constants.TEMPORAL_INDICES])
@@ -268,6 +269,7 @@ class CondorPipeline():
             tasks.append(self.write_submit_file(targs))
             task_idx += 1
             node_idx += targs.features_per_worker
+        assert task_idx == self.task_count
         return tasks
 
     def compile_results(self):
@@ -276,26 +278,24 @@ class CondorPipeline():
         all_losses = {}
         all_predictions = {}
         targets = None
-        for results_filename in os.listdir(self.master_args.output_dir):
-            match = re.match("results_worker_([0-9]+).hdf5", results_filename)
-            if match:
-                self.logger.info("Processing %s" % results_filename)
-                root = h5py.File("%s/%s" % (self.master_args.output_dir, results_filename), "r")
+        for task_idx in range(self.task_count):
+            results_filename = "results_worker_%d.hdf5" % task_idx
+            self.logger.info("Processing %s" % results_filename)
+            root = h5py.File("%s/%s" % (self.master_args.output_dir, results_filename), "r")
 
-                def load_data(group):
-                    """Helper function to load data"""
-                    results = {}
-                    for feature_id, feature_data in group.items():
-                        results[feature_id] = feature_data.value
-                    return results
+            def load_data(group):
+                """Helper function to load data"""
+                results = {}
+                for feature_id, feature_data in group.items():
+                    results[feature_id] = feature_data.value
+                return results
 
-                all_losses.update(load_data(root[constants.LOSSES]))
-                all_predictions.update(load_data(root[constants.PREDICTIONS]))
-                idx = int(match.group(1))
-                if idx == 0:
-                    # Only first worker outputs labels since they're common
-                    # TODO: .value is deprecated (http://docs.h5py.org/en/latest/whatsnew/2.1.html?highlight=value), remove
-                    targets = root[constants.TARGETS].value  # pylint: disable = no-member
+            all_losses.update(load_data(root[constants.LOSSES]))
+            all_predictions.update(load_data(root[constants.PREDICTIONS]))
+            if task_idx == 0:
+                # Only first worker outputs labels since they're common
+                # TODO: .value is deprecated (http://docs.h5py.org/en/latest/whatsnew/2.1.html?highlight=value), remove
+                targets = root[constants.TARGETS].value  # pylint: disable = no-member
         assert targets is not None
         return targets, all_losses, all_predictions
 
