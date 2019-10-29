@@ -101,3 +101,9 @@ ENV/
 # mypy
 .mypy_cache/
 
+# vscode
+.vscode/
+
+# Ignored directories
+logs/
+archive/
