@@ -294,8 +294,7 @@ class CondorPipeline():
             all_predictions.update(load_data(root[constants.PREDICTIONS]))
             if task_idx == 0:
                 # Only first worker outputs labels since they're common
-                # TODO: .value is deprecated (http://docs.h5py.org/en/latest/whatsnew/2.1.html?highlight=value), remove
-                targets = root[constants.TARGETS].value  # pylint: disable = no-member
+                targets = root[constants.TARGETS][...]
         assert targets is not None
         return targets, all_losses, all_predictions
 
