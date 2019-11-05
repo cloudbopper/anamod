@@ -15,11 +15,8 @@ from mihifepe.pipelines import CondorPipeline, SerialPipeline, round_vectordict,
 def analyze_interactions(args, logger, feature_nodes, predictions):
     """Analyzes pairwise interactions among (relevant) features"""
     logger.info("Begin analyzing interactions")
-    # TODO: if args.analyze_all_pairwise_interactions:
-    # Load post-hierarchical FDR tree
-    fdr_tree_node_map = get_fdr_tree_node_map(args)
     # Identify relevant features and feature pairs
-    relevant_feature_nodes, _ = get_relevant_features(feature_nodes, fdr_tree_node_map)
+    relevant_feature_nodes = get_relevant_features(args, feature_nodes)
     # Identify potential interactions to test
     potential_interactions = itertools.combinations(relevant_feature_nodes, 2)
     # TODO: Remove interactions already tested
@@ -91,25 +88,15 @@ def get_interaction_nodes(potential_interactions):
     return interaction_nodes
 
 
-def get_relevant_features(feature_nodes, fdr_tree_node_map):
+def get_relevant_features(args, feature_nodes):
     """Identify relevant features and feature pairs"""
-    relevant_feature_nodes = []
-    relevant_pair_map = {}  # map of relevant feature pair names to nodes
-    for node in feature_nodes:
-        name = node.name
-        if name == constants.BASELINE or not fdr_tree_node_map[name].rejected:
-            continue
-        if node.is_leaf:
-            relevant_feature_nodes.append(node)
-        elif len(node.children) == 2:
-            relevant_pair_map[name] = node
-    return relevant_feature_nodes, relevant_pair_map
-
-
-def get_fdr_tree_node_map(args):
-    """Get list of nodes outputted by hierarchical FDR procedure on features"""
-    fdr_tree_filename = "%s/%s/%s.json" % (args.output_dir, constants.HIERARCHICAL_FDR_DIR, constants.HIERARCHICAL_FDR_OUTPUTS)
-    with open(fdr_tree_filename, "r") as fdr_tree_file:
-        fdr_tree = JsonImporter().read(fdr_tree_file)
-        fdr_tree_node_map = {node.name: node for node in anytree.PreOrderIter(fdr_tree)}
-    return fdr_tree_node_map
+    candidate_nodes = [node for node in feature_nodes if node.is_leaf and node.name != constants.BASELINE]
+    if not args.analyze_all_pairwise_interactions:
+        # Get list of nodes outputted by hierarchical FDR procedure on features
+        fdr_tree_filename = "%s/%s/%s.json" % (args.output_dir, constants.HIERARCHICAL_FDR_DIR,
+                                               constants.HIERARCHICAL_FDR_OUTPUTS)
+        with open(fdr_tree_filename, "r") as fdr_tree_file:
+            fdr_tree = JsonImporter().read(fdr_tree_file)
+            fdr_tree_node_map = {node.name: node for node in anytree.PreOrderIter(fdr_tree)}
+            candidate_nodes = [node for node in candidate_nodes if fdr_tree_node_map[node.name].rejected]
+    return candidate_nodes

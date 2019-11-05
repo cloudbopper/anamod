@@ -53,12 +53,15 @@ def main():
     parser.add_argument("-model_type", default=constants.REGRESSION,
                         help="Model type - output includes perturbed AUROCs for binary classifiers",
                         choices=[constants.BINARY_CLASSIFIER, constants.CLASSIFIER, constants.REGRESSION],)
-    parser.add_argument("-analyze_interactions", help="flag to enable testing interaction significance",
+    parser.add_argument("-analyze_interactions", help="flag to enable testing of interaction significance. By default,"
+                        " only pairwise interactions between leaf features identified as important by hierarchical FDR"
+                        " are tested. To enable testing of all pairwise interactions, also use -analyze_all_pairwise_interactions",
                         action="store_true")
-    parser.add_argument("-analyze_all_pairwise_interactions", help="analyze all pairwise interactions, "
-                        "instead of just pairwise interactions of features identified by hierarchical FDR",
+    parser.add_argument("-analyze_all_pairwise_interactions", help="analyze all pairwise interactions between leaf features,"
+                        " instead of just pairwise interactions of leaf features identified by hierarchical FDR",
                         action="store_true")
-    parser.add_argument("-cleanup", action="store_true", help="flag to remove intermediate files after completion to clear space")
+    parser.add_argument("-cleanup", action="store_true", help="flag to remove intermediate files after completion to"
+                        " clear space and clutter")
 
     args = parser.parse_args()
 
