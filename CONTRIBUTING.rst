@@ -132,8 +132,8 @@ Tips
 
 To run a subset of tests::
 
-    pytest tests.test_mihifepe  # Only run tests from specific file
-    pytest -k test_simulation_interactions tests.test_mihifepe  # Only run specific test from given file
+    pytest tests/test_mihifepe.py  # Only run tests from specific file
+    pytest -k test_simulation_interactions tests/test_mihifepe.py  # Only run specific test from given file
 
 To run debugger within pytest::
 
