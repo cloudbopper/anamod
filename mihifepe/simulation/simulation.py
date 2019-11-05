@@ -47,23 +47,17 @@ def main():
     parser.add_argument("-clustering_instance_count", type=int, help="If provided, uses this number of instances to "
                         "cluster the data to generate a hierarchy, allowing the hierarchy to remain same across multiple "
                         "sets of instances", default=0)
-    # Arguments passed to mihifepe
-    parser.add_argument("-perturbation", default=constants.SHUFFLING, choices=[constants.ZEROING, constants.SHUFFLING])
-    parser.add_argument("-num_shuffling_trials", type=int, default=100, help="Number of shuffling trials to average over, "
-                        "when shuffling perturbations are selected")
-    parser.add_argument("-condor", dest="condor", action="store_true",
-                        help="Enable parallelization using condor (default disabled)")
-    parser.add_argument("-no-condor", dest="condor", action="store_false", help="Disable parallelization using condor")
-    parser.set_defaults(condor=False)
-    parser.add_argument("-features_per_worker", type=int, default=10, help="worker load")
-    parser.add_argument("-eviction_timeout", type=int, default=7200)
-    parser.add_argument("-idle_timeout", type=int, default=7200)
-    parser.add_argument("-analyze_interactions", help="enable analyzing interactions", action="store_true")
     parser.add_argument("-num_interactions", type=int, default=0, help="number of interaction pairs in model")
     parser.add_argument("-contiguous_node_names", action="store_true", help="enable to change node names in hierarchy "
                         "to be contiguous for better visualization (but creating mismatch between node names and features indices)")
+    # Arguments used to qualify output directory, then passed to mihifepe.master
+    parser.add_argument("-perturbation", default=constants.SHUFFLING, choices=[constants.ZEROING, constants.SHUFFLING])
+    parser.add_argument("-num_shuffling_trials", type=int, default=100, help="Number of shuffling trials to average over, "
+                        "when shuffling perturbations are selected")
+    parser.add_argument("-analyze_interactions", help="enable analyzing interactions", action="store_true")
 
-    args = parser.parse_args()
+    args, pass_args = parser.parse_known_args()
+    pass_args = " ".join(pass_args)
     if not args.output_dir:
         args.output_dir = ("sim_outputs_inst_%d_feat_%d_noise_%.3f_relfraction_%.3f_pert_%s_shufftrials_%d" %
                            (args.num_instances, args.num_features, args.noise_multiplier,
@@ -76,10 +70,10 @@ def main():
     logger = logging.getLogger(__name__)
     args.logger = logger
 
-    pipeline(args)
+    pipeline(args, pass_args)
 
 
-def pipeline(args):
+def pipeline(args, pass_args):
     """Simulation pipeline"""
     # TODO: Features other than binary
     args.logger.info("Begin mihifepe simulation with args: %s" % args)
@@ -98,7 +92,7 @@ def pipeline(args):
     hierarchy_filename = write_hierarchy(args, hierarchy_root)
     gen_model_filename = write_model(args, sym_vars)
     # Invoke feature importance algorithm
-    run_mihifepe(args, data_filename, hierarchy_filename, gen_model_filename)
+    run_mihifepe(args, pass_args, data_filename, hierarchy_filename, gen_model_filename)
     # Compare mihifepe outputs with ground truth outputs
     compare_with_ground_truth(args, hierarchy_root)
     # Evaluate mihifepe outputs - power/FDR for all nodes/outer nodes/base features
@@ -409,19 +403,16 @@ def write_model(args, sym_vars):
     return gen_model_filename
 
 
-def run_mihifepe(args, data_filename, hierarchy_filename, gen_model_filename):
+def run_mihifepe(args, pass_args, data_filename, hierarchy_filename, gen_model_filename):
     """Run mihifepe algorithm"""
     args.logger.info("Begin running mihifepe")
-    condor_val = "-condor" if args.condor else "-no-condor"
     analyze_interactions = "-analyze_interactions" if args.analyze_interactions else ""
-    # Compute approximate memory requirement in GB
-    memory_requirement = 1 + (os.stat(data_filename).st_size // (2 ** 30))
+    args.logger.info("Passing the following arguments to mihifepe.master without parsing: %s" % pass_args)
+    memory_requirement = 1 + (os.stat(data_filename).st_size // (2 ** 30))  # Compute approximate memory requirement in GB
     cmd = ("python -m mihifepe.master -data_filename '%s' -hierarchy_filename '%s' -model_generator_filename '%s' -output_dir '%s' "
-           "-perturbation %s -num_shuffling_trials %d %s -features_per_worker %d -memory_requirement %d "
-           "-eviction_timeout %d -idle_timeout %d -cleanup %s"
+           "-perturbation %s -num_shuffling_trials %d -memory_requirement %d %s -cleanup %s"
            % (data_filename, hierarchy_filename, gen_model_filename, args.output_dir,
-              args.perturbation, args.num_shuffling_trials, condor_val, args.features_per_worker, memory_requirement,
-              args.eviction_timeout, args.idle_timeout, analyze_interactions))
+              args.perturbation, args.num_shuffling_trials, memory_requirement, analyze_interactions, pass_args))
     args.logger.info("Running cmd: %s" % cmd)
     subprocess.check_call(cmd, shell=True)
     args.logger.info("End running mihifepe")
