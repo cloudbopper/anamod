@@ -5,6 +5,7 @@ import numpy as np
 
 from mihifepe import constants
 
+
 # pylint: disable = too-many-instance-attributes
 class Feature(anytree.Node):
     """Class representing feature/feature group"""
