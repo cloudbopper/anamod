@@ -92,13 +92,22 @@ Ready to contribute? Here's how to set up `mihifepe` for local development.
 
         pytest --basetemp=condor_test_outputs tests/condor_tests
 
+   When writing new tests, corresponding tests and gold (expected) files for condor may be generated
+   automatically using the following script::
+
+        python -m mihifepe.gen_condor_tests
+
    If regression tests fail because the new data is correct, you can use the --force-regen flag to update
-   the expected file (see pytest-regressions_)::
+   the gold file (see pytest-regressions_)::
 
         pytest --force-regen
 
-   Note: Mosts regression tests perform two comparisons - the output p-values and the FDR output, so the tests
-   must be run with the --force-regen flag twice to update both the expected output files.
+   Note: Most regression tests perform two comparisons - the output p-values and the FDR output, so the tests
+   must be run with the --force-regen flag twice to update both the gold files.
+
+   Condor gold files may be overwritten using --force-regen as well, or simply copied over by running::
+
+        python -m mihifepe.gen_condor_tests -overwrite_golds
 
 .. _pytest-regressions: https://pytest-regressions.readthedocs.io/en/latest/
 .. _pyenv: https://github.com/pyenv/pyenv
