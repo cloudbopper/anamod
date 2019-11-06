@@ -13,7 +13,6 @@ import subprocess
 
 import anytree
 import numpy as np
-from sklearn.metrics import roc_auc_score
 
 from mihifepe.compute_p_values import compute_p_value
 from mihifepe import constants
@@ -51,7 +50,7 @@ def main():
     parser.add_argument("-compile_results_only", help="only compile results (assuming they already exist), "
                         "skipping actually launching jobs", action="store_true")
     parser.add_argument("-model_type", default=constants.REGRESSION,
-                        help="Model type - output includes perturbed AUROCs for binary classifiers",
+                        help="Model type (default: regression). Note: this variable is currently unused.",
                         choices=[constants.BINARY_CLASSIFIER, constants.CLASSIFIER, constants.REGRESSION],)
     parser.add_argument("-analyze_interactions", help="flag to enable testing of interaction significance. By default,"
                         " only pairwise interactions between leaf features identified as important by hierarchical FDR"
@@ -84,9 +83,9 @@ def pipeline(args, logger):
     # Flatten hierarchy to allow partitioning across workers
     feature_nodes = flatten_hierarchy(hierarchy_root)
     # Perturb features
-    targets, losses, predictions = perturb_features(args, logger, feature_nodes)
+    _, losses, predictions = perturb_features(args, logger, feature_nodes)
     # Compute p-values
-    compute_p_values(args, hierarchy_root, targets, losses, predictions)
+    compute_p_values(args, hierarchy_root, losses, predictions)
     # Run hierarchical FDR
     hierarchical_fdr(args, logger)
     # Analyze pairwise interactions
@@ -183,7 +182,7 @@ def perturb_features(args, logger, feature_nodes):
     return worker_pipeline.run()
 
 
-def compute_p_values(args, hierarchy_root, targets, losses, predictions):
+def compute_p_values(args, hierarchy_root, losses, predictions):
     """Evaluates and compares different feature erasures"""
     # pylint: disable = too-many-locals
     losses = round_vectordict(losses)
@@ -193,18 +192,15 @@ def compute_p_values(args, hierarchy_root, targets, losses, predictions):
     writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.DESCRIPTION, constants.EFFECT_SIZE,
                      constants.MEAN_LOSS, constants.PVALUE_LOSSES])
     baseline_loss = losses[constants.BASELINE]
+    mean_baseline_loss = np.mean(baseline_loss)
     for node in anytree.PreOrderIter(hierarchy_root):
         name = node.name
         parent_name = node.parent.name if node.parent else ""
         loss = losses[node.name]
         mean_loss = np.mean(loss)
         pvalue_loss = compute_p_value(baseline_loss, loss)
-        # Compute AUROC depending on whether task is binary classification or not:
-        auroc = ""
-        if args.model_type == constants.BINARY_CLASSIFIER:
-            prediction = predictions[node.name]
-            auroc = roc_auc_score(targets, prediction)
-        writer.writerow([name, parent_name, node.description, auroc, mean_loss, pvalue_loss])
+        effect_size = mean_loss - mean_baseline_loss
+        writer.writerow([name, parent_name, node.description, effect_size, mean_loss, pvalue_loss])
     outfile.close()
 
 

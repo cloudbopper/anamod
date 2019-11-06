@@ -8,6 +8,8 @@ import subprocess
 
 import anytree
 from anytree.importer import JsonImporter
+import numpy as np
+
 from mihifepe.compute_p_values import compute_p_value
 from mihifepe import constants
 from mihifepe.feature import Feature
@@ -53,7 +55,8 @@ def compute_p_values(args, interaction_groups, interaction_predictions, cached_p
     writer = csv.writer(outfile, delimiter=",")
     # Construct two-level hierarchy with dummy root node and interactions as its children
     # Leverages existing hierarchical FDR code to perform BH procedure on interactions
-    # TODO: Directly use BH procedure
+    # TODO: Directly use BH procedure, maybe?
+    # TODO: Since we're using outputs and not losses here, the p-values schema is misleading
     writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.DESCRIPTION, constants.EFFECT_SIZE,
                      constants.MEAN_LOSS, constants.PVALUE_LOSSES])
     writer.writerow([constants.DUMMY_ROOT, "", "", "", "", 0.])
@@ -63,7 +66,9 @@ def compute_p_values(args, interaction_groups, interaction_predictions, cached_p
         lhs = round_vector(interaction_predictions[parent_node.name])
         rhs = round_vector(cached_predictions[cached_node.name] + redo_predictions[redo_node.name] - baseline_prediction)
         pvalue = compute_p_value(lhs, rhs, alternative=constants.TWOSIDED)
-        writer.writerow([parent_node.name, constants.DUMMY_ROOT, "", "", "", pvalue])
+        effect_size = np.mean(lhs - rhs)  # TODO: confirm sign
+        # TODO: Add description?
+        writer.writerow([parent_node.name, constants.DUMMY_ROOT, "", effect_size, "", pvalue])
     outfile.close()
 
 

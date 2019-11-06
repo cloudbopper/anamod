@@ -27,7 +27,7 @@ def main():
     parser.add_argument("-procedure", default=constants.YEKUTIELI, choices=[constants.YEKUTIELI, constants.LYNCH_GUO])
     parser.add_argument("csv_filename", help="CSV (with header) representing hierarchy, each row corresponding to one node:"
                         " the name of the node, the name of its parent node, the node's p-value and optionally a description of the node")
-    parser.add_argument("-effect_name", default="AUROC")
+    parser.add_argument("-effect_name", default="Effect size")
     parser.add_argument("-tree_effect_size_threshold", help="while generating output tree of rejected hypotheses,"
                         " only show nodes within given threshold of root (i.e. all nodes erased) effect size", type=float, default=1)
     parser.add_argument("-color_scheme", default="ylorrd9", help="color scheme to use for shading nodes")
@@ -151,18 +151,18 @@ def nodeattrfunc(args, node):
     label = node.name.upper()
     if not args.minimal_labels and node.description:
         label = "%s:\n%s" % (label, node.description)
-    if not args.minimal_labels and node.effect_size:
-        label = "%s\n%s: %0.3f" % (label, args.effect_name, node.effect_size)
     words = label.split(" ")
     words_per_line = 3
     lines = []
     for idx in range(0, len(words), words_per_line):
         line = " ".join(words[idx: min(len(words), idx + words_per_line)])
         lines.append(line)
-    newlabel = "\n".join(lines)
+    label = "\n".join(lines)
+    if not args.minimal_labels and node.effect_size:
+        label = "%s\n%s: %0.3f" % (label, args.effect_name, node.effect_size)
     shape = "rectangle" if args.rectangle_leaves and node.was_leaf else "ellipse"
     return "fillcolor=\"/%s/%d\" label=\"%s\" style=filled fontname=\"helvetica bold\" fontsize=15.0 fontcolor=%s shape = %s" \
-            % (args.color_scheme, node.color, newlabel, node.fontcolor, shape)
+            % (args.color_scheme, node.color, label, node.fontcolor, shape)
 
 
 def build_tree(args, logger):
