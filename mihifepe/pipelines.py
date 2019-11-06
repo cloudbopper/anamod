@@ -300,12 +300,12 @@ class CondorPipeline():
 
     def cleanup(self):
         """Clean files after completion"""
-        self.logger.info("Begin file cleanup")
+        self.logger.info("Begin intermediate condor file cleanup")
         filetypes = ["err*", "out*", "log*", "args*", "condor_task*", "results*", "features*", "worker*"]
         for filetype in filetypes:
             for filename in glob.glob("%s/%s" % (self.master_args.output_dir, filetype)):
                 os.remove(filename)
-        self.logger.info("End file cleanup")
+        self.logger.info("End intermediate condor file cleanup")
 
     def run(self):
         """Run condor pipeline"""

@@ -2,6 +2,7 @@
 
 import csv
 import itertools
+import time
 import subprocess
 
 import anytree
@@ -14,6 +15,8 @@ from mihifepe.pipelines import CondorPipeline, SerialPipeline, round_vectordict,
 
 def analyze_interactions(args, logger, feature_nodes, predictions):
     """Analyzes pairwise interactions among (relevant) features"""
+    if args.condor:
+        time.sleep(5)  # To allow file changes from preceding analysis to propagate
     logger.info("Begin analyzing interactions")
     # Identify relevant features and feature pairs
     relevant_feature_nodes = get_relevant_features(args, feature_nodes)

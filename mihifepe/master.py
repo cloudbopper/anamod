@@ -60,8 +60,10 @@ def main():
     parser.add_argument("-analyze_all_pairwise_interactions", help="analyze all pairwise interactions between leaf features,"
                         " instead of just pairwise interactions of leaf features identified by hierarchical FDR",
                         action="store_true")
-    parser.add_argument("-cleanup", action="store_true", help="flag to remove intermediate files after completion to"
-                        " clear space and clutter")
+    parser.add_argument("-no-condor-cleanup", action="store_true", help="disable removal of intermediate condor files"
+                        " after completion (typically for debugging). By default these files will be cleared to remove"
+                        " space and clutter, and to avoid condor file issues", dest="cleanup")
+    parser.set_defaults(cleanup=True)
 
     args = parser.parse_args()
 

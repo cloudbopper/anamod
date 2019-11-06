@@ -410,7 +410,7 @@ def run_mihifepe(args, pass_args, data_filename, hierarchy_filename, gen_model_f
     args.logger.info("Passing the following arguments to mihifepe.master without parsing: %s" % pass_args)
     memory_requirement = 1 + (os.stat(data_filename).st_size // (2 ** 30))  # Compute approximate memory requirement in GB
     cmd = ("python -m mihifepe.master -data_filename '%s' -hierarchy_filename '%s' -model_generator_filename '%s' -output_dir '%s' "
-           "-perturbation %s -num_shuffling_trials %d -memory_requirement %d %s -cleanup %s"
+           "-perturbation %s -num_shuffling_trials %d -memory_requirement %d %s %s"
            % (data_filename, hierarchy_filename, gen_model_filename, args.output_dir,
               args.perturbation, args.num_shuffling_trials, memory_requirement, analyze_interactions, pass_args))
     args.logger.info("Running cmd: %s" % cmd)
