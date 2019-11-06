@@ -1,0 +1,23 @@
+2 + 3,dummy_root,,,,1.0
+
+5 + 2,dummy_root,,,,1.0
+
+5 + 3,dummy_root,,,,1.0
+
+5 + 9,dummy_root,,,,1.0
+
+6 + 2,dummy_root,,,,7.284921318605304e-16
+
+6 + 3,dummy_root,,,,2.7786666739023402e-11
+
+6 + 5,dummy_root,,,,1.0
+
+6 + 9,dummy_root,,,,1.0
+
+9 + 2,dummy_root,,,,1.0
+
+9 + 3,dummy_root,,,,1.0143177395389075e-20
+
+dummy_root,,,,,0.0
+
+name,parent_name,description,effect_size,mean_loss,p-value-losses

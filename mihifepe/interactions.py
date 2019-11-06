@@ -1,5 +1,6 @@
 """Tests pairwise interactions given output of mihifepe"""
 
+import copy
 import csv
 import itertools
 import time
@@ -10,10 +11,10 @@ from anytree.importer import JsonImporter
 from mihifepe.compute_p_values import compute_p_value
 from mihifepe import constants
 from mihifepe.feature import Feature
-from mihifepe.pipelines import CondorPipeline, SerialPipeline, round_vectordict, round_vector
+from mihifepe.pipelines import CondorPipeline, SerialPipeline, round_vector
 
 
-def analyze_interactions(args, logger, feature_nodes, predictions):
+def analyze_interactions(args, logger, feature_nodes, cached_predictions):
     """Analyzes pairwise interactions among (relevant) features"""
     if args.condor:
         time.sleep(5)  # To allow file changes from preceding analysis to propagate
@@ -24,11 +25,11 @@ def analyze_interactions(args, logger, feature_nodes, predictions):
     potential_interactions = itertools.combinations(relevant_feature_nodes, 2)
     # TODO: Remove interactions already tested
     # Transform into nodes for testing
-    interaction_nodes = get_interaction_nodes(potential_interactions)
+    interaction_groups = get_interaction_groups(args, potential_interactions)
     # Perturb interaction nodes
-    interaction_predictions = perturb_interaction_nodes(args, logger, interaction_nodes)
+    interaction_predictions = perturb_interactions(args, logger, interaction_groups)
     # Compute p-values
-    compute_p_values(args, interaction_predictions, predictions)
+    compute_p_values(args, interaction_groups, interaction_predictions, cached_predictions)
     # Perform BH procedure on interaction p-values
     bh_procedure(args, logger)
     logger.info("End analyzing interactions")
@@ -45,50 +46,63 @@ def bh_procedure(args, logger):
     subprocess.check_call(cmd, shell=True)
 
 
-def compute_p_values(args, interaction_predictions, predictions):
+def compute_p_values(args, interaction_groups, interaction_predictions, cached_predictions):
     """Computes p-values for assessing interaction significance"""
     # TODO: handle non-identity transfer function
-    interaction_predictions = round_vectordict(interaction_predictions)
     outfile = open("%s/%s" % (args.output_dir, constants.INTERACTIONS_PVALUES_FILENAME), "w", newline="")
     writer = csv.writer(outfile, delimiter=",")
     # Construct two-level hierarchy with dummy root node and interactions as its children
     # Leverages existing hierarchical FDR code to perform BH procedure on interactions
     # TODO: Directly use BH procedure
-    # TODO: Verify this approach works for shuffling perturbations, since shuffling randomization may
-    # be different when A and B perturbed together vs. when A and B perturbed separately
     writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.DESCRIPTION, constants.EFFECT_SIZE,
                      constants.MEAN_LOSS, constants.PVALUE_LOSSES])
     writer.writerow([constants.DUMMY_ROOT, "", "", "", "", 0.])
-    baseline_prediction = predictions[constants.BASELINE]
-    for name in interaction_predictions.keys():
-        left, right = name.split(" + ")
-        lhs = interaction_predictions[name]
-        rhs = round_vector(predictions[left] + predictions[right] - baseline_prediction)
+    baseline_prediction = cached_predictions[constants.BASELINE]
+    redo_predictions = interaction_predictions if args.perturbation == constants.SHUFFLING else cached_predictions
+    for cached_node, redo_node, parent_node in interaction_groups:
+        lhs = round_vector(interaction_predictions[parent_node.name])
+        rhs = round_vector(cached_predictions[cached_node.name] + redo_predictions[redo_node.name] - baseline_prediction)
         pvalue = compute_p_value(lhs, rhs, alternative=constants.TWOSIDED)
-        writer.writerow([name, constants.DUMMY_ROOT, "", "", "", pvalue])
+        writer.writerow([parent_node.name, constants.DUMMY_ROOT, "", "", "", pvalue])
     outfile.close()
 
 
-def perturb_interaction_nodes(args, logger, interaction_nodes):
-    """Perturb interaction nodes, observe effect on model loss and aggregate results"""
-    logger.info("Begin perturbing interaction nodes")
+def perturb_interactions(args, logger, interaction_groups):
+    """Perturb interactions, observe effect on model loss and aggregate results"""
+    logger.info("Begin perturbing interactions")
+    interaction_nodes = []
+    for _, redo_node, parent_node in interaction_groups:
+        interaction_nodes.append(parent_node)
+        if args.perturbation == constants.SHUFFLING:
+            interaction_nodes.append(redo_node)
     worker_pipeline = SerialPipeline(args, logger, interaction_nodes)
     if args.condor:
         worker_pipeline = CondorPipeline(args, logger, interaction_nodes)
     _, _, interaction_predictions = worker_pipeline.run()
-    logger.info("End perturbing interaction nodes")
+    logger.info("End perturbing interactions")
     return interaction_predictions
 
 
-def get_interaction_nodes(potential_interactions):
+def get_interaction_groups(args, potential_interactions):
     """Transform into nodes for testing"""
-    interaction_nodes = []
+    interaction_groups = []
     for left, right in potential_interactions:
         name = left.name + " + " + right.name
-        node = Feature(name, static_indices=left.static_indices + right.static_indices,
-                       temporal_indices=left.temporal_indices + right.temporal_indices)
-        interaction_nodes.append(node)
-    return interaction_nodes
+        parent_node = Feature(name, static_indices=left.static_indices + right.static_indices,
+                              temporal_indices=left.temporal_indices + right.temporal_indices)
+        if Feature.size(left) >= Feature.size(right):
+            cached_node = left
+            redo_node = right
+        else:
+            cached_node = right
+            redo_node = left
+        if args.perturbation == constants.SHUFFLING:  # Set attributes on redo_node
+            redo_node = copy.deepcopy(redo_node)
+            redo_node.uniquify(parent_node.name)
+            redo_node.rng_seed = cached_node.rng_seed
+        parent_node.rng_seed = cached_node.rng_seed  # Set attribute on parent_node
+        interaction_groups.append((cached_node, redo_node, parent_node))
+    return interaction_groups
 
 
 def get_relevant_features(args, feature_nodes):
