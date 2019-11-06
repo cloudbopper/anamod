@@ -69,10 +69,10 @@ class CondorPipeline():
         targs.features_filename = self.get_output_filepath(targs, "features")
         with open(targs.features_filename, "w", newline="") as features_file:
             writer = csv.writer(features_file)
-            writer.writerow([constants.NODE_NAME,
+            writer.writerow([constants.NODE_NAME, constants.RNG_SEED,
                              constants.STATIC_INDICES, constants.TEMPORAL_INDICES])
             for feature_node in task_features:
-                writer.writerow([feature_node.name,
+                writer.writerow([feature_node.name, feature_node.rng_seed,
                                  Feature.pack_indices(feature_node.static_indices),
                                  Feature.pack_indices(feature_node.temporal_indices)])
 

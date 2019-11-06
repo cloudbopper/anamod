@@ -27,7 +27,7 @@ def main():
     cargs = parser.parse_args()
     with open(cargs.args_filename, "rb") as args_file:
         args = pickle.load(args_file)
-    np.random.seed(constants.SEED + args.task_idx)
+    # np.random.seed(constants.SEED + args.task_idx)  # Enable if generating task-specific random numbers
     logging.basicConfig(level=logging.INFO, filename="%s/worker_%d.log" % (args.output_dir, args.task_idx),
                         format="%(asctime)s: %(message)s")
     logger = logging.getLogger(__name__)
@@ -64,9 +64,10 @@ def load_features(features_filename):
     with open(features_filename, "r") as features_file:
         reader = csv.DictReader(features_file)
         for row in reader:
-            node = Feature(row[constants.NODE_NAME],
+            node = Feature(row[constants.NODE_NAME], rng_seed=int(row[constants.RNG_SEED]),
                            static_indices=Feature.unpack_indices(row[constants.STATIC_INDICES]),
                            temporal_indices=Feature.unpack_indices(row[constants.TEMPORAL_INDICES]))
+            node.initialize_rng()
             features.append(node)
     return features
 
@@ -189,7 +190,7 @@ class Perturber():
         if self.args.perturbation == constants.ZEROING:
             sdata[feature.static_indices] = 0
         elif self.args.perturbation == constants.SHUFFLING:
-            replace_idx = np.random.randint(0, self.num_records)
+            replace_idx = feature.rng.randint(0, self.num_records)
             sdata[feature.static_indices] = self.static_dataset[replace_idx][feature.static_indices]
         return sdata
 

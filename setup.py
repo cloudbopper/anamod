@@ -33,6 +33,7 @@ setup(
     include_package_data=True,
     install_requires=[
         "anytree~=2.4.3",
+        "cityhash~=cityhash-0.2.3.post9",
         "h5py~=2.8.0",
         "numpy~=1.15.0",
         "pyhashxx~=0.1.3",

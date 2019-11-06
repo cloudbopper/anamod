@@ -15,22 +15,19 @@ class Feature(anytree.Node):
         self.description = kwargs.get(constants.DESCRIPTION, "")
         self.static_indices = kwargs.get(constants.STATIC_INDICES, [])
         self.temporal_indices = kwargs.get(constants.TEMPORAL_INDICES, [])
-        self._rng_seed = kwargs.get(constants.RNG_SEED, cityhash.CityHash32(name))
-        self.rng = None
+        self.rng_seed = kwargs.get(constants.RNG_SEED, cityhash.CityHash32(self.name))
+        self._rng = None
 
-    @property
-    def rng_seed(self):
-        """Get RNG seed"""
-        return self._rng_seed
+    def rng(self):
+        """Returns feature-specific RNG for generating random numbers (for shuffling the feature)"""
+        if self._rng:
+            return self._rng
+        self._rng = np.random.RandomState(self.rng_seed)
+        return self._rng
 
-    @rng_seed.setter
-    def rng_seed(self, seed):
-        """Set RNG seed"""
-        self._rng_seed = seed
-
-    def initialize_rng(self):
-        """Initialize random number generator for feature (used for shuffling perturbations)"""
-        self.rng = np.random.RandomState(self._rng_seed)
+    def reset_rng(self):
+        """Resets feature-specific RNG"""
+        self._rng = None
 
     @staticmethod
     def unpack_indices(str_indices):

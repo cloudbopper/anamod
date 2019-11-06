@@ -101,6 +101,7 @@ TREE = "tree"
 # Perturbation
 ZEROING = "zeroing"
 SHUFFLING = "shuffling"
+RNG_SEED = "rng_seed"
 
 # Miscellaneous
 BASELINE = u"baseline"
