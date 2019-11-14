@@ -51,9 +51,7 @@ class CondorPipeline():
         self.master_args = copy.deepcopy(args)
         self.logger = logger
         self.feature_nodes = feature_nodes
-        self.virtual_env = ""
-        if constants.VIRTUAL_ENV in os.environ:
-            self.virtual_env = os.path.split(os.environ[constants.VIRTUAL_ENV])[1]
+        self.virtual_env = os.environ.get(constants.VIRTUAL_ENV, "")
         assert self.master_args.memory_requirement >= 1, "Required memory must be 1 or more GB"
         self.memory_requirement = str(self.master_args.memory_requirement)
         self.script_dir = os.path.dirname(os.path.abspath(__file__))
