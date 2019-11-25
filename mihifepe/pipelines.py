@@ -285,7 +285,7 @@ class CondorPipeline():
                 """Helper function to load data"""
                 results = {}
                 for feature_id, feature_data in group.items():
-                    results[feature_id] = feature_data.value
+                    results[feature_id] = feature_data[...]
                 return results
 
             all_losses.update(load_data(root[constants.LOSSES]))
