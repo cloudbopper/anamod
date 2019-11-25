@@ -343,10 +343,6 @@ def write_data(args, data, targets):
     root.create_dataset(constants.RECORD_IDS, data=record_ids)
     root.create_dataset(constants.TARGETS, data=targets)
     root.create_dataset(constants.STATIC, data=data)
-    # Temporal data: not used here, but add fields for demonstration
-    temporal = root.create_group(constants.TEMPORAL)
-    for record_id in record_ids:
-        temporal.create_dataset(record_id, data=[])
     root.close()
     return data_filename
 

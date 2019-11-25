@@ -152,7 +152,7 @@ class Perturber():
         self.record_ids = hdf5_root[constants.RECORD_IDS].value
         self.targets = hdf5_root[constants.TARGETS].value
         self.static_dataset = hdf5_root[constants.STATIC].value
-        self.temporal_grp = hdf5_root[constants.TEMPORAL]
+        self.temporal_grp = hdf5_root.get(constants.TEMPORAL)
         self.num_records = len(self.record_ids)
         self.static_data_input = bool(self.static_dataset.size)
         self.losses = {feature.name: np.zeros(self.num_records) for feature in self.features}
@@ -164,7 +164,7 @@ class Perturber():
         target = self.targets[record_idx]
         static_data = self.static_dataset[record_idx] if self.static_data_input else []
         record_id = self.record_ids[record_idx]
-        temporal_data = self.temporal_grp[record_id].value
+        temporal_data = self.temporal_grp[record_id].value if self.temporal_grp else []
         # Perturb each feature
         for feature in self.features:
             tdata = self.perturb_temporal_data(feature, temporal_data)
