@@ -1,4 +1,4 @@
-"Begin""Implementation of algorithms used in hierarchical_fdr_control.py"""
+"""Implementation of algorithms used in hierarchical_fdr_control.py"""
 # pylint: disable = invalid-name
 
 import sys

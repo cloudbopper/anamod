@@ -330,12 +330,14 @@ def write_data(args, data, targets):
     """
     Write data in HDF5 format.
 
-    Groups:     /records
-                /records/<record_id>
+    Groups:
+        /temporal               (Group containing temporal data)
 
-    Datasets:   /records/<record_id>/temporal (2-D array)
-                /records/<record_id>/static (1-D array)
-                /records/<record_id>/target (scalar)
+    Datasets:
+        /record_ids             (List of record identifiers (strings) of length M = number of records/instances)
+        /targets                (vector of target values (regression/classification outputs) of length M)
+        /static_data            (matrix of static data of size M x L)
+        /temporal/<record_id>   (One dataset per record_id) (List (of variable length V) of vectors (of fixed length W))
     """
     data_filename = "%s/%s" % (args.output_dir, "data.hdf5")
     root = h5py.File(data_filename, "w")
