@@ -45,9 +45,9 @@ setup(
     license="MIT",
     long_description=readme + "\n\n" + changelog,
     name="mihifepe",
-    packages=find_packages(include=["mihifepe"]),
+    packages=find_packages(),
     python_requires=">= 3.5",
     url="https://github.com/Craven-Biostat-Lab/mihifepe",
     version="0.2.0",
-    zip_safe=False,
+    zip_safe=True,
 )
