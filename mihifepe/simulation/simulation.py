@@ -8,7 +8,8 @@ import itertools
 import logging
 import os
 import pickle
-import subprocess
+import sys
+from unittest.mock import patch
 
 import anytree
 from anytree.importer import JsonImporter
@@ -19,6 +20,8 @@ import sympy
 from sympy.utilities.lambdify import lambdify
 from sklearn.metrics import precision_recall_fscore_support
 
+from mihifepe import master
+from mihifepe.fdr import hierarchical_fdr_control
 from mihifepe import constants
 
 # TODO maybe: write arguments to separate readme.txt for documentating runs
@@ -407,12 +410,14 @@ def run_mihifepe(args, pass_args, data_filename, hierarchy_filename, gen_model_f
     analyze_interactions = "-analyze_interactions" if args.analyze_interactions else ""
     args.logger.info("Passing the following arguments to mihifepe.master without parsing: %s" % pass_args)
     memory_requirement = 1 + (os.stat(data_filename).st_size // (2 ** 30))  # Compute approximate memory requirement in GB
-    cmd = ("python -m mihifepe.master -data_filename '%s' -hierarchy_filename '%s' -model_generator_filename '%s' -output_dir '%s' "
+    cmd = ("python -m mihifepe.master -data_filename %s -hierarchy_filename %s -model_generator_filename %s -output_dir %s "
            "-perturbation %s -num_shuffling_trials %d -memory_requirement %d %s %s"
            % (data_filename, hierarchy_filename, gen_model_filename, args.output_dir,
               args.perturbation, args.num_shuffling_trials, memory_requirement, analyze_interactions, pass_args))
     args.logger.info("Running cmd: %s" % cmd)
-    subprocess.check_call(cmd, shell=True)
+    pass_args = cmd.split()[2:]
+    with patch.object(sys, 'argv', pass_args):
+        master.main()
     args.logger.info("End running mihifepe")
 
 
@@ -442,7 +447,9 @@ def compare_with_ground_truth(args, hierarchy_root):
     cmd = ("python -m mihifepe.fdr.hierarchical_fdr_control -output_dir %s -procedure yekutieli "
            "-rectangle_leaves %s" % (ground_truth_dir, input_filename))
     args.logger.info("Running cmd: %s" % cmd)
-    subprocess.check_call(cmd, shell=True)
+    pass_args = cmd.split()[2:]
+    with patch.object(sys, 'argv', pass_args):
+        hierarchical_fdr_control.main()
     # Compare results
     ground_truth_outputs_filename = "%s/%s.png" % (ground_truth_dir, constants.TREE)
     args.logger.info("Ground truth results: %s" % ground_truth_outputs_filename)
