@@ -10,3 +10,4 @@ pylint
 pytest
 pytest-runner
 pytest-regressions
+pytest-profiling

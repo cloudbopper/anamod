@@ -85,7 +85,11 @@ Ready to contribute? Here's how to set up `mihifepe` for local development.
 
    While testing with a specific python version, you may invoke the tests as follows::
 
-        pytest
+        pytest tests
+
+   To profile the code, add the --profile-svg flag (by default, the profiling results are saved in the 'prof' directory)::
+
+        pytest --profile-svg tests
 
    If the change affects the distributed (HTCondor_) implementation, you should also run condor tests in an
    environment that supports condor with a shared filesystem (these tests are disabled by default)::
