@@ -1,9 +1,10 @@
 """Generates model for simulation - perturbed version of ground truth polynomial"""
 
 import numpy as np
+from pyhashxx import hashxx
 
 from mihifepe import constants
-from pyhashxx import hashxx
+
 
 class Model():
     """Class implementing model API required by mihifepe"""
