@@ -1,10 +1,9 @@
 """Generates model for simulation - perturbed version of ground truth polynomial"""
 
 import numpy as np
-from pyhashxx import hashxx
 
 from mihifepe import constants
-
+from pyhashxx import hashxx
 
 class Model():
     """Class implementing model API required by mihifepe"""
@@ -19,6 +18,7 @@ class Model():
         self.model_fn = model_fn
         self.noise_multiplier = noise_multiplier
         self.noise_type = noise_type
+        self.rng = np.random.RandomState(constants.SEED)
 
     def predict(self, target, static_data, temporal_data):
         """
@@ -36,14 +36,14 @@ class Model():
             prediction:     model's output prediction, only used for classifiers
         """
         hashval = hashxx(static_data.data.tobytes())
-        prg = np.random.RandomState(hashval)
+        self.rng.seed(hashval)
         if self.noise_type == constants.EPSILON_IRRELEVANT:
             # Add noise - small random non-zero coefficients for irrelevant features
-            noise = self.noise_multiplier * prg.uniform(-1, 1, static_data.size)
+            noise = self.noise_multiplier * self.rng.uniform(-1, 1, static_data.size)
             prediction = self.model_fn(static_data, noise)
         elif self.noise_type == constants.ADDITIVE_GAUSSIAN:
             # Add noise - additive Gaussian, sampled for every instance/perturbed instance
-            prediction = self.model_fn(static_data, prg.normal(0, self.noise_multiplier))
+            prediction = self.model_fn(static_data, self.rng.normal(0, self.noise_multiplier))
         else:
             raise NotImplementedError("Unknown noise type")
         loss = self.loss(prediction, target)

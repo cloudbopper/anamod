@@ -35,7 +35,7 @@ setup(
         "anytree",
         "cityhash",
         "h5py",
-        "numpy~=1.16.5",
+        "numpy",
         "pyhashxx",
         "scikit-learn",
         "scipy",
