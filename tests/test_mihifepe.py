@@ -92,7 +92,7 @@ def test_simulation_interactions(file_regression, tmpdir):
     output_dir = "%s/output_dir_%s" % (tmpdir, func_name)
     pvalues_filename = "%s/%s" % (output_dir, constants.INTERACTIONS_PVALUES_FILENAME)
     cmd = ("python -m mihifepe.simulation -seed 5 -num_instances 100 -num_features 10 -fraction_relevant_features 0.5"
-           " -analyze_interactions -hierarchy_type random -perturbation zeroing -noise_multiplier 0.0 -noise_type additive_gaussian"
+           " -analyze_interactions -hierarchy_type random -perturbation zeroing -noise_type none"
            " -num_interactions 3 -output_dir %s" % output_dir)
     pass_args = cmd.split()[2:]
     with patch.object(sys, 'argv', pass_args):

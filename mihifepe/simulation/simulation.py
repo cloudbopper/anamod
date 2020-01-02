@@ -41,7 +41,7 @@ def main():
     parser.add_argument("-fraction_relevant_features", type=float, default=.05)
     parser.add_argument("-noise_multiplier", type=float, default=.05,
                         help="Multiplicative factor for noise added to polynomial computation for irrelevant features")
-    parser.add_argument("-noise_type", choices=[constants.ADDITIVE_GAUSSIAN, constants.EPSILON_IRRELEVANT],
+    parser.add_argument("-noise_type", choices=[constants.ADDITIVE_GAUSSIAN, constants.EPSILON_IRRELEVANT, constants.NO_NOISE],
                         default=constants.EPSILON_IRRELEVANT)
     parser.add_argument("-hierarchy_type", help="Choice of hierarchy to generate", default=constants.CLUSTER_FROM_DATA,
                         choices=[constants.CLUSTER_FROM_DATA, constants.RANDOM])
@@ -49,6 +49,10 @@ def main():
                         "cluster the data to generate a hierarchy, allowing the hierarchy to remain same across multiple "
                         "sets of instances", default=0)
     parser.add_argument("-num_interactions", type=int, default=0, help="number of interaction pairs in model")
+    parser.add_argument("-exclude_interaction_only_features", help="exclude interaction-only features in model"
+                        " in addition to linear + interaction features (default included)", action="store_false",
+                        dest="include_interaction_only_features")
+    parser.set_defaults(include_interaction_only_features=True)
     parser.add_argument("-contiguous_node_names", action="store_true", help="enable to change node names in hierarchy "
                         "to be contiguous for better visualization (but creating mismatch between node names and features indices)")
     # Arguments used to qualify output directory, then passed to mihifepe.master
@@ -230,7 +234,12 @@ def gen_polynomial(args):
     args.logger.info("Ground truth polynomial:\ny = %s" % sym_polynomial_fn)
     # Generate model expression
     polynomial_fn = lambdify([sym_features], sym_polynomial_fn, "numpy")
-    if args.noise_type == constants.EPSILON_IRRELEVANT:
+    # Add noise terms
+    sym_noise = []
+    sym_model_fn = sym_polynomial_fn
+    if args.noise_type == constants.NO_NOISE:
+        pass
+    elif args.noise_type == constants.EPSILON_IRRELEVANT:
         sym_noise = sympy.symbols(["noise%d" % x for x in range(args.num_features)])
         irrelevant_features = np.array([0 if x in relevant_features else 1 for x in range(args.num_features)])
         sym_model_fn = sym_polynomial_fn + (sym_noise * irrelevant_features).dot(sym_features)
@@ -278,7 +287,7 @@ def update_linear_terms(args, relevant_features, relevant_feature_map, sym_featu
         interaction_features.update(interaction)
     # Let half the interaction features have nonzero interaction coefficients but zero linear coefficients
     interaction_only_features = []
-    if interaction_features:
+    if interaction_features and args.include_interaction_only_features:
         interaction_only_features = args.rng.choice(sorted(interaction_features),
                                                     len(interaction_features) // 2,
                                                     replace=False)

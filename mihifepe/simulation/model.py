@@ -38,7 +38,9 @@ class Model():
         """
         hashval = hashxx(static_data.data.tobytes())
         self.rng.seed(hashval)
-        if self.noise_type == constants.EPSILON_IRRELEVANT:
+        if self.noise_type == constants.NO_NOISE:
+            prediction = self.model_fn(static_data, [])
+        elif self.noise_type == constants.EPSILON_IRRELEVANT:
             # Add noise - small random non-zero coefficients for irrelevant features
             noise = self.noise_multiplier * self.rng.uniform(-1, 1, static_data.size)
             prediction = self.model_fn(static_data, noise)
