@@ -7,15 +7,16 @@ in the hierarchy.
 
 import argparse
 import csv
-import logging
 import os
-import subprocess
+import sys
+from unittest.mock import patch
 
 import anytree
 import numpy as np
 
 from mihifepe.compute_p_values import compute_p_value
-from mihifepe import constants
+from mihifepe import constants, utils
+from mihifepe.fdr import hierarchical_fdr_control
 from mihifepe.feature import Feature
 from mihifepe.interactions import analyze_interactions
 from mihifepe.pipelines import CondorPipeline, SerialPipeline, round_vectordict
@@ -59,7 +60,7 @@ def main():
     parser.add_argument("-analyze_all_pairwise_interactions", help="analyze all pairwise interactions between leaf features,"
                         " instead of just pairwise interactions of leaf features identified by hierarchical FDR",
                         action="store_true")
-    parser.add_argument("-no-condor-cleanup", action="store_true", help="disable removal of intermediate condor files"
+    parser.add_argument("-no-condor-cleanup", action="store_false", help="disable removal of intermediate condor files"
                         " after completion (typically for debugging). By default these files will be cleared to remove"
                         " space and clutter, and to avoid condor file issues", dest="cleanup")
     parser.set_defaults(cleanup=True)
@@ -68,10 +69,8 @@ def main():
 
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
-    np.random.seed(constants.SEED)
-    logging.basicConfig(level=logging.INFO, filename="%s/master.log" % args.output_dir,
-                        format="%(asctime)s: %(message)s")
-    logger = logging.getLogger(__name__)
+    args.rng = np.random.RandomState(constants.SEED)
+    logger = utils.get_logger(__name__, "%s/master.log" % args.output_dir)
     pipeline(args, logger)
 
 
@@ -81,7 +80,7 @@ def pipeline(args, logger):
     # Load hierarchy from file
     hierarchy_root = load_hierarchy(args.hierarchy_filename)
     # Flatten hierarchy to allow partitioning across workers
-    feature_nodes = flatten_hierarchy(hierarchy_root)
+    feature_nodes = flatten_hierarchy(args, hierarchy_root)
     # Perturb features
     _, losses, predictions = perturb_features(args, logger, feature_nodes)
     # Compute p-values
@@ -147,7 +146,7 @@ def load_hierarchy(hierarchy_filename):
     return root
 
 
-def flatten_hierarchy(hierarchy_root):
+def flatten_hierarchy(args, hierarchy_root):
     """
     Flatten hierarchy to allow partitioning across workers
 
@@ -160,7 +159,7 @@ def flatten_hierarchy(hierarchy_root):
     nodes = list(anytree.PreOrderIter(hierarchy_root))
     nodes.append(Feature(constants.BASELINE, description="No perturbation"))  # Baseline corresponds to no perturbation
     nodes.sort(key=lambda node: node.name)  # For reproducibility across python versions
-    np.random.shuffle(nodes)  # To balance load across workers
+    args.rng.shuffle(nodes)  # To balance load across workers
     return nodes
 
 
@@ -211,7 +210,9 @@ def hierarchical_fdr(args, logger):
     cmd = ("python -m mihifepe.fdr.hierarchical_fdr_control -output_dir %s -procedure yekutieli "
            "-rectangle_leaves %s" % (output_dir, input_filename))
     logger.info("Running cmd: %s" % cmd)
-    subprocess.check_call(cmd, shell=True)
+    pass_args = cmd.split()[2:]
+    with patch.object(sys, 'argv', pass_args):
+        hierarchical_fdr_control.main()
 
 
 if __name__ == "__main__":

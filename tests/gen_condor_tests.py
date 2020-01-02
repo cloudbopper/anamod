@@ -10,7 +10,7 @@ GOLD_DIRECTORY = "test_mihifepe"
 CONDOR_TEST_DIRECTORY = "condor_tests"
 TEST_SIMULATION = "test_simulation"
 TEST_CONDOR_SIMULATION = "test_condor_simulation"
-SUBSTITUTIONS = {TEST_SIMULATION: TEST_CONDOR_SIMULATION, "mihifepe.simulation": "mihifepe.simulation -condor"}
+SUBSTITUTIONS = {TEST_SIMULATION: TEST_CONDOR_SIMULATION, "python -m mihifepe.simulation": "python -m mihifepe.simulation -condor"}
 
 def main():
     """Generate condor tests by copying/substituting existing non-condor tests"""

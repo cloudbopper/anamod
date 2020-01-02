@@ -3,7 +3,6 @@
 import argparse
 import codecs
 import csv
-import logging
 import math
 import os
 
@@ -11,7 +10,7 @@ import anytree
 from anytree.exporter import DotExporter
 from anytree.exporter import JsonExporter
 
-from mihifepe import constants
+from mihifepe import constants, utils
 from mihifepe.fdr.fdr_algorithms import hierarchical_fdr_control
 
 # pylint: disable = invalid-name
@@ -44,8 +43,7 @@ def main():
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
-    logging.basicConfig(level=logging.INFO, filename="%s/hierarchical_fdr_control.log" % args.output_dir, format="%(asctime)s: %(message)s")
-    logger = logging.getLogger()
+    logger = utils.get_logger(__name__, "%s/hierarchical_fdr_control.log" % args.output_dir)
     logger.info("Begin hierarchical_fdr_control")
 
     tree = build_tree(args, logger)

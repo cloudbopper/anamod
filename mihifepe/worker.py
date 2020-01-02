@@ -7,7 +7,6 @@ computes the effect on the model's output loss
 import argparse
 import csv
 import importlib
-import logging
 import os
 import pickle
 import sys
@@ -15,7 +14,7 @@ import sys
 import h5py
 import numpy as np
 
-from mihifepe import constants
+from mihifepe import constants, utils
 from mihifepe.feature import Feature
 
 
@@ -27,10 +26,7 @@ def main():
     cargs = parser.parse_args()
     with open(cargs.args_filename, "rb") as args_file:
         args = pickle.load(args_file)
-    # np.random.seed(constants.SEED + args.task_idx)  # Enable if generating task-specific random numbers
-    logging.basicConfig(level=logging.INFO, filename="%s/worker_%d.log" % (args.output_dir, args.task_idx),
-                        format="%(asctime)s: %(message)s")
-    logger = logging.getLogger(__name__)
+    logger = utils.get_logger(__name__, "%s/worker_%d.log" % (args.output_dir, args.task_idx))
     pipeline(args, logger)
 
 
@@ -103,7 +99,12 @@ def load_model(logger, gen_model_filename):
     dirname, basename = os.path.split(gen_model_filename)
     sys.path.insert(0, dirname)
     module_name, _ = os.path.splitext(basename)
-    module = importlib.import_module(module_name)
+    importlib.invalidate_caches()
+    module = sys.modules.get(module_name)
+    if not module:
+        module = importlib.import_module(module_name)
+    else:
+        module = importlib.reload(module)
     model = getattr(module, "model")
     logger.info("End loading model")
     return model

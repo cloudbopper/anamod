@@ -3,8 +3,9 @@
 import copy
 import csv
 import itertools
+import sys
 import time
-import subprocess
+from unittest.mock import patch
 
 import anytree
 from anytree.importer import JsonImporter
@@ -12,6 +13,7 @@ import numpy as np
 
 from mihifepe.compute_p_values import compute_p_value
 from mihifepe import constants
+from mihifepe.fdr import hierarchical_fdr_control
 from mihifepe.feature import Feature
 from mihifepe.pipelines import CondorPipeline, SerialPipeline, round_vector
 
@@ -45,7 +47,9 @@ def bh_procedure(args, logger):
     cmd = ("python -m mihifepe.fdr.hierarchical_fdr_control -output_dir %s -procedure yekutieli "
            "-rectangle_leaves %s" % (output_dir, input_filename))
     logger.info("Running cmd: %s" % cmd)
-    subprocess.check_call(cmd, shell=True)
+    pass_args = cmd.split()[2:]
+    with patch.object(sys, 'argv', pass_args):
+        hierarchical_fdr_control.main()
 
 
 def compute_p_values(args, interaction_groups, interaction_predictions, cached_predictions):

@@ -111,7 +111,7 @@ Ready to contribute? Here's how to set up `mihifepe` for local development.
 
    Condor gold files may be overwritten using --force-regen as well, or simply copied over by running::
 
-        python -m mihifepe.gen_condor_tests -overwrite_golds
+        python -m tests.gen_condor_tests -overwrite_golds
 
 .. _pytest-regressions: https://pytest-regressions.readthedocs.io/en/latest/
 .. _pyenv: https://github.com/pyenv/pyenv

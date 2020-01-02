@@ -5,7 +5,6 @@ from collections import namedtuple
 import csv
 import functools
 import itertools
-import logging
 import os
 import pickle
 import sys
@@ -20,9 +19,8 @@ import sympy
 from sympy.utilities.lambdify import lambdify
 from sklearn.metrics import precision_recall_fscore_support
 
-from mihifepe import master
+from mihifepe import constants, master, utils
 from mihifepe.fdr import hierarchical_fdr_control
-from mihifepe import constants
 
 # TODO maybe: write arguments to separate readme.txt for documentating runs
 
@@ -67,11 +65,8 @@ def main():
                             args.fraction_relevant_features, args.perturbation, args.num_shuffling_trials))
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
-    np.random.seed(args.seed)
-    logging.basicConfig(level=logging.INFO, filename="%s/simulation.log" % args.output_dir,
-                        format="%(asctime)s: %(message)s")
-    logger = logging.getLogger(__name__)
-    args.logger = logger
+    args.rng = np.random.RandomState(args.seed)
+    args.logger = utils.get_logger(__name__, "%s/simulation.log" % args.output_dir)
 
     pipeline(args, pass_args)
 
@@ -109,8 +104,8 @@ def synthesize_data(args):
     """Synthesize data"""
     # TODO: Correlations between features
     args.logger.info("Begin generating data")
-    probs = np.random.uniform(size=args.num_features)
-    data = np.random.binomial(1, probs, size=(max(args.num_instances, args.clustering_instance_count), args.num_features))
+    probs = args.rng.uniform(size=args.num_features)
+    data = args.rng.binomial(1, probs, size=(max(args.num_instances, args.clustering_instance_count), args.num_features))
     test_data = data
     clustering_data = data
     if args.clustering_instance_count:
@@ -165,7 +160,7 @@ def gen_random_hierarchy(args):
     """Generates balanced random hierarchy"""
     args.logger.info("Begin generating hierarchy")
     nodes = [anytree.Node(str(idx), static_indices=str(idx)) for idx in range(args.num_features)]
-    np.random.shuffle(nodes)
+    args.rng.shuffle(nodes)
     node_count = len(nodes)
     while len(nodes) > 1:
         parents = []
@@ -253,7 +248,7 @@ def get_relevant_features(args):
     num_relevant_features = max(1, round(args.num_features * args.fraction_relevant_features))
     coefficients = np.zeros(args.num_features)
     coefficients[:num_relevant_features] = 1
-    np.random.shuffle(coefficients)
+    args.rng.shuffle(coefficients)
     relevant_features = {idx for idx in range(args.num_features) if coefficients[idx]}
     return relevant_features
 
@@ -268,9 +263,9 @@ def update_interaction_terms(args, relevant_features, relevant_feature_map, sym_
     potential_pairs = list(itertools.combinations(sorted(relevant_features), 2))
     potential_pairs_arr = np.empty(len(potential_pairs), dtype=np.object)
     potential_pairs_arr[:] = potential_pairs
-    interaction_pairs = np.random.choice(potential_pairs_arr, size=num_interactions, replace=False)
+    interaction_pairs = args.rng.choice(potential_pairs_arr, size=num_interactions, replace=False)
     for interaction_pair in interaction_pairs:
-        coefficient = np.random.uniform()
+        coefficient = args.rng.uniform()
         relevant_feature_map[frozenset(interaction_pair)] = coefficient
         sym_polynomial_fn += coefficient * functools.reduce(lambda sym_x, y: sym_x * sym_features[y], interaction_pair, 1)
     return sym_polynomial_fn
@@ -284,12 +279,12 @@ def update_linear_terms(args, relevant_features, relevant_feature_map, sym_featu
     # Let half the interaction features have nonzero interaction coefficients but zero linear coefficients
     interaction_only_features = []
     if interaction_features:
-        interaction_only_features = np.random.choice(sorted(interaction_features),
-                                                     len(interaction_features) // 2,
-                                                     replace=False)
+        interaction_only_features = args.rng.choice(sorted(interaction_features),
+                                                    len(interaction_features) // 2,
+                                                    replace=False)
     linear_features = sorted(relevant_features.difference(interaction_only_features))
     coefficients = np.zeros(args.num_features)
-    coefficients[linear_features] = np.random.uniform(size=len(linear_features))
+    coefficients[linear_features] = args.rng.uniform(size=len(linear_features))
     for linear_feature in linear_features:
         relevant_feature_map[frozenset([linear_feature])] = coefficients[linear_feature]
     sym_polynomial_fn += coefficients.dot(sym_features)

@@ -3,11 +3,10 @@
 import argparse
 import csv
 from collections import namedtuple
-import logging
 import os
 import subprocess
 
-from mihifepe import constants
+from mihifepe import constants, utils
 
 TRIAL = "trial"
 SUMMARY_FILENAME = "all_trials_summary"
@@ -33,10 +32,7 @@ def main():
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
-    logging.basicConfig(level=logging.INFO, filename="%s/run_trials.log" % args.output_dir,
-                        format="%(asctime)s: %(message)s")
-    logger = logging.getLogger(__name__)
-    args.logger = logger
+    args.logger = utils.get_logger(__name__, "%s/run_trials.log" % args.output_dir)
 
     trials = gen_trials(args)
     run_trials(args, trials)

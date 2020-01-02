@@ -3,13 +3,12 @@
 import argparse
 import configparser
 import csv
-import logging
 import os
 import pickle
 import time
 import subprocess
 
-from mihifepe import constants
+from mihifepe import constants, utils
 from mihifepe.constants import INSTANCE_COUNTS, NOISE_LEVELS, FEATURE_COUNTS, SHUFFLING_COUNTS, ALL_SIMULATION_RESULTS
 
 OUTPUTS = "%s/%s_%s"
@@ -41,10 +40,7 @@ def main():
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
-    logging.basicConfig(level=logging.INFO, filename="%s/run_simulations.log" % args.output_dir,
-                        format="%(asctime)s: %(message)s")
-    logger = logging.getLogger(__name__)
-    args.logger = logger
+    args.logger = utils.get_logger(__name__, "%s/run_simulations.log" % args.output_dir)
 
     args.logger.info("Begin running/analyzing simulations")
     args.config = load_config(args)
