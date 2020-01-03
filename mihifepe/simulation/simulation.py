@@ -80,7 +80,7 @@ def pipeline(args, pass_args):
     # TODO: Features other than binary
     args.logger.info("Begin mihifepe simulation with args: %s" % args)
     # Synthesize polynomial that generates ground truth
-    sym_vars, relevant_feature_map, polynomial_fn = gen_polynomial(args)
+    sym_vars, relevant_feature_map, polynomial_fn = gen_polynomial(args, get_relevant_features(args))
     # Synthesize data
     probs, test_data, clustering_data = synthesize_data(args)
     # Generate hierarchy using clustering
@@ -217,15 +217,13 @@ def gen_hierarchy_from_clusters(args, clusters):
     return hierarchy_root
 
 
-def gen_polynomial(args):
+def gen_polynomial(args, relevant_features):
     """Generate polynomial which decides the ground truth and noisy model"""
     # Note: using sympy to build function appears to be 1.5-2x slower than erstwhile raw numpy implementation (for linear terms)
     # TODO: possibly negative coefficients
     sym_features = sympy.symbols(["x%d" % x for x in range(args.num_features)])
     relevant_feature_map = {}  # map of relevant feature sets to coefficients
     # Generate polynomial expression
-    # Get relevant feature identifiers
-    relevant_features = get_relevant_features(args)
     # Pairwise interaction terms
     sym_polynomial_fn = 0
     sym_polynomial_fn = update_interaction_terms(args, relevant_features, relevant_feature_map, sym_features, sym_polynomial_fn)
