@@ -1,4 +1,4 @@
-"""mihifepe package definition and install configuration"""
+"""anamod package definition and install configuration"""
 
 from setuptools import find_packages, setup
 
@@ -7,7 +7,7 @@ from setuptools import find_packages, setup
 with open("README.rst") as readme_file:
     readme = readme_file.read()
 
-with open("CHANGELOG.rst") as changelog_file:
+with open("docs/changelog.rst") as changelog_file:
     changelog = changelog_file.read()
 
 setup(
@@ -21,13 +21,14 @@ setup(
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: Implementation :: CPython",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
-    description="Model Interpretability via Hierarchical Feature Perturbation",
+    description="Feature Importance Analysis of Models",
     entry_points={
         "console_scripts": [
-            "mihifepe=mihifepe.master:main",
+            "anamod=anamod.master:main",
         ],
     },
     include_package_data=True,
@@ -41,13 +42,13 @@ setup(
         "scipy",
         "sympy"
     ],
-    keywords="mihifepe",
+    keywords="anamod",
     license="MIT",
     long_description=readme + "\n\n" + changelog,
-    name="mihifepe",
+    name="anamod",
     packages=find_packages(),
     python_requires=">= 3.5",
-    url="https://github.com/Craven-Biostat-Lab/mihifepe",
-    version="0.2.1",
+    url="https://github.com/cloudbopper/anamod",
+    version="0.1.0",
     zip_safe=True,
 )

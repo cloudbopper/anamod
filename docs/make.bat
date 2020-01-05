@@ -9,7 +9,7 @@ if "%SPHINXBUILD%" == "" (
 )
 set SOURCEDIR=.
 set BUILDDIR=_build
-set SPHINXPROJ=mihifepe
+set SPHINXPROJ=anamod
 
 if "%1" == "" goto help
 

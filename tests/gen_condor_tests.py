@@ -5,12 +5,12 @@ import os
 import re
 import shutil
 
-TEST_FILENAME = "test_mihifepe.py"
-GOLD_DIRECTORY = "test_mihifepe"
+TEST_FILENAME = "test_anamod.py"
+GOLD_DIRECTORY = "test_anamod"
 CONDOR_TEST_DIRECTORY = "condor_tests"
 TEST_SIMULATION = "test_simulation"
 TEST_CONDOR_SIMULATION = "test_condor_simulation"
-SUBSTITUTIONS = {TEST_SIMULATION: TEST_CONDOR_SIMULATION, "python -m mihifepe.simulation": "python -m mihifepe.simulation -condor"}
+SUBSTITUTIONS = {TEST_SIMULATION: TEST_CONDOR_SIMULATION, "python -m anamod.simulation": "python -m anamod.simulation -condor"}
 
 
 def main():

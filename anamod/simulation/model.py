@@ -3,11 +3,11 @@
 import numpy as np
 from pyhashxx import hashxx
 
-from mihifepe import constants
+from anamod import constants
 
 
 class Model():
-    """Class implementing model API required by mihifepe"""
+    """Class implementing model API required by anamod"""
     # pylint: disable = too-few-public-methods, unused-argument
 
     def __init__(self, model_fn, noise_multiplier, noise_type):

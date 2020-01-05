@@ -4,7 +4,7 @@ import pickle
 
 from sympy.utilities.lambdify import lambdify
 
-from mihifepe.simulation import model
+from anamod.simulation import model
 
 # pylint: disable = invalid-name
 config_filename = "GEN_MODEL_CONFIG_FILENAME_PLACEHOLDER"  # This string gets replaced by name of config file during simulation

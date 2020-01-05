@@ -14,8 +14,8 @@ import time
 import h5py
 import numpy as np
 
-from mihifepe import constants, worker
-from mihifepe.feature import Feature
+from anamod import constants, worker
+from anamod.feature import Feature
 
 
 class SerialPipeline():
@@ -245,7 +245,7 @@ class CondorPipeline():
             if failed_tasks:
                 for task in failed_tasks:
                     self.logger.error("Task '%s' failed to run on condor, attempting on master node" % task[constants.CMD])
-                    cmd = "python -m mihifepe.worker %s" % task[constants.ARGS_FILENAME]
+                    cmd = "python -m anamod.worker %s" % task[constants.ARGS_FILENAME]
                     self.logger.info("Running cmd '%s'" % cmd)
                     subprocess.check_call(cmd, shell=True)
 

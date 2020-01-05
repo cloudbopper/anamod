@@ -1,4 +1,4 @@
-"""Generates simulated data and model to test mihifepe algorithm"""
+"""Generates simulated data and model to test anamod algorithm"""
 
 import argparse
 from collections import namedtuple
@@ -19,8 +19,8 @@ import sympy
 from sympy.utilities.lambdify import lambdify
 from sklearn.metrics import precision_recall_fscore_support
 
-from mihifepe import constants, master, utils
-from mihifepe.fdr import hierarchical_fdr_control
+from anamod import constants, master, utils
+from anamod.fdr import hierarchical_fdr_control
 
 # TODO maybe: write arguments to separate readme.txt for documentating runs
 
@@ -55,7 +55,7 @@ def main():
     parser.set_defaults(include_interaction_only_features=True)
     parser.add_argument("-contiguous_node_names", action="store_true", help="enable to change node names in hierarchy "
                         "to be contiguous for better visualization (but creating mismatch between node names and features indices)")
-    # Arguments used to qualify output directory, then passed to mihifepe.master
+    # Arguments used to qualify output directory, then passed to anamod.master
     parser.add_argument("-perturbation", default=constants.SHUFFLING, choices=[constants.ZEROING, constants.SHUFFLING])
     parser.add_argument("-num_shuffling_trials", type=int, default=100, help="Number of shuffling trials to average over, "
                         "when shuffling perturbations are selected")
@@ -78,7 +78,7 @@ def main():
 def pipeline(args, pass_args):
     """Simulation pipeline"""
     # TODO: Features other than binary
-    args.logger.info("Begin mihifepe simulation with args: %s" % args)
+    args.logger.info("Begin anamod simulation with args: %s" % args)
     # Synthesize polynomial that generates ground truth
     sym_vars, relevant_feature_map, polynomial_fn = gen_polynomial(args, get_relevant_features(args))
     # Synthesize data
@@ -94,14 +94,14 @@ def pipeline(args, pass_args):
     hierarchy_filename = write_hierarchy(args, hierarchy_root)
     gen_model_filename = write_model(args, sym_vars)
     # Invoke feature importance algorithm
-    run_mihifepe(args, pass_args, data_filename, hierarchy_filename, gen_model_filename)
-    # Compare mihifepe outputs with ground truth outputs
+    run_anamod(args, pass_args, data_filename, hierarchy_filename, gen_model_filename)
+    # Compare anamod outputs with ground truth outputs
     compare_with_ground_truth(args, hierarchy_root)
-    # Evaluate mihifepe outputs - power/FDR for all nodes/outer nodes/base features
+    # Evaluate anamod outputs - power/FDR for all nodes/outer nodes/base features
     results = evaluate(args, relevant_feature_map, feature_id_map)
     args.logger.info("Results:\n%s" % str(results))
     write_results(args, results)
-    args.logger.info("End mihifepe simulation")
+    args.logger.info("End anamod simulation")
 
 
 def synthesize_data(args):
@@ -406,13 +406,13 @@ def write_model(args, sym_vars):
     return gen_model_filename
 
 
-def run_mihifepe(args, pass_args, data_filename, hierarchy_filename, gen_model_filename):
-    """Run mihifepe algorithm"""
-    args.logger.info("Begin running mihifepe")
+def run_anamod(args, pass_args, data_filename, hierarchy_filename, gen_model_filename):
+    """Run anamod algorithm"""
+    args.logger.info("Begin running anamod")
     analyze_interactions = "-analyze_interactions" if args.analyze_interactions else ""
-    args.logger.info("Passing the following arguments to mihifepe.master without parsing: %s" % pass_args)
+    args.logger.info("Passing the following arguments to anamod.master without parsing: %s" % pass_args)
     memory_requirement = 1 + (os.stat(data_filename).st_size // (2 ** 30))  # Compute approximate memory requirement in GB
-    cmd = ("python -m mihifepe.master -data_filename %s -hierarchy_filename %s -model_generator_filename %s -output_dir %s "
+    cmd = ("python -m anamod.master -data_filename %s -hierarchy_filename %s -model_generator_filename %s -output_dir %s "
            "-perturbation %s -num_shuffling_trials %d -memory_requirement %d %s %s"
            % (data_filename, hierarchy_filename, gen_model_filename, args.output_dir,
               args.perturbation, args.num_shuffling_trials, memory_requirement, analyze_interactions, pass_args))
@@ -420,14 +420,14 @@ def run_mihifepe(args, pass_args, data_filename, hierarchy_filename, gen_model_f
     pass_args = cmd.split()[2:]
     with patch.object(sys, 'argv', pass_args):
         master.main()
-    args.logger.info("End running mihifepe")
+    args.logger.info("End running anamod")
 
 
 def compare_with_ground_truth(args, hierarchy_root):
-    """Compare results from mihifepe with ground truth results"""
+    """Compare results from anamod with ground truth results"""
     # Generate ground truth results
     # Write hierarchical FDR input file for ground truth values
-    args.logger.info("Compare mihifepe results to ground truth")
+    args.logger.info("Compare anamod results to ground truth")
     input_filename = "%s/ground_truth_pvalues.csv" % args.output_dir
     with open(input_filename, "w", newline="") as input_file:
         writer = csv.writer(input_file)
@@ -446,7 +446,7 @@ def compare_with_ground_truth(args, hierarchy_root):
             writer.writerow([node.name, parent_name, node.pvalue, node.description])
     # Generate hierarchical FDR results for ground truth values
     ground_truth_dir = "%s/ground_truth_fdr" % args.output_dir
-    cmd = ("python -m mihifepe.fdr.hierarchical_fdr_control -output_dir %s -procedure yekutieli "
+    cmd = ("python -m anamod.fdr.hierarchical_fdr_control -output_dir %s -procedure yekutieli "
            "-rectangle_leaves %s" % (ground_truth_dir, input_filename))
     args.logger.info("Running cmd: %s" % cmd)
     pass_args = cmd.split()[2:]
@@ -455,13 +455,13 @@ def compare_with_ground_truth(args, hierarchy_root):
     # Compare results
     ground_truth_outputs_filename = "%s/%s.png" % (ground_truth_dir, constants.TREE)
     args.logger.info("Ground truth results: %s" % ground_truth_outputs_filename)
-    mihifepe_outputs_filename = "%s/%s/%s.png" % (args.output_dir, constants.HIERARCHICAL_FDR_DIR, constants.TREE)
-    args.logger.info("mihifepe results: %s" % mihifepe_outputs_filename)
+    anamod_outputs_filename = "%s/%s/%s.png" % (args.output_dir, constants.HIERARCHICAL_FDR_DIR, constants.TREE)
+    args.logger.info("anamod results: %s" % anamod_outputs_filename)
 
 
 def evaluate(args, relevant_feature_map, feature_id_map):
     """
-    Evaluate mihifepe results - obtain power/FDR measures for all nodes/outer nodes/base features/interactions
+    Evaluate anamod results - obtain power/FDR measures for all nodes/outer nodes/base features/interactions
     """
     # pylint: disable = too-many-locals
     def get_relevant_rejected(nodes, outer=False, leaves=False):

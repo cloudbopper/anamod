@@ -3,7 +3,7 @@
 
 import sys
 
-from mihifepe.constants import POSITIVE
+from anamod.constants import POSITIVE
 
 
 def num_rejections(args, F, d, total_rejected):

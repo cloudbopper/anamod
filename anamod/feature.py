@@ -3,7 +3,7 @@ import anytree
 import cityhash
 import numpy as np
 
-from mihifepe import constants
+from anamod import constants
 
 
 # pylint: disable = too-many-instance-attributes

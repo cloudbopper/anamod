@@ -29,7 +29,7 @@ BROWSER := python -c "$$BROWSER_PYSCRIPT"
 help:
 	@python -c "$$PRINT_HELP_PYSCRIPT" < $(MAKEFILE_LIST)
 
-clean: clean-build clean-pyc clean-test ## remove all build, test, coverage and Python artifacts
+clean: clean-build clean-pyc clean-test clean-docs ## remove all build, test, coverage and Python artifacts
 
 clean-build: ## remove build artifacts
 	rm -fr build/
@@ -37,6 +37,11 @@ clean-build: ## remove build artifacts
 	rm -fr .eggs/
 	find . -name '*.egg-info' -exec rm -fr {} +
 	find . -name '*.egg' -exec rm -f {} +
+
+clean-docs:
+	rm -f docs/anamod.rst
+	rm -f docs/modules.rst
+	$(MAKE) -C docs clean
 
 clean-pyc: ## remove Python file artifacts
 	find . -name '*.pyc' -exec rm -f {} +
@@ -49,27 +54,30 @@ clean-test: ## remove test and coverage artifacts
 	rm -f .coverage
 	rm -fr htmlcov/
 	rm -fr .pytest_cache
+	rm -fr prof/
 
 lint: ## check style with pylint/flake8
-	pylint mihifepe tests
-	flake8 mihifepe tests
+	pylint anamod tests
+	flake8 anamod tests
 
 test: ## run tests quickly with the default Python
-	py.test
+	pytest tests
 
 test-all: ## run tests on every Python version with tox
 	tox
 
 coverage: ## check code coverage quickly with the default Python
-	coverage run --source mihifepe -m pytest
+	pytest --cov=anamod tests
 	coverage report -m
 	coverage html
 	$(BROWSER) htmlcov/index.html
 
-docs: ## generate Sphinx HTML documentation
-	rm -f docs/mihifepe.rst
-	rm -f docs/modules.rst
-	$(MAKE) -C docs clean
+profile:  # profile the code
+	pytest --profile-svg tests
+	open prof/combined.svg
+
+docs: clean-docs ## generate Sphinx HTML documentation, including API docs
+	# sphinx-apidoc -o docs/ anamod
 	$(MAKE) -C docs html
 	$(BROWSER) docs/_build/html/index.html
 

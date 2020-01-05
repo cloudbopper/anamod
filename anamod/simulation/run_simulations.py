@@ -8,8 +8,8 @@ import pickle
 import time
 import subprocess
 
-from mihifepe import constants, utils
-from mihifepe.constants import INSTANCE_COUNTS, NOISE_LEVELS, FEATURE_COUNTS, SHUFFLING_COUNTS, ALL_SIMULATION_RESULTS
+from anamod import constants, utils
+from anamod.constants import INSTANCE_COUNTS, NOISE_LEVELS, FEATURE_COUNTS, SHUFFLING_COUNTS, ALL_SIMULATION_RESULTS
 
 OUTPUTS = "%s/%s_%s"
 
@@ -86,7 +86,7 @@ def instance_count_sims(args):
     max_instance_count = instance_counts[-1]
     for instance_count in instance_counts:
         output_dir = OUTPUTS % (args.output_dir, INSTANCE_COUNTS, str(instance_count))
-        cmd = ("python -m mihifepe.simulation.simulation %s -num_instances %d -clustering_instance_count %d "
+        cmd = ("python -m anamod.simulation.simulation %s -num_instances %d -clustering_instance_count %d "
                "-seed %d -output_dir %s -condor %s" %
                (args.config, instance_count, max_instance_count, args.seed, output_dir, args.pass_arglist))
         sims.append(Simulation(cmd, output_dir, instance_count))
@@ -99,7 +99,7 @@ def feature_count_sims(args):
     feature_counts = [8 * 2 ** x for x in range(8)]
     for feature_count in feature_counts:
         output_dir = OUTPUTS % (args.output_dir, FEATURE_COUNTS, str(feature_count))
-        cmd = ("python -m mihifepe.simulation.simulation %s -num_features %d -seed %d -output_dir %s "
+        cmd = ("python -m anamod.simulation.simulation %s -num_features %d -seed %d -output_dir %s "
                "-condor %s" %
                (args.config, feature_count, args.seed, output_dir, args.pass_arglist))
         sims.append(Simulation(cmd, output_dir, feature_count))
@@ -112,7 +112,7 @@ def noise_level_sims(args):
     noise_levels = [0.0] + [0.01 * 2 ** x for x in range(8)]
     for noise_level in noise_levels:
         output_dir = OUTPUTS % (args.output_dir, NOISE_LEVELS, str(noise_level))
-        cmd = ("python -m mihifepe.simulation.simulation %s -noise_multiplier %f -seed %d -output_dir %s "
+        cmd = ("python -m anamod.simulation.simulation %s -noise_multiplier %f -seed %d -output_dir %s "
                "-condor %s" %
                (args.config, noise_level, args.seed, output_dir, args.pass_arglist))
         sims.append(Simulation(cmd, output_dir, noise_level))
@@ -125,7 +125,7 @@ def shuffling_count_sims(args):
     shuffling_counts = [1000, 750, 500, 250, 100]
     for shuffling_count in shuffling_counts:
         output_dir = OUTPUTS % (args.output_dir, SHUFFLING_COUNTS, str(shuffling_count))
-        cmd = ("python -m mihifepe.simulation.simulation %s -num_shuffling_trials %d -seed %d -output_dir %s "
+        cmd = ("python -m anamod.simulation.simulation %s -num_shuffling_trials %d -seed %d -output_dir %s "
                "-condor %s" %
                (args.config, shuffling_count, args.seed, output_dir, args.pass_arglist))
         sims.append(Simulation(cmd, output_dir, shuffling_count))

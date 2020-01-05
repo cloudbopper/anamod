@@ -1,5 +1,5 @@
 """
-mihifepe master pipeline
+anamod master pipeline
 Given test samples, a trained model and a feature hierarchy,
 computes the effect on the model's output loss after perturbing the features/feature groups
 in the hierarchy.
@@ -14,12 +14,12 @@ from unittest.mock import patch
 import anytree
 import numpy as np
 
-from mihifepe.compute_p_values import compute_p_value
-from mihifepe import constants, utils
-from mihifepe.fdr import hierarchical_fdr_control
-from mihifepe.feature import Feature
-from mihifepe.interactions import analyze_interactions
-from mihifepe.pipelines import CondorPipeline, SerialPipeline, round_vectordict
+from anamod.compute_p_values import compute_p_value
+from anamod import constants, utils
+from anamod.fdr import hierarchical_fdr_control
+from anamod.feature import Feature
+from anamod.interactions import analyze_interactions
+from anamod.pipelines import CondorPipeline, SerialPipeline, round_vectordict
 
 
 def main():
@@ -76,7 +76,7 @@ def main():
 
 def pipeline(args, logger):
     """Master pipeline"""
-    logger.info("Begin mihifepe master pipeline with args: %s" % args)
+    logger.info("Begin anamod master pipeline with args: %s" % args)
     # Load hierarchy from file
     hierarchy_root = load_hierarchy(args.hierarchy_filename)
     # Flatten hierarchy to allow partitioning across workers
@@ -90,7 +90,7 @@ def pipeline(args, logger):
     # Analyze pairwise interactions
     if args.analyze_interactions:
         analyze_interactions(args, logger, feature_nodes, predictions)
-    logger.info("End mihifepe master pipeline")
+    logger.info("End anamod master pipeline")
 
 
 def load_hierarchy(hierarchy_filename):
@@ -98,7 +98,7 @@ def load_hierarchy(hierarchy_filename):
     Load hierarchy from CSV.
 
     Args:
-        hierarchy_filename: CSV specifying hierarchy in required format (see mihifepe/spec.md)
+        hierarchy_filename: CSV specifying hierarchy in required format (see anamod/spec.md)
 
     Returns:
         anytree node representing root of hierarchy
@@ -207,7 +207,7 @@ def hierarchical_fdr(args, logger):
     """Performs hierarchical FDR control on results"""
     input_filename = "%s/%s" % (args.output_dir, constants.PVALUES_FILENAME)
     output_dir = "%s/%s" % (args.output_dir, constants.HIERARCHICAL_FDR_DIR)
-    cmd = ("python -m mihifepe.fdr.hierarchical_fdr_control -output_dir %s -procedure yekutieli "
+    cmd = ("python -m anamod.fdr.hierarchical_fdr_control -output_dir %s -procedure yekutieli "
            "-rectangle_leaves %s" % (output_dir, input_filename))
     logger.info("Running cmd: %s" % cmd)
     pass_args = cmd.split()[2:]

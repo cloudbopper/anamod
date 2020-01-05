@@ -3,4 +3,4 @@
 if [ "$2" != "" ]; then
   source $2/bin/activate
 fi
-python3 -m mihifepe.worker $1
+python3 -m anamod.worker $1

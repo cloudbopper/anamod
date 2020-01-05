@@ -6,8 +6,10 @@ Sphinx
 sphinx-rtd-theme
 twine
 pylint
-
+coverage
 pytest
 pytest-runner
 pytest-regressions
 pytest-profiling
+pytest-cov
+codecov

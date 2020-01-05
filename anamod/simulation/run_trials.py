@@ -6,7 +6,7 @@ from collections import namedtuple
 import os
 import subprocess
 
-from mihifepe import constants, utils
+from anamod import constants, utils
 
 TRIAL = "trial"
 SUMMARY_FILENAME = "all_trials_summary"
@@ -44,7 +44,7 @@ def gen_trials(args):
     trials = []
     for seed in range(args.start_seed, args.start_seed + args.num_trials):
         output_dir = "%s/trial_%s_%d" % (args.output_dir, args.type, seed)
-        cmd = ("python -m mihifepe.simulation.run_simulations -seed %d -type %s -output_dir %s %s" %
+        cmd = ("python -m anamod.simulation.run_simulations -seed %d -type %s -output_dir %s %s" %
                (seed, args.type, output_dir, args.pass_arglist))
         trials.append(Trial(cmd, output_dir))
     return trials

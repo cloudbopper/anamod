@@ -1,4 +1,4 @@
-"""Tests pairwise interactions given output of mihifepe"""
+"""Tests pairwise interactions given output of anamod"""
 
 import copy
 import csv
@@ -11,11 +11,11 @@ import anytree
 from anytree.importer import JsonImporter
 import numpy as np
 
-from mihifepe.compute_p_values import compute_p_value
-from mihifepe import constants
-from mihifepe.fdr import hierarchical_fdr_control
-from mihifepe.feature import Feature
-from mihifepe.pipelines import CondorPipeline, SerialPipeline, round_vector
+from anamod.compute_p_values import compute_p_value
+from anamod import constants
+from anamod.fdr import hierarchical_fdr_control
+from anamod.feature import Feature
+from anamod.pipelines import CondorPipeline, SerialPipeline, round_vector
 
 
 def analyze_interactions(args, logger, feature_nodes, cached_predictions):
@@ -44,7 +44,7 @@ def bh_procedure(args, logger):
     # TODO: Directly use BH procedure
     input_filename = "%s/%s" % (args.output_dir, constants.INTERACTIONS_PVALUES_FILENAME)
     output_dir = "%s/%s" % (args.output_dir, constants.INTERACTIONS_FDR_DIR)
-    cmd = ("python -m mihifepe.fdr.hierarchical_fdr_control -output_dir %s -procedure yekutieli "
+    cmd = ("python -m anamod.fdr.hierarchical_fdr_control -output_dir %s -procedure yekutieli "
            "-rectangle_leaves %s" % (output_dir, input_filename))
     logger.info("Running cmd: %s" % cmd)
     pass_args = cmd.split()[2:]

@@ -1,5 +1,5 @@
 """
-mihifepe worker pipeline
+anamod worker pipeline
 Given test data samples, a trained model and a set of feature groups, perturbs the features and
 computes the effect on the model's output loss
 """
@@ -14,8 +14,8 @@ import sys
 import h5py
 import numpy as np
 
-from mihifepe import constants, utils
-from mihifepe.feature import Feature
+from anamod import constants, utils
+from anamod.feature import Feature
 
 
 def main():
@@ -32,7 +32,7 @@ def main():
 
 def pipeline(args, logger):
     """Worker pipeline"""
-    logger.info("Begin mihifepe worker pipeline")
+    logger.info("Begin anamod worker pipeline")
     # Load features to perturb from file
     features = load_features(args.features_filename)
     # Load data
@@ -43,7 +43,7 @@ def pipeline(args, logger):
     targets, losses, predictions = perturb_features(args, logger, features, records, model)
     # Write outputs
     write_outputs(args, logger, targets, losses, predictions)
-    logger.info("End mihifepe worker pipeline")
+    logger.info("End anamod worker pipeline")
 
 
 def load_features(features_filename):
@@ -73,7 +73,7 @@ def load_data(data_filename):
     Load data from file.
 
     Args:
-        data_filename: file in HDF5 format and specified structure (see mihifepe/spec.md) containing data samples
+        data_filename: file in HDF5 format and specified structure (see anamod/spec.md) containing data samples
 
     Returns:
         data: HDF5 root group containing data
