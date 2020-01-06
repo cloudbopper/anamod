@@ -48,7 +48,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'anamod'
-copyright = u"2018, Akshay Sood"
+copyright = u"2020, Akshay Sood"
 author = u"Akshay Sood"
 
 # The version info for the project you're documenting, acts as replacement
