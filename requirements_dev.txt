@@ -1,6 +1,7 @@
 bumpversion
 watchdog
 flake8
+doc8
 tox
 Sphinx
 sphinx-rtd-theme
