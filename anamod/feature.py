@@ -30,7 +30,7 @@ class Feature(anytree.Node):
 
     def initialize_rng(self):
         """Initialize random number generator for feature (used for shuffling perturbations)"""
-        self.rng = np.random.RandomState(self._rng_seed)
+        self.rng = np.random.default_rng(self._rng_seed)
 
     def uniquify(self, uniquifier):
         """Add uniquifying identifier to name"""

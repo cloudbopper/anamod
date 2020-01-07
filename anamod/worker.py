@@ -191,7 +191,7 @@ class Perturber():
         if self.args.perturbation == constants.ZEROING:
             sdata[feature.static_indices] = 0
         elif self.args.perturbation == constants.SHUFFLING:
-            replace_idx = feature.rng.randint(0, self.num_records)
+            replace_idx = feature.rng.integers(0, self.num_records)
             sdata[feature.static_indices] = self.static_dataset[replace_idx][feature.static_indices]
         return sdata
 

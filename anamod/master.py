@@ -69,7 +69,7 @@ def main():
 
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
-    args.rng = np.random.RandomState(constants.SEED)
+    args.rng = np.random.default_rng(constants.SEED)
     logger = utils.get_logger(__name__, "%s/master.log" % args.output_dir)
     pipeline(args, logger)
 

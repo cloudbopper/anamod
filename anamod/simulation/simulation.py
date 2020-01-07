@@ -26,7 +26,6 @@ from anamod.fdr import hierarchical_fdr_control
 
 # Simulation results object
 Results = namedtuple(constants.SIMULATION_RESULTS, [constants.FDR, constants.POWER,
-                                                    constants.OUTER_NODES_FDR, constants.OUTER_NODES_POWER,
                                                     constants.BASE_FEATURES_FDR, constants.BASE_FEATURES_POWER,
                                                     constants.INTERACTIONS_FDR, constants.INTERACTIONS_POWER])
 
@@ -69,7 +68,7 @@ def main():
                             args.fraction_relevant_features, args.perturbation, args.num_shuffling_trials))
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
-    args.rng = np.random.RandomState(args.seed)
+    args.rng = np.random.default_rng(args.seed)
     args.logger = utils.get_logger(__name__, "%s/simulation.log" % args.output_dir)
 
     pipeline(args, pass_args)
@@ -319,7 +318,8 @@ def update_hierarchy_relevance(hierarchy_root, relevant_feature_map, probs):
                 node.description = ("%s feature:\nPolynomial coefficient: %f\nBinomial probability: %f"
                                     % (constants.RELEVANT, coeff, probs[idx]))
             elif idx in relevant_features:
-                node.description = ("%s feature\n(Interaction-only)" % constants.RELEVANT)
+                node.description = ("%s feature\n(Interaction-only)\nBinomial probability: %f"
+                                    % (constants.RELEVANT, probs[idx]))
         else:
             for child in node.children:
                 if child.description != constants.IRRELEVANT:
@@ -461,15 +461,12 @@ def compare_with_ground_truth(args, hierarchy_root):
 
 def evaluate(args, relevant_feature_map, feature_id_map):
     """
-    Evaluate anamod results - obtain power/FDR measures for all nodes/outer nodes/base features/interactions
+    Evaluate anamod results - obtain power/FDR measures for all nodes/base features/interactions
     """
     # pylint: disable = too-many-locals
-    def get_relevant_rejected(nodes, outer=False, leaves=False):
+    def get_relevant_rejected(nodes, leaves=False):
         """Get set of relevant and rejected nodes"""
-        assert not (outer and leaves)
-        if outer:
-            nodes = [node for node in nodes if node.rejected and all([not child.rejected for child in node.children])]
-        elif leaves:
+        if leaves:
             nodes = [node for node in nodes if node.is_leaf]
         relevant = [0 if node.description == constants.IRRELEVANT else 1 for node in nodes]
         rejected = [1 if node.rejected else 0 for node in nodes]
@@ -482,17 +479,13 @@ def evaluate(args, relevant_feature_map, feature_id_map):
         # All nodes FDR/power
         relevant, rejected = get_relevant_rejected(nodes)
         precision, recall, _, _ = precision_recall_fscore_support(relevant, rejected, average="binary")
-        # Outer nodes FDR/power
-        outer_relevant, outer_rejected = get_relevant_rejected(nodes, outer=True)
-        outer_precision, outer_recall, _, _ = precision_recall_fscore_support(outer_relevant, outer_rejected, average="binary")
         # Base features FDR/power
         bf_relevant, bf_rejected = get_relevant_rejected(nodes, leaves=True)
         bf_precision, bf_recall, _, _ = precision_recall_fscore_support(bf_relevant, bf_rejected, average="binary")
         # Interactions FDR/power
         interaction_precision, interaction_recall = get_precision_recall_interactions(args, relevant_feature_map, feature_id_map)
 
-        return Results(1 - precision, recall, 1 - outer_precision, outer_recall,
-                       1 - bf_precision, bf_recall, 1 - interaction_precision, interaction_recall)
+        return Results(1 - precision, recall, 1 - bf_precision, bf_recall, 1 - interaction_precision, interaction_recall)
 
 
 def get_precision_recall_interactions(args, relevant_feature_map, feature_id_map):
