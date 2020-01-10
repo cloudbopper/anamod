@@ -71,6 +71,7 @@ def main():
         os.makedirs(args.output_dir)
     args.rng = np.random.default_rng(constants.SEED)
     logger = utils.get_logger(__name__, "%s/master.log" % args.output_dir)
+    validate_args(args)
     pipeline(args, logger)
 
 
@@ -213,6 +214,12 @@ def hierarchical_fdr(args, logger):
     pass_args = cmd.split()[2:]
     with patch.object(sys, 'argv', pass_args):
         hierarchical_fdr_control.main()
+
+
+def validate_args(args):
+    """Validate arguments"""
+    if args.analyze_interactions and args.perturbation == constants.SHUFFLING:
+        raise ValueError("Interaction analysis is not supported with shuffling perturbations")
 
 
 if __name__ == "__main__":
