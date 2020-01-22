@@ -18,11 +18,11 @@ from anamod.feature import Feature
 from anamod.pipelines import CondorPipeline, SerialPipeline, round_vector
 
 
-def analyze_interactions(args, logger, feature_nodes, cached_predictions):
+def analyze_interactions(args, feature_nodes, cached_predictions):
     """Analyzes pairwise interactions among (relevant) features"""
     if args.condor:
         time.sleep(5)  # To allow file changes from preceding analysis to propagate
-    logger.info("Begin analyzing interactions")
+    args.logger.info("Begin analyzing interactions")
     # Identify relevant features and feature pairs
     relevant_feature_nodes = get_relevant_features(args, feature_nodes)
     # Identify potential interactions to test
@@ -31,22 +31,22 @@ def analyze_interactions(args, logger, feature_nodes, cached_predictions):
     # Transform into nodes for testing
     interaction_groups = get_interaction_groups(args, potential_interactions)
     # Perturb interaction nodes
-    interaction_predictions = perturb_interactions(args, logger, interaction_groups)
+    interaction_predictions = perturb_interactions(args, interaction_groups)
     # Compute p-values
     compute_p_values(args, interaction_groups, interaction_predictions, cached_predictions)
     # Perform BH procedure on interaction p-values
-    bh_procedure(args, logger)
-    logger.info("End analyzing interactions")
+    bh_procedure(args)
+    args.logger.info("End analyzing interactions")
 
 
-def bh_procedure(args, logger):
+def bh_procedure(args):
     """Performs BH procedure on interaction p-values"""
     # TODO: Directly use BH procedure
     input_filename = "%s/%s" % (args.output_dir, constants.INTERACTIONS_PVALUES_FILENAME)
     output_dir = "%s/%s" % (args.output_dir, constants.INTERACTIONS_FDR_DIR)
     cmd = ("python -m anamod.fdr.hierarchical_fdr_control -output_dir %s -procedure yekutieli "
            "-rectangle_leaves %s" % (output_dir, input_filename))
-    logger.info("Running cmd: %s" % cmd)
+    args.logger.info("Running cmd: %s" % cmd)
     pass_args = cmd.split()[2:]
     with patch.object(sys, 'argv', pass_args):
         hierarchical_fdr_control.main()
@@ -76,19 +76,19 @@ def compute_p_values(args, interaction_groups, interaction_predictions, cached_p
     outfile.close()
 
 
-def perturb_interactions(args, logger, interaction_groups):
+def perturb_interactions(args, interaction_groups):
     """Perturb interactions, observe effect on model loss and aggregate results"""
-    logger.info("Begin perturbing interactions")
+    args.logger.info("Begin perturbing interactions")
     interaction_nodes = []
     for _, redo_node, parent_node in interaction_groups:
         interaction_nodes.append(parent_node)
         if args.perturbation == constants.SHUFFLING:
             interaction_nodes.append(redo_node)
-    worker_pipeline = SerialPipeline(args, logger, interaction_nodes)
+    worker_pipeline = SerialPipeline(args, interaction_nodes)
     if args.condor:
-        worker_pipeline = CondorPipeline(args, logger, interaction_nodes)
+        worker_pipeline = CondorPipeline(args, interaction_nodes)
     _, _, interaction_predictions = worker_pipeline.run()
-    logger.info("End perturbing interactions")
+    args.logger.info("End perturbing interactions")
     return interaction_predictions
 
 

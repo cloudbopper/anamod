@@ -24,7 +24,7 @@ def num_rejections(args, F, d, total_rejected):
             return r_t - 1
 
 
-def hierarchical_fdr_control(args, logger, F, M):
+def hierarchical_fdr_control(args, F, M):
     """
     General procedure that tests hierarchically ordered hypotheses
     Args:
@@ -32,12 +32,12 @@ def hierarchical_fdr_control(args, logger, F, M):
         M: list of all hypotheses
     """
     procedure = getattr(sys.modules[__name__], args.procedure)
-    return procedure(args, logger, F, M)
+    return procedure(args, F, M)
 
 
-def lynch_guo(args, logger, F, M):
+def lynch_guo(args, F, M):
     """Lynch and Guo (2016) hierarchical FDR control procedure"""
-    logger.info("Begin hypotheses testing procedure")
+    args.logger.info("Begin hypotheses testing procedure")
     # Process root node
     Rs = [0] * len(F)  # list of rejections at each level
     root = M[0]
@@ -55,7 +55,7 @@ def lynch_guo(args, logger, F, M):
         if depth == 0:
             continue  # root already seen
         d = depth + 1  # depth is 0-indexed whereas d is assumed to be 1-indexed
-        logger.info("Now processing depth %d" % d)
+        args.logger.info("Now processing depth %d" % d)
         Rs.append(num_rejections(args, F, d, total_rejected))
         rhs = 0
         for node in level:
@@ -66,13 +66,13 @@ def lynch_guo(args, logger, F, M):
                 rhs += 1
         total_rejected += Rs[-1]
         assert Rs[-1] == rhs  # Self consistency verification
-    logger.info("End hypotheses testing procedure")
+    args.logger.info("End hypotheses testing procedure")
     return Rs
 
 
-def yekutieli(args, logger, F, M):
+def yekutieli(args, F, M):
     """Yekutieli (2008) hierarchical FDR control procedure"""
-    logger.info("Begin hierarchical FDR controlled hypothesis testing using Yekutieli (2008)")
+    args.logger.info("Begin hierarchical FDR controlled hypothesis testing using Yekutieli (2008)")
     Rs = [0] * len(F)  # list of rejections at each level
     # Handle root
     root = M[0]
@@ -106,7 +106,7 @@ def yekutieli(args, logger, F, M):
     for node in M:
         if node.parent and node.rejected:
             assert node.parent.rejected
-    logger.info("End hierarchical FDR controlled hypothesis testing using Yekutieli (2008)")
+    args.logger.info("End hierarchical FDR controlled hypothesis testing using Yekutieli (2008)")
     return Rs
 
 

@@ -1,5 +1,8 @@
 """Constant definitions"""
 
+# Arguments
+HIERARCHICAL = "hierarchical"
+
 # Hierarchy
 NODE_NAME = "name"
 PARENT_NAME = "parent_name"

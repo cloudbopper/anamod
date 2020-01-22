@@ -24,74 +24,78 @@ from anamod.pipelines import CondorPipeline, SerialPipeline, round_vectordict
 
 def main():
     """Parse arguments"""
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser("python anamod")
     # Required arguments
-    parser.add_argument("-model_generator_filename", help="python script that generates model "
-                        "object for subsequent callbacks to model.predict", required=True)
-    parser.add_argument("-hierarchy_filename", help="Feature hierarchy in CSV format", required=True)
-    parser.add_argument("-data_filename", help="Test data in HDF5 format", required=True)
-    parser.add_argument("-output_dir", help="Output directory", required=True)
-    # Optional arguments
-    parser.add_argument("-perturbation", default=constants.ZEROING, choices=[constants.ZEROING, constants.SHUFFLING],
-                        help="type of perturbation to perform:\n"
-                        "%s (default): works on both static and temporal data\n"
-                        "%s: works only on static data" % (constants.ZEROING, constants.SHUFFLING))
-    parser.add_argument("-num_shuffling_trials", type=int, default=500, help="Number of shuffling trials to average over, "
+    required = parser.add_argument_group("Required parameters")
+    required.add_argument("-output_dir", help="Output directory", required=True)
+    required.add_argument("-data_filename", help="Test data in HDF5 format", required=True)
+    required.add_argument("-model_generator_filename", help="python script that generates model "
+                          "object for subsequent callbacks to model.predict", required=True)
+    # Optional common arguments
+    common = parser.add_argument_group("Common optional parameters")
+    # TODO: use analysis type arg
+    common.add_argument("-analysis_type", help="Type of model analysis to perform",
+                        default=constants.TEMPORAL, choices=[constants.TEMPORAL, constants.HIERARCHICAL])
+    common.add_argument("-perturbation", default=constants.SHUFFLING, choices=[constants.ZEROING, constants.SHUFFLING],
+                        help="type of perturbation to perform (default %s)" % constants.SHUFFLING)
+    common.add_argument("-num_shuffling_trials", type=int, default=50, help="Number of shuffling trials to average over, "
                         "when shuffling perturbations are selected")
-    parser.add_argument("-condor", dest="condor", action="store_true",
-                        help="Enable parallelization using condor (default disabled)")
-    parser.add_argument("-no-condor", dest="condor", action="store_false", help="Disable parallelization using condor")
-    parser.set_defaults(condor=False)
-    parser.add_argument("-features_per_worker", type=int, default=10, help="worker load")
-    parser.add_argument("-eviction_timeout", type=int, default=14400, help="time in seconds to allow condor jobs"
-                        " to run before evicting and restarting them on another condor node")
-    parser.add_argument("-idle_timeout", type=int, default=3600, help="time in seconds to allow condor jobs"
-                        " to stay idle before removing them from condor and attempting them on the master node.")
-    parser.add_argument("-memory_requirement", type=int, default=16, help="memory requirement in GB, minimum 1, default 16")
-    parser.add_argument("-compile_results_only", help="only compile results (assuming they already exist), "
+    common.add_argument("-compile_results_only", help="only compile results (assuming they already exist), "
                         "skipping actually launching jobs", action="store_true")
-    parser.add_argument("-model_type", default=constants.REGRESSION,
-                        help="Model type (default: regression). Note: this variable is currently unused.",
-                        choices=[constants.BINARY_CLASSIFIER, constants.CLASSIFIER, constants.REGRESSION],)
-    parser.add_argument("-analyze_interactions", help="flag to enable testing of interaction significance. By default,"
-                        " only pairwise interactions between leaf features identified as important by hierarchical FDR"
-                        " are tested. To enable testing of all pairwise interactions, also use -analyze_all_pairwise_interactions",
-                        action="store_true")
-    parser.add_argument("-analyze_all_pairwise_interactions", help="analyze all pairwise interactions between leaf features,"
-                        " instead of just pairwise interactions of leaf features identified by hierarchical FDR",
-                        action="store_true")
-    parser.add_argument("-no-condor-cleanup", action="store_false", help="disable removal of intermediate condor files"
+    # Hierarchical feature importance analysis arguments
+    hierarchical = parser.add_argument_group("Hierarchical analysis arguments")
+    hierarchical.add_argument("-hierarchy_filename", help="Feature hierarchy in CSV format", required=True)
+    hierarchical.add_argument("-analyze_interactions", help="flag to enable testing of interaction significance. By default,"
+                              " only pairwise interactions between leaf features identified as important by hierarchical FDR"
+                              " are tested. To enable testing of all pairwise interactions, also use -analyze_all_pairwise_interactions",
+                              action="store_true")
+    hierarchical.add_argument("-analyze_all_pairwise_interactions", help="analyze all pairwise interactions between leaf features,"
+                              " instead of just pairwise interactions of leaf features identified by hierarchical FDR",
+                              action="store_true")
+    # Condor arguments
+    condor = parser.add_argument_group("Condor parameters")
+    condor.add_argument("-condor", dest="condor", action="store_true",
+                        help="Enable parallelization using condor (default disabled)")
+    condor.add_argument("-no-condor", dest="condor", action="store_false", help="Disable parallelization using condor")
+    condor.set_defaults(condor=False)
+    condor.add_argument("-no-condor-cleanup", action="store_false", help="disable removal of intermediate condor files"
                         " after completion (typically for debugging). By default these files will be cleared to remove"
                         " space and clutter, and to avoid condor file issues", dest="cleanup")
-    parser.set_defaults(cleanup=True)
+    condor.set_defaults(cleanup=True)
+    condor.add_argument("-features_per_worker", type=int, default=10, help="worker load")
+    condor.add_argument("-eviction_timeout", type=int, default=14400, help="time in seconds to allow condor jobs"
+                        " to run before evicting and restarting them on another condor node")
+    condor.add_argument("-idle_timeout", type=int, default=3600, help="time in seconds to allow condor jobs"
+                        " to stay idle before removing them from condor and attempting them on the master node.")
+    condor.add_argument("-memory_requirement", type=int, default=16, help="memory requirement in GB, minimum 1, default 16")
 
     args = parser.parse_args()
 
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     args.rng = np.random.default_rng(constants.SEED)
-    logger = utils.get_logger(__name__, "%s/master.log" % args.output_dir)
+    args.logger = utils.get_logger(__name__, "%s/master.log" % args.output_dir)
     validate_args(args)
-    pipeline(args, logger)
+    pipeline(args)
 
 
-def pipeline(args, logger):
+def pipeline(args):
     """Master pipeline"""
-    logger.info("Begin anamod master pipeline with args: %s" % args)
+    args.logger.info("Begin anamod master pipeline with args: %s" % args)
     # Load hierarchy from file
     hierarchy_root = load_hierarchy(args.hierarchy_filename)
     # Flatten hierarchy to allow partitioning across workers
     feature_nodes = flatten_hierarchy(args, hierarchy_root)
     # Perturb features
-    _, losses, predictions = perturb_features(args, logger, feature_nodes)
+    _, losses, predictions = perturb_features(args, feature_nodes)
     # Compute p-values
     compute_p_values(args, hierarchy_root, losses, predictions)
     # Run hierarchical FDR
-    hierarchical_fdr(args, logger)
+    hierarchical_fdr(args)
     # Analyze pairwise interactions
     if args.analyze_interactions:
-        analyze_interactions(args, logger, feature_nodes, predictions)
-    logger.info("End anamod master pipeline")
+        analyze_interactions(args, feature_nodes, predictions)
+    args.logger.info("End anamod master pipeline")
 
 
 def load_hierarchy(hierarchy_filename):
@@ -164,7 +168,7 @@ def flatten_hierarchy(args, hierarchy_root):
     return nodes
 
 
-def perturb_features(args, logger, feature_nodes):
+def perturb_features(args, feature_nodes):
     """
     Perturb features, observe effect on model loss and aggregate results
 
@@ -176,9 +180,9 @@ def perturb_features(args, logger, feature_nodes):
         Aggregated results from workers
     """
     # Partition features, Launch workers, Aggregate results
-    worker_pipeline = SerialPipeline(args, logger, feature_nodes)
+    worker_pipeline = SerialPipeline(args, feature_nodes)
     if args.condor:
-        worker_pipeline = CondorPipeline(args, logger, feature_nodes)
+        worker_pipeline = CondorPipeline(args, feature_nodes)
     return worker_pipeline.run()
 
 
@@ -204,13 +208,13 @@ def compute_p_values(args, hierarchy_root, losses, predictions):
     outfile.close()
 
 
-def hierarchical_fdr(args, logger):
+def hierarchical_fdr(args):
     """Performs hierarchical FDR control on results"""
     input_filename = "%s/%s" % (args.output_dir, constants.PVALUES_FILENAME)
     output_dir = "%s/%s" % (args.output_dir, constants.HIERARCHICAL_FDR_DIR)
     cmd = ("python -m anamod.fdr.hierarchical_fdr_control -output_dir %s -procedure yekutieli "
            "-rectangle_leaves %s" % (output_dir, input_filename))
-    logger.info("Running cmd: %s" % cmd)
+    args.logger.info("Running cmd: %s" % cmd)
     pass_args = cmd.split()[2:]
     with patch.object(sys, 'argv', pass_args):
         hierarchical_fdr_control.main()

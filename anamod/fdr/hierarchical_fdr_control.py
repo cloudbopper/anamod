@@ -43,19 +43,19 @@ def main():
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
-    logger = utils.get_logger(__name__, "%s/hierarchical_fdr_control.log" % args.output_dir)
-    logger.info("Begin hierarchical_fdr_control")
+    args.logger = utils.get_logger(__name__, "%s/hierarchical_fdr_control.log" % args.output_dir)
+    args.logger.info("Begin hierarchical_fdr_control")
 
-    tree = build_tree(args, logger)
-    F, M = process_tree(logger, tree)
-    hierarchical_fdr_control(args, logger, F, M)
-    write_outputs(args, logger, tree)
-    logger.info("End hierarchical_fdr_control")
+    tree = build_tree(args)
+    F, M = process_tree(args.logger, tree)
+    hierarchical_fdr_control(args, F, M)
+    write_outputs(args, tree)
+    args.logger.info("End hierarchical_fdr_control")
 
 
-def write_outputs(args, logger, tree):
+def write_outputs(args, tree):
     """Write outputs"""
-    logger.info("Begin writing outputs")
+    args.logger.info("Begin writing outputs")
     # Export JSON using anytree
     with open("%s/%s.json" % (args.output_dir, constants.HIERARCHICAL_FDR_OUTPUTS), "w") as output_file:
         JsonExporter(indent=2).write(tree, output_file)
@@ -69,15 +69,15 @@ def write_outputs(args, logger, tree):
                 parent_name = node.parent.name
             writer.writerow([node.name, parent_name, node.pvalue, int(node.rejected), node.adjusted_pvalue])
     # Generate tree of rejected hypotheses with colour grading based on adjusted p-value
-    generate_tree_of_rejected_hypotheses(args, logger, tree)
-    logger.info("End writing outputs")
+    generate_tree_of_rejected_hypotheses(args, tree)
+    args.logger.info("End writing outputs")
 
 
-def generate_tree_of_rejected_hypotheses(args, logger, tree):
+def generate_tree_of_rejected_hypotheses(args, tree):
     """Generate tree of rejected hypotheses with colour grading based on adjusted p-value"""
     # Generate tree of rejected hypotheses
     if not tree.rejected:
-        logger.warn("No hypothesis rejected, so no tree will be generated. If this is unexpected, check your input p-values")
+        args.logger.warn("No hypothesis rejected, so no tree will be generated. If this is unexpected, check your input p-values")
         return
     nodes = {}
     for node in anytree.LevelOrderIter(tree):
@@ -163,9 +163,9 @@ def nodeattrfunc(args, node):
             % (args.color_scheme, node.color, label, node.fontcolor, shape)
 
 
-def build_tree(args, logger):
+def build_tree(args):
     """Build tree from CSV file"""
-    logger.info("Begin building tree")
+    args.logger.info("Begin building tree")
     nodes = {}  # map of all nodes in tree
     root = None
     with open(args.csv_filename) as csv_file:
@@ -201,7 +201,7 @@ def build_tree(args, logger):
             node.description = description
             node.effect_size = effect_size
     assert root  # to ensure root exists and has an assigned p-value
-    logger.info("End building tree")
+    args.logger.info("End building tree")
     return root
 
 

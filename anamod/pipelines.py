@@ -21,22 +21,22 @@ from anamod.feature import Feature
 class SerialPipeline():
     """Serial (non-condor) implementation"""
     # pylint: disable=too-few-public-methods
-    def __init__(self, args, logger, feature_nodes):
+    def __init__(self, args, feature_nodes):
         self.args = copy.deepcopy(args)
-        self.logger = logger
+        self.logger = self.args.logger
         self.feature_nodes = feature_nodes
 
     def run(self):
         """Run serial pipeline"""
         self.logger.info("Begin running serial pipeline")
-        condor_helper = CondorPipeline(self.args, self.logger, [])
+        condor_helper = CondorPipeline(self.args, [])
         condor_helper.task_count = 1
         if not self.args.compile_results_only:
             # Write all features to file
             self.args.task_idx = 0
             condor_helper.write_features(self.args, self.feature_nodes)
             # Run worker pipeline
-            worker.pipeline(self.args, self.logger)
+            worker.pipeline(self.args)
         # Aggregate results
         results = condor_helper.compile_results()
         if self.args.cleanup:
@@ -47,9 +47,9 @@ class SerialPipeline():
 class CondorPipeline():
     """Class managing condor pipeline for distributing load across workers"""
 
-    def __init__(self, args, logger, feature_nodes):
+    def __init__(self, args, feature_nodes):
         self.master_args = copy.deepcopy(args)
-        self.logger = logger
+        self.logger = self.master_args.logger
         self.feature_nodes = feature_nodes
         self.virtual_env = os.environ.get(constants.VIRTUAL_ENV, "")
         assert self.master_args.memory_requirement >= 1, "Required memory must be 1 or more GB"

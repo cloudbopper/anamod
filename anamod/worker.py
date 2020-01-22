@@ -26,24 +26,24 @@ def main():
     cargs = parser.parse_args()
     with open(cargs.args_filename, "rb") as args_file:
         args = pickle.load(args_file)
-    logger = utils.get_logger(__name__, "%s/worker_%d.log" % (args.output_dir, args.task_idx))
-    pipeline(args, logger)
+    args.logger = utils.get_logger(__name__, "%s/worker_%d.log" % (args.output_dir, args.task_idx))
+    pipeline(args)
 
 
-def pipeline(args, logger):
+def pipeline(args):
     """Worker pipeline"""
-    logger.info("Begin anamod worker pipeline")
+    args.logger.info("Begin anamod worker pipeline")
     # Load features to perturb from file
     features = load_features(args.features_filename)
     # Load data
     records = load_data(args.data_filename)
     # Load model
-    model = load_model(logger, args.model_generator_filename)
+    model = load_model(args)
     # Perturb features
-    targets, losses, predictions = perturb_features(args, logger, features, records, model)
+    targets, losses, predictions = perturb_features(args, features, records, model)
     # Write outputs
-    write_outputs(args, logger, targets, losses, predictions)
-    logger.info("End anamod worker pipeline")
+    write_outputs(args, targets, losses, predictions)
+    args.logger.info("End anamod worker pipeline")
 
 
 def load_features(features_filename):
@@ -82,21 +82,18 @@ def load_data(data_filename):
     return hdf5_root
 
 
-def load_model(logger, gen_model_filename):
+def load_model(args):
     """
     Load model object from model-generating python file.
-
-    Args:
-        gen_model_filename: name of standalone python file that provides model object
 
     Returns:
         model object.
 
     """
-    logger.info("Begin loading model")
-    if not os.path.exists(gen_model_filename):
+    args.logger.info("Begin loading model")
+    if not os.path.exists(args.model_generator_filename):
         raise FileNotFoundError("Model-generating file not found")
-    dirname, basename = os.path.split(gen_model_filename)
+    dirname, basename = os.path.split(args.model_generator_filename)
     sys.path.insert(0, dirname)
     module_name, _ = os.path.splitext(basename)
     importlib.invalidate_caches()
@@ -106,17 +103,16 @@ def load_model(logger, gen_model_filename):
     else:
         module = importlib.reload(module)
     model = getattr(module, "model")
-    logger.info("End loading model")
+    args.logger.info("End loading model")
     return model
 
 
-def perturb_features(args, logger, features, hdf5_root, model):
+def perturb_features(args, features, hdf5_root, model):
     """
     Perturbs features and observes effect on model loss
 
     Args:
         args:       command-line arguments passed down from master
-        logger:     logger
         features:   list of features to perturb
         hdf5_root:  HDF5 root object containing data
         model:      model object passed by client
@@ -131,14 +127,14 @@ def perturb_features(args, logger, features, hdf5_root, model):
                         mapping of feature names to prediction vectors,
                         describing the predictions of the model over the data with that feature perturbed
     """
-    logger.info("Begin perturbing features")
+    args.logger.info("Begin perturbing features")
     perturber = Perturber(args, features, hdf5_root, model)
     for record_idx, _ in enumerate(perturber.record_ids):
         if record_idx % 100 == 0:
-            logger.info("Begin processing record index %d of %d" % (record_idx + 1, perturber.num_records))
+            args.logger.info("Begin processing record index %d of %d" % (record_idx + 1, perturber.num_records))
         # Perturb each feature for given record
         perturber.perturb_features_for_record(record_idx)
-    logger.info("End perturbing features")
+    args.logger.info("End perturbing features")
     return perturber.targets, perturber.losses, perturber.predictions
 
 
@@ -212,9 +208,9 @@ class Perturber():
         return tdata
 
 
-def write_outputs(args, logger, targets, losses, predictions):
+def write_outputs(args, targets, losses, predictions):
     """Write outputs to results file"""
-    logger.info("Begin writing outputs")
+    args.logger.info("Begin writing outputs")
     results_filename = "%s/results_worker_%d.hdf5" % (args.output_dir, args.task_idx)
     root = h5py.File(results_filename, "w")
 
@@ -228,7 +224,7 @@ def write_outputs(args, logger, targets, losses, predictions):
     if args.task_idx == 0:
         root.create_dataset(constants.TARGETS, data=targets)
     root.close()
-    logger.info("End writing outputs")
+    args.logger.info("End writing outputs")
 
 
 if __name__ == "__main__":
