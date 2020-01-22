@@ -22,7 +22,7 @@ class SerialPipeline():
     """Serial (non-condor) implementation"""
     # pylint: disable=too-few-public-methods
     def __init__(self, args, feature_nodes):
-        self.args = copy.deepcopy(args)
+        self.args = copy.copy(args)
         self.logger = self.args.logger
         self.feature_nodes = feature_nodes
 
@@ -48,7 +48,7 @@ class CondorPipeline():
     """Class managing condor pipeline for distributing load across workers"""
 
     def __init__(self, args, feature_nodes):
-        self.master_args = copy.deepcopy(args)
+        self.master_args = copy.copy(args)
         self.logger = self.master_args.logger
         self.feature_nodes = feature_nodes
         self.virtual_env = os.environ.get(constants.VIRTUAL_ENV, "")
