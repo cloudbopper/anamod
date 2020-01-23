@@ -89,7 +89,7 @@ def load_model(args):
 
     """
     args.logger.info("Begin loading model")
-    with open(args.model_generator_filename, "rb") as model_file:
+    with open(args.model_filename, "rb") as model_file:
         model = cloudpickle.load(model_file)
     args.logger.info("End loading model")
     return model

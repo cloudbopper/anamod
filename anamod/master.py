@@ -29,11 +29,9 @@ def main():
     required = parser.add_argument_group("Required parameters")
     required.add_argument("-output_dir", help="Output directory", required=True)
     required.add_argument("-data_filename", help="Test data in HDF5 format", required=True)
-    required.add_argument("-model_generator_filename", help="python script that generates model "
-                          "object for subsequent callbacks to model.predict", required=True)
+    required.add_argument("-model_filename", help="File containing model, pickled using cloudpickle", required=True)
     # Optional common arguments
     common = parser.add_argument_group("Common optional parameters")
-    # TODO: use analysis type arg
     common.add_argument("-analysis_type", help="Type of model analysis to perform",
                         default=constants.HIERARCHICAL, choices=[constants.TEMPORAL, constants.HIERARCHICAL])
     common.add_argument("-perturbation", default=constants.SHUFFLING, choices=[constants.ZEROING, constants.SHUFFLING],
@@ -43,8 +41,8 @@ def main():
     common.add_argument("-compile_results_only", help="only compile results (assuming they already exist), "
                         "skipping actually launching jobs", action="store_true")
     # Hierarchical feature importance analysis arguments
-    hierarchical = parser.add_argument_group("Hierarchical analysis arguments")
-    hierarchical.add_argument("-hierarchy_filename", help="Feature hierarchy in CSV format", required=True)
+    hierarchical = parser.add_argument_group("Hierarchical feature analysis arguments")
+    hierarchical.add_argument("-hierarchy_filename", help="Feature hierarchy in CSV format", default="")
     hierarchical.add_argument("-analyze_interactions", help="flag to enable testing of interaction significance. By default,"
                               " only pairwise interactions between leaf features identified as important by hierarchical FDR"
                               " are tested. To enable testing of all pairwise interactions, also use -analyze_all_pairwise_interactions",
@@ -91,9 +89,9 @@ def pipeline(args):
 
 def temporal_analysis_pipeline(args):
     """Temporal analysis pipeline"""
-    args.logger.info("Begin temporal analysis pipeline")
+    args.logger.info("Begin temporal model analysis pipeline")
     # TODO
-    args.logger.info("End temporal analysis pipeline")
+    args.logger.info("End temporal model analysis pipeline")
 
 
 def hierarchical_analysis_pipeline(args):
@@ -241,6 +239,8 @@ def validate_args(args):
     """Validate arguments"""
     if args.analyze_interactions and args.perturbation == constants.SHUFFLING:
         raise ValueError("Interaction analysis is not supported with shuffling perturbations")
+    if args.analysis_type == constants.HIERARCHICAL:
+        assert args.hierarchy_filename, "Hierarchy filename required for hierarchical feature importance analysis"
 
 
 if __name__ == "__main__":

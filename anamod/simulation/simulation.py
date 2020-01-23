@@ -32,32 +32,41 @@ Results = namedtuple(constants.SIMULATION_RESULTS, [constants.FDR, constants.POW
 
 def main():
     """Main"""
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-seed", type=int, default=constants.SEED)
-    parser.add_argument("-num_instances", type=int, default=10000)
-    parser.add_argument("-num_features", type=int, default=100)
-    parser.add_argument("-output_dir", help="Name of output directory")
-    parser.add_argument("-analysis_type", help="Type of model analysis to perform",
+    parser = argparse.ArgumentParser("python anamod.simulation")
+    # Required arguments
+    required = parser.add_argument_group("Required parameters")
+    required.add_argument("-output_dir", help="Name of output directory")
+    # Optional common arguments
+    common = parser.add_argument_group("Optional common parameters")
+    common.add_argument("-analysis_type", help="Type of model analysis to perform",
                         default=constants.HIERARCHICAL, choices=[constants.TEMPORAL, constants.HIERARCHICAL])
-    parser.add_argument("-fraction_relevant_features", type=float, default=.05)
-    parser.add_argument("-noise_multiplier", type=float, default=.05,
-                        help="Multiplicative factor for noise added to polynomial computation for irrelevant features")
-    parser.add_argument("-noise_type", choices=[constants.ADDITIVE_GAUSSIAN, constants.EPSILON_IRRELEVANT, constants.NO_NOISE],
-                        default=constants.EPSILON_IRRELEVANT)
-    parser.add_argument("-hierarchy_type", help="Choice of hierarchy to generate", default=constants.CLUSTER_FROM_DATA,
-                        choices=[constants.CLUSTER_FROM_DATA, constants.RANDOM])
-    parser.add_argument("-num_interactions", type=int, default=0, help="number of interaction pairs in model")
-    parser.add_argument("-exclude_interaction_only_features", help="exclude interaction-only features in model"
+    common.add_argument("-seed", type=int, default=constants.SEED)
+    common.add_argument("-num_instances", type=int, default=10000)
+    common.add_argument("-num_features", type=int, default=100)
+    common.add_argument("-fraction_relevant_features", type=float, default=.05)
+    common.add_argument("-num_interactions", type=int, default=0, help="number of interaction pairs in model")
+    common.add_argument("-exclude_interaction_only_features", help="exclude interaction-only features in model"
                         " in addition to linear + interaction features (default included)", action="store_false",
                         dest="include_interaction_only_features")
-    parser.set_defaults(include_interaction_only_features=True)
-    parser.add_argument("-contiguous_node_names", action="store_true", help="enable to change node names in hierarchy "
-                        "to be contiguous for better visualization (but creating mismatch between node names and features indices)")
-    # Arguments used to qualify output directory, then passed to anamod.master
-    parser.add_argument("-perturbation", default=constants.SHUFFLING, choices=[constants.ZEROING, constants.SHUFFLING])
-    parser.add_argument("-num_shuffling_trials", type=int, default=100, help="Number of shuffling trials to average over, "
-                        "when shuffling perturbations are selected")
-    parser.add_argument("-analyze_interactions", help="enable analyzing interactions", action="store_true")
+    common.set_defaults(include_interaction_only_features=True)
+    # Hierarchical feature importance analysis arguments
+    hierarchical = parser.add_argument_group("Hierarchical feature analysis arguments")
+    hierarchical.add_argument("-noise_multiplier", type=float, default=.05,
+                              help="Multiplicative factor for noise added to polynomial computation for irrelevant features")
+    hierarchical.add_argument("-noise_type", choices=[constants.ADDITIVE_GAUSSIAN, constants.EPSILON_IRRELEVANT, constants.NO_NOISE],
+                              default=constants.EPSILON_IRRELEVANT)
+    hierarchical.add_argument("-hierarchy_type", help="Choice of hierarchy to generate", default=constants.CLUSTER_FROM_DATA,
+                              choices=[constants.CLUSTER_FROM_DATA, constants.RANDOM])
+    hierarchical.add_argument("-contiguous_node_names", action="store_true", help="enable to change node names in hierarchy "
+                              "to be contiguous for better visualization (but creating mismatch between node names and features indices)")
+    hierarchical.add_argument("-analyze_interactions", help="enable analyzing interactions", action="store_true")
+    hierarchical.add_argument("-perturbation", default=constants.SHUFFLING, choices=[constants.ZEROING, constants.SHUFFLING])
+    hierarchical.add_argument("-num_shuffling_trials", type=int, default=100, help="Number of shuffling trials to average over, "
+                              "when shuffling perturbations are selected")
+    # Temporal model analysis arguments
+    temporal = parser.add_argument_group("Temporal model analysis arguments")
+    temporal.add_argument("-sequence_length", help="sequence length for temporal models", default=20)
+    temporal.add_argument("-model_type", default=constants.REGRESSION)
 
     args, pass_args = parser.parse_known_args()
     pass_args = " ".join(pass_args)
@@ -69,6 +78,8 @@ def main():
         os.makedirs(args.output_dir)
     args.rng = np.random.default_rng(args.seed)
     args.logger = utils.get_logger(__name__, "%s/simulation.log" % args.output_dir)
+    if args.analysis_type == constants.TEMPORAL:
+        args.noise_type = constants.NO_NOISE
     pipeline(args, pass_args)
 
 
@@ -91,16 +102,17 @@ def pipeline(args, pass_args):
         # Write hierarchy to file
         hierarchy_filename = write_hierarchy(args, hierarchy_root)
         # Invoke feature importance algorithm
-        run_anamod(args, pass_args, data_filename, hierarchy_filename, model_filename)
+        run_anamod(args, pass_args, data_filename, model_filename, hierarchy_filename)
         # Compare anamod outputs with ground truth outputs
         compare_with_ground_truth(args, hierarchy_root)
         # Evaluate anamod outputs - power/FDR for all nodes/outer nodes/base features
         results = evaluate(args, relevant_feature_map, feature_id_map)
+        args.logger.info("Results:\n%s" % str(results))
+        write_results(args, results)
     else:
-        # TODO: temporal analysis simulation
-        raise NotImplementedError()
-    args.logger.info("Results:\n%s" % str(results))
-    write_results(args, results)
+        # Temporal model analysis
+        run_anamod(args, pass_args, data_filename, model_filename)
+        # TODO: evaluation
     args.logger.info("End anamod simulation")
 
 
@@ -110,7 +122,7 @@ def run_synmod(args):
     if args.analysis_type == constants.HIERARCHICAL:
         pass_args.synthesis_type = constants.STATIC
     else:
-        pass  # TODO: add temporal synthesis arguments
+        pass_args.synthesis_type = constants.TEMPORAL
     return synmod.master.pipeline(pass_args)
 
 
@@ -290,9 +302,7 @@ def write_hierarchy(args, hierarchy_root):
 
 def write_model(args, model):
     """
-    Write model to file in output directory.
-    Write model_filename to config file in script directory.
-    gen_model.py uses config file to load model.
+    Pickle and write model to file in output directory.
     """
     # Create wrapper around ground-truth model
     model_wrapper = ModelWrapper(model, args.num_features, args.noise_type, args.noise_multiplier)
@@ -303,19 +313,29 @@ def write_model(args, model):
     return model_filename
 
 
-def run_anamod(args, pass_args, data_filename, hierarchy_filename, gen_model_filename):
-    """Run anamod algorithm"""
+def run_anamod(args, pass_args, data_filename, model_filename, hierarchy_filename=""):
+    """Run analysis algorithms"""
     args.logger.info("Begin running anamod")
     analyze_interactions = "-analyze_interactions" if args.analyze_interactions else ""
+    hierarchical_analysis_options = ("-hierarchy_filename {0} -perturbation {1} {2}".format
+                                     (hierarchy_filename, args.perturbation, analyze_interactions))
+    temporal_analysis_options = ""
+    analysis_options = hierarchical_analysis_options if args.analysis_type == constants.HIERARCHICAL else temporal_analysis_options
     args.logger.info("Passing the following arguments to anamod.master without parsing: %s" % pass_args)
     memory_requirement = 1 + (os.stat(data_filename).st_size // (2 ** 30))  # Compute approximate memory requirement in GB
-    cmd = ("python -m anamod.master -data_filename %s -hierarchy_filename %s -model_generator_filename %s -output_dir %s "
-           "-perturbation %s -num_shuffling_trials %d -memory_requirement %d %s %s"
-           % (data_filename, hierarchy_filename, gen_model_filename, args.output_dir,
-              args.perturbation, args.num_shuffling_trials, memory_requirement, analyze_interactions, pass_args))
+    cmd = ("python -m anamod.master -analysis_type {0} -output_dir {1} -num_shuffling_trials {2} -data_filename {3} "
+           "-model_filename {4} -memory_requirement {5} {6} {7}"
+           .format(args.analysis_type,
+                   args.output_dir,
+                   args.num_shuffling_trials,
+                   data_filename,
+                   model_filename,
+                   memory_requirement,
+                   analysis_options,
+                   pass_args))
     args.logger.info("Running cmd: %s" % cmd)
-    pass_args = cmd.split()[2:]
-    with patch.object(sys, 'argv', pass_args):
+    nargs = cmd.split()[2:]
+    with patch.object(sys, 'argv', nargs):
         master.main()
     args.logger.info("End running anamod")
 
