@@ -5,8 +5,8 @@ import os
 import re
 import shutil
 
-TEST_FILENAME = "test_anamod.py"
-GOLD_DIRECTORY = "test_anamod"
+TEST_FILENAME = "test_hierarchical.py"
+GOLD_DIRECTORY = "test_hierarchical"
 CONDOR_TEST_DIRECTORY = "condor_tests"
 TEST_SIMULATION = "test_simulation"
 TEST_CONDOR_SIMULATION = "test_condor_simulation"
@@ -18,6 +18,8 @@ def main():
     # Parse args
     parser = argparse.ArgumentParser()
     parser.add_argument("-overwrite_golds", help="overwrite existing gold files", action="store_true")
+    parser.add_argument("-test_filename", default=TEST_FILENAME)
+    parser.add_argument("-gold_directory", default=GOLD_DIRECTORY)
     args = parser.parse_args()
     test_dir = os.path.dirname(os.path.realpath(__file__))
     condor_test_dir = os.path.join(test_dir, CONDOR_TEST_DIRECTORY)
