@@ -35,12 +35,14 @@ setup(
     install_requires=[
         "anytree",
         "cityhash",
+        "cloudpickle",
         "h5py",
-        "numpy",
+        "numpy>=1.17.0",
         "pyhashxx",
         "scikit-learn",
         "scipy",
-        "sympy"
+        "sympy",
+        "synmod @ git+https://github.com/cloudbopper/synmod",
     ],
     keywords="anamod",
     license="MIT",

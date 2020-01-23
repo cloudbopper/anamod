@@ -2,9 +2,8 @@
 
 import argparse
 from collections import namedtuple
+import copy
 import csv
-import functools
-import itertools
 import os
 import pickle
 import sys
@@ -12,17 +11,18 @@ from unittest.mock import patch
 
 import anytree
 from anytree.importer import JsonImporter
+import cloudpickle
 import h5py
 import numpy as np
 from scipy.cluster.hierarchy import linkage
-import sympy
-from sympy.utilities.lambdify import lambdify
 from sklearn.metrics import precision_recall_fscore_support
+import synmod.master
 
 from anamod import constants, master, utils
 from anamod.fdr import hierarchical_fdr_control
+from anamod.simulation.model_wrapper import ModelWrapper
 
-# TODO maybe: write arguments to separate readme.txt for documentating runs
+# TODO maybe: write arguments to separate readme.txt for documenting runs
 
 # Simulation results object
 Results = namedtuple(constants.SIMULATION_RESULTS, [constants.FDR, constants.POWER,
@@ -37,6 +37,8 @@ def main():
     parser.add_argument("-num_instances", type=int, default=10000)
     parser.add_argument("-num_features", type=int, default=100)
     parser.add_argument("-output_dir", help="Name of output directory")
+    parser.add_argument("-analysis_type", help="Type of model analysis to perform",
+                        default=constants.HIERARCHICAL, choices=[constants.TEMPORAL, constants.HIERARCHICAL])
     parser.add_argument("-fraction_relevant_features", type=float, default=.05)
     parser.add_argument("-noise_multiplier", type=float, default=.05,
                         help="Multiplicative factor for noise added to polynomial computation for irrelevant features")
@@ -44,9 +46,6 @@ def main():
                         default=constants.EPSILON_IRRELEVANT)
     parser.add_argument("-hierarchy_type", help="Choice of hierarchy to generate", default=constants.CLUSTER_FROM_DATA,
                         choices=[constants.CLUSTER_FROM_DATA, constants.RANDOM])
-    parser.add_argument("-clustering_instance_count", type=int, help="If provided, uses this number of instances to "
-                        "cluster the data to generate a hierarchy, allowing the hierarchy to remain same across multiple "
-                        "sets of instances", default=0)
     parser.add_argument("-num_interactions", type=int, default=0, help="number of interaction pairs in model")
     parser.add_argument("-exclude_interaction_only_features", help="exclude interaction-only features in model"
                         " in addition to linear + interaction features (default included)", action="store_false",
@@ -70,53 +69,49 @@ def main():
         os.makedirs(args.output_dir)
     args.rng = np.random.default_rng(args.seed)
     args.logger = utils.get_logger(__name__, "%s/simulation.log" % args.output_dir)
-
     pipeline(args, pass_args)
 
 
 def pipeline(args, pass_args):
     """Simulation pipeline"""
-    # TODO: Features other than binary
     args.logger.info("Begin anamod simulation with args: %s" % args)
+    features, data, model = run_synmod(args)
+    relevant_feature_map = model.relevant_feature_map
     # Synthesize polynomial that generates ground truth
-    sym_vars, relevant_feature_map, polynomial_fn = gen_polynomial(args, get_relevant_features(args))
-    # Synthesize data
-    probs, test_data, clustering_data = synthesize_data(args)
-    # Generate hierarchy using clustering
-    hierarchy_root, feature_id_map = gen_hierarchy(args, clustering_data)
-    # Update hierarchy descriptions for future visualization
-    update_hierarchy_relevance(hierarchy_root, relevant_feature_map, probs)
-    # Generate targets (ground truth)
-    targets = gen_targets(polynomial_fn, test_data)
-    # Write outputs - data, gen_model.py, hierarchy
-    data_filename = write_data(args, test_data, targets)
-    hierarchy_filename = write_hierarchy(args, hierarchy_root)
-    gen_model_filename = write_model(args, sym_vars)
-    # Invoke feature importance algorithm
-    run_anamod(args, pass_args, data_filename, hierarchy_filename, gen_model_filename)
-    # Compare anamod outputs with ground truth outputs
-    compare_with_ground_truth(args, hierarchy_root)
-    # Evaluate anamod outputs - power/FDR for all nodes/outer nodes/base features
-    results = evaluate(args, relevant_feature_map, feature_id_map)
+    # sym_vars, relevant_feature_map, polynomial_fn = gen_polynomial(args, get_relevant_features(args))
+    targets = model.predict(data)  # Ground truth labels
+    data_filename = write_data(args, data, targets)
+    model_filename = write_model(args, model)
+    if args.analysis_type == constants.HIERARCHICAL:
+        # TODO: Features other than binary
+        # Generate hierarchy using clustering (test data also used for clustering)
+        hierarchy_root, feature_id_map = gen_hierarchy(args, data)
+        # Update hierarchy descriptions for future visualization
+        update_hierarchy_relevance(hierarchy_root, relevant_feature_map, features)
+        # Write hierarchy to file
+        hierarchy_filename = write_hierarchy(args, hierarchy_root)
+        # Invoke feature importance algorithm
+        run_anamod(args, pass_args, data_filename, hierarchy_filename, model_filename)
+        # Compare anamod outputs with ground truth outputs
+        compare_with_ground_truth(args, hierarchy_root)
+        # Evaluate anamod outputs - power/FDR for all nodes/outer nodes/base features
+        results = evaluate(args, relevant_feature_map, feature_id_map)
+    else:
+        # TODO: temporal analysis simulation
+        raise NotImplementedError()
     args.logger.info("Results:\n%s" % str(results))
     write_results(args, results)
     args.logger.info("End anamod simulation")
 
 
-def synthesize_data(args):
-    """Synthesize data"""
-    # TODO: Correlations between features
-    args.logger.info("Begin generating data")
-    probs = args.rng.uniform(size=args.num_features)
-    data = args.rng.binomial(1, probs, size=(max(args.num_instances, args.clustering_instance_count), args.num_features))
-    test_data = data
-    clustering_data = data
-    if args.clustering_instance_count:
-        clustering_data = data[:args.clustering_instance_count, :]
-        if args.clustering_instance_count > args.num_instances:
-            test_data = data[:args.num_instances, :]
-    args.logger.info("End generating data")
-    return probs, test_data, clustering_data
+def run_synmod(args):
+    """Synthesize data and model"""
+    pass_args = copy.copy(args)
+    if args.analysis_type == constants.HIERARCHICAL:
+        pass_args.synthesis_type = constants.STATIC
+    else:
+        pass  # TODO: add temporal synthesis arguments
+    return synmod.master.pipeline(pass_args)
 
 
 def gen_hierarchy(args, clustering_data):
@@ -216,93 +211,13 @@ def gen_hierarchy_from_clusters(args, clusters):
     return hierarchy_root
 
 
-def gen_polynomial(args, relevant_features):
-    """Generate polynomial which decides the ground truth and noisy model"""
-    # Note: using sympy to build function appears to be 1.5-2x slower than erstwhile raw numpy implementation (for linear terms)
-    # TODO: possibly negative coefficients
-    sym_features = sympy.symbols(["x%d" % x for x in range(args.num_features)])
-    relevant_feature_map = {}  # map of relevant feature sets to coefficients
-    # Generate polynomial expression
-    # Pairwise interaction terms
-    sym_polynomial_fn = 0
-    sym_polynomial_fn = update_interaction_terms(args, relevant_features, relevant_feature_map, sym_features, sym_polynomial_fn)
-    # Linear terms
-    sym_polynomial_fn = update_linear_terms(args, relevant_features, relevant_feature_map, sym_features, sym_polynomial_fn)
-    args.logger.info("Ground truth polynomial:\ny = %s" % sym_polynomial_fn)
-    # Generate model expression
-    polynomial_fn = lambdify([sym_features], sym_polynomial_fn, "numpy")
-    # Add noise terms
-    sym_noise = []
-    sym_model_fn = sym_polynomial_fn
-    if args.noise_type == constants.NO_NOISE:
-        pass
-    elif args.noise_type == constants.EPSILON_IRRELEVANT:
-        sym_noise = sympy.symbols(["noise%d" % x for x in range(args.num_features)])
-        irrelevant_features = np.array([0 if x in relevant_features else 1 for x in range(args.num_features)])
-        sym_model_fn = sym_polynomial_fn + (sym_noise * irrelevant_features).dot(sym_features)
-    elif args.noise_type == constants.ADDITIVE_GAUSSIAN:
-        sym_noise = sympy.symbols("noise")
-        sym_model_fn = sym_polynomial_fn + sym_noise
-    else:
-        raise NotImplementedError("Unknown noise type")
-    sym_vars = (sym_features, sym_noise, sym_model_fn)
-    return sym_vars, relevant_feature_map, polynomial_fn
-
-
-def get_relevant_features(args):
-    """Get set of relevant feature identifiers"""
-    num_relevant_features = max(1, round(args.num_features * args.fraction_relevant_features))
-    coefficients = np.zeros(args.num_features)
-    coefficients[:num_relevant_features] = 1
-    args.rng.shuffle(coefficients)
-    relevant_features = {idx for idx in range(args.num_features) if coefficients[idx]}
-    return relevant_features
-
-
-def update_interaction_terms(args, relevant_features, relevant_feature_map, sym_features, sym_polynomial_fn):
-    """Pairwise interaction terms for polynomial"""
-    # TODO: higher-order interactions
-    num_relevant_features = len(relevant_features)
-    num_interactions = min(args.num_interactions, num_relevant_features * (num_relevant_features - 1) / 2)
-    if not num_interactions:
-        return sym_polynomial_fn
-    potential_pairs = list(itertools.combinations(sorted(relevant_features), 2))
-    potential_pairs_arr = np.empty(len(potential_pairs), dtype=np.object)
-    potential_pairs_arr[:] = potential_pairs
-    interaction_pairs = args.rng.choice(potential_pairs_arr, size=num_interactions, replace=False)
-    for interaction_pair in interaction_pairs:
-        coefficient = args.rng.uniform()
-        relevant_feature_map[frozenset(interaction_pair)] = coefficient
-        sym_polynomial_fn += coefficient * functools.reduce(lambda sym_x, y: sym_x * sym_features[y], interaction_pair, 1)
-    return sym_polynomial_fn
-
-
-def update_linear_terms(args, relevant_features, relevant_feature_map, sym_features, sym_polynomial_fn):
-    """Order one terms for polynomial"""
-    interaction_features = set()
-    for interaction in relevant_feature_map.keys():
-        interaction_features.update(interaction)
-    # Let half the interaction features have nonzero interaction coefficients but zero linear coefficients
-    interaction_only_features = []
-    if interaction_features and args.include_interaction_only_features:
-        interaction_only_features = args.rng.choice(sorted(interaction_features),
-                                                    len(interaction_features) // 2,
-                                                    replace=False)
-    linear_features = sorted(relevant_features.difference(interaction_only_features))
-    coefficients = np.zeros(args.num_features)
-    coefficients[linear_features] = args.rng.uniform(size=len(linear_features))
-    for linear_feature in linear_features:
-        relevant_feature_map[frozenset([linear_feature])] = coefficients[linear_feature]
-    sym_polynomial_fn += coefficients.dot(sym_features)
-    return sym_polynomial_fn
-
-
-def update_hierarchy_relevance(hierarchy_root, relevant_feature_map, probs):
+def update_hierarchy_relevance(hierarchy_root, relevant_feature_map, features):
     """
     Add feature relevance information to nodes of hierarchy:
     their probabilty of being enabled,
     their polynomial coefficient
     """
+    probs = [feature.prob for feature in features]
     relevant_features = set()
     for key in relevant_feature_map:
         relevant_features.update(key)
@@ -324,11 +239,6 @@ def update_hierarchy_relevance(hierarchy_root, relevant_feature_map, probs):
             for child in node.children:
                 if child.description != constants.IRRELEVANT:
                     node.description = constants.RELEVANT
-
-
-def gen_targets(polynomial_fn, data):
-    """Generate targets (ground truth) from polynomial"""
-    return [polynomial_fn(instance) for instance in data]
 
 
 def write_data(args, data, targets):
@@ -378,32 +288,19 @@ def write_hierarchy(args, hierarchy_root):
     return hierarchy_filename
 
 
-def write_model(args, sym_vars):
+def write_model(args, model):
     """
     Write model to file in output directory.
     Write model_filename to config file in script directory.
     gen_model.py uses config file to load model.
     """
-    # Write model to file
+    # Create wrapper around ground-truth model
+    model_wrapper = ModelWrapper(model, args.num_features, args.noise_type, args.noise_multiplier)
+    # Pickle and write to file
     model_filename = "%s/%s" % (args.output_dir, constants.MODEL_FILENAME)
     with open(model_filename, "wb") as model_file:
-        pickle.dump(sym_vars, model_file)
-    # Write model_filename to config
-    gen_model_config_filename = "%s/%s" % (args.output_dir, constants.GEN_MODEL_CONFIG_FILENAME)
-    with open(gen_model_config_filename, "wb") as gen_model_config_file:
-        pickle.dump(model_filename, gen_model_config_file)
-        pickle.dump(args.noise_multiplier, gen_model_config_file)
-        pickle.dump(args.noise_type, gen_model_config_file)
-    # Write gen_model.py to output_dir
-    gen_model_filename = "%s/%s" % (args.output_dir, constants.GEN_MODEL_FILENAME)
-    gen_model_template_filename = "%s/%s" % (os.path.dirname(os.path.abspath(__file__)), constants.GEN_MODEL_TEMPLATE_FILENAME)
-    gen_model_file = open(gen_model_filename, "w")
-    with open(gen_model_template_filename, "r") as gen_model_template_file:
-        for line in gen_model_template_file:
-            line = line.replace(constants.GEN_MODEL_CONFIG_FILENAME_PLACEHOLDER, gen_model_config_filename)
-            gen_model_file.write(line)
-    gen_model_file.close()
-    return gen_model_filename
+        cloudpickle.dump(model_wrapper, model_file)
+    return model_filename
 
 
 def run_anamod(args, pass_args, data_filename, hierarchy_filename, gen_model_filename):

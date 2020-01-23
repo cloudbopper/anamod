@@ -35,7 +35,7 @@ def main():
     common = parser.add_argument_group("Common optional parameters")
     # TODO: use analysis type arg
     common.add_argument("-analysis_type", help="Type of model analysis to perform",
-                        default=constants.TEMPORAL, choices=[constants.TEMPORAL, constants.HIERARCHICAL])
+                        default=constants.HIERARCHICAL, choices=[constants.TEMPORAL, constants.HIERARCHICAL])
     common.add_argument("-perturbation", default=constants.SHUFFLING, choices=[constants.ZEROING, constants.SHUFFLING],
                         help="type of perturbation to perform (default %s)" % constants.SHUFFLING)
     common.add_argument("-num_shuffling_trials", type=int, default=50, help="Number of shuffling trials to average over, "
@@ -74,7 +74,7 @@ def main():
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     args.rng = np.random.default_rng(constants.SEED)
-    args.logger = utils.get_logger(__name__, "%s/master.log" % args.output_dir)
+    args.logger = utils.get_logger(__name__, "%s/anamod.log" % args.output_dir)
     validate_args(args)
     pipeline(args)
 
@@ -82,6 +82,23 @@ def main():
 def pipeline(args):
     """Master pipeline"""
     args.logger.info("Begin anamod master pipeline with args: %s" % args)
+    if args.analysis_type == constants.HIERARCHICAL:
+        hierarchical_analysis_pipeline(args)
+    else:
+        temporal_analysis_pipeline(args)
+    args.logger.info("End anamod master pipeline")
+
+
+def temporal_analysis_pipeline(args):
+    """Temporal analysis pipeline"""
+    args.logger.info("Begin temporal analysis pipeline")
+    # TODO
+    args.logger.info("End temporal analysis pipeline")
+
+
+def hierarchical_analysis_pipeline(args):
+    """Hierarchical analysis pipeline"""
+    args.logger.info("Begin hierarchical analysis pipeline")
     # Load hierarchy from file
     hierarchy_root = load_hierarchy(args.hierarchy_filename)
     # Flatten hierarchy to allow partitioning across workers
@@ -95,7 +112,7 @@ def pipeline(args):
     # Analyze pairwise interactions
     if args.analyze_interactions:
         analyze_interactions(args, feature_nodes, predictions)
-    args.logger.info("End anamod master pipeline")
+    args.logger.info("End hierarchical analysis pipeline")
 
 
 def load_hierarchy(hierarchy_filename):

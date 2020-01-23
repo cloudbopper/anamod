@@ -6,11 +6,9 @@ computes the effect on the model's output loss
 
 import argparse
 import csv
-import importlib
-import os
 import pickle
-import sys
 
+import cloudpickle
 import h5py
 import numpy as np
 
@@ -91,18 +89,8 @@ def load_model(args):
 
     """
     args.logger.info("Begin loading model")
-    if not os.path.exists(args.model_generator_filename):
-        raise FileNotFoundError("Model-generating file not found")
-    dirname, basename = os.path.split(args.model_generator_filename)
-    sys.path.insert(0, dirname)
-    module_name, _ = os.path.splitext(basename)
-    importlib.invalidate_caches()
-    module = sys.modules.get(module_name)
-    if not module:
-        module = importlib.import_module(module_name)
-    else:
-        module = importlib.reload(module)
-    model = getattr(module, "model")
+    with open(args.model_generator_filename, "rb") as model_file:
+        model = cloudpickle.load(model_file)
     args.logger.info("End loading model")
     return model
 
@@ -149,7 +137,6 @@ class Perturber():
         self.record_ids = hdf5_root[constants.RECORD_IDS][...]
         self.targets = hdf5_root[constants.TARGETS][...]
         self.static_dataset = hdf5_root[constants.STATIC][...]
-        self.temporal_grp = hdf5_root.get(constants.TEMPORAL)
         self.num_records = len(self.record_ids)
         self.static_data_input = bool(self.static_dataset.size)
         self.losses = {feature.name: np.zeros(self.num_records) for feature in self.features}
@@ -157,27 +144,33 @@ class Perturber():
 
     def perturb_features_for_record(self, record_idx):
         """Perturbs all features for given record"""
+        # TODO: revise handling of temporal vs. static data
+        # The model doesn't know about the perturbation, it just takes the data input
+        # We can also assume that the data format matches what model.predict expects,
+        # so it shouldn't receive static/temporal data separately
+        # Only the perturbation mechanism needs to be aware of static vs. temporal
+        # so that it can apply the perturbation appropriately
         # Data
         target = self.targets[record_idx]
         static_data = self.static_dataset[record_idx] if self.static_data_input else []
-        record_id = self.record_ids[record_idx]
-        temporal_data = self.temporal_grp[record_id][...] if self.temporal_grp else []
         # Perturb each feature
         for feature in self.features:
-            tdata = self.perturb_temporal_data(feature, temporal_data)
             sdata = None
             if self.args.perturbation == constants.SHUFFLING:
                 tvals = np.zeros((2, self.args.num_shuffling_trials))
                 for trial in range(self.args.num_shuffling_trials):
                     sdata = self.perturb_static_data(feature, static_data)
-                    tvals[:, trial] = self.model.predict(target, static_data=sdata, temporal_data=tdata)
-                (loss, prediction) = np.average(tvals, axis=1)
+                    pred = self.model.predict(sdata.reshape(1, -1))[0]
+                    loss = self.model.loss(target, pred)
+                    tvals[:, trial] = (pred, loss)
+                (pred, loss) = np.average(tvals, axis=1)
             else:
                 sdata = self.perturb_static_data(feature, static_data)
-                (loss, prediction) = self.model.predict(target, static_data=sdata, temporal_data=tdata)
+                pred = self.model.predict(sdata.reshape(1, -1))[0]
+                loss = self.model.loss(target, pred)
             # Update outputs
+            self.predictions[feature.name][record_idx] = pred
             self.losses[feature.name][record_idx] = loss
-            self.predictions[feature.name][record_idx] = prediction
 
     def perturb_static_data(self, feature, static_data):
         """Perturb static data for given feature"""
@@ -193,6 +186,7 @@ class Perturber():
 
     def perturb_temporal_data(self, feature, temporal_data):
         """Perturb temporal data for given feature"""
+        # FIXME: currently unused - temporal data will not be perturbed
         # TODO: verify that temporal data perturbation works.
         # temporal_data should be a list of vectors, but the perturbation below
         # treats it is a single vector
