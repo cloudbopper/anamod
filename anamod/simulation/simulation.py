@@ -87,18 +87,14 @@ def pipeline(args, pass_args):
     """Simulation pipeline"""
     args.logger.info("Begin anamod simulation with args: %s" % args)
     features, data, model = run_synmod(args)
-    relevant_feature_map = model.relevant_feature_map
-    # Synthesize polynomial that generates ground truth
-    # sym_vars, relevant_feature_map, polynomial_fn = gen_polynomial(args, get_relevant_features(args))
-    targets = model.predict(data)  # Ground truth labels
+    targets = model.predict(data)
     data_filename = write_data(args, data, targets)
     model_filename = write_model(args, model)
     if args.analysis_type == constants.HIERARCHICAL:
-        # TODO: Features other than binary
         # Generate hierarchy using clustering (test data also used for clustering)
         hierarchy_root, feature_id_map = gen_hierarchy(args, data)
         # Update hierarchy descriptions for future visualization
-        update_hierarchy_relevance(hierarchy_root, relevant_feature_map, features)
+        update_hierarchy_relevance(hierarchy_root, model.relevant_feature_map, features)
         # Write hierarchy to file
         hierarchy_filename = write_hierarchy(args, hierarchy_root)
         # Invoke feature importance algorithm
@@ -106,7 +102,7 @@ def pipeline(args, pass_args):
         # Compare anamod outputs with ground truth outputs
         compare_with_ground_truth(args, hierarchy_root)
         # Evaluate anamod outputs - power/FDR for all nodes/outer nodes/base features
-        results = evaluate(args, relevant_feature_map, feature_id_map)
+        results = evaluate(args, model.relevant_feature_map, feature_id_map)
         args.logger.info("Results:\n%s" % str(results))
         write_results(args, results)
     else:
