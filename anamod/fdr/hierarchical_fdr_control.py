@@ -69,7 +69,7 @@ def write_outputs(args, tree):
             if node.parent:
                 parent_name = node.parent.name
             writer.writerow([node.name, parent_name, np.around(node.pvalue, 10),
-                            int(node.rejected), np.around(node.adjusted_pvalue, 10)])
+                             int(node.rejected), np.around(node.adjusted_pvalue, 10)])
     # Generate tree of rejected hypotheses with colour grading based on adjusted p-value
     generate_tree_of_rejected_hypotheses(args, tree)
     args.logger.info("End writing outputs")
