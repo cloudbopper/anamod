@@ -13,8 +13,7 @@ class Feature(anytree.Node):
         super().__init__(name)
         self.parent_name = kwargs.get(constants.PARENT_NAME, "")
         self.description = kwargs.get(constants.DESCRIPTION, "")
-        self.static_indices = kwargs.get(constants.STATIC_INDICES, [])
-        self.temporal_indices = kwargs.get(constants.TEMPORAL_INDICES, [])
+        self.idx = kwargs.get(constants.INDICES, [])
         self._rng_seed = kwargs.get(constants.RNG_SEED, cityhash.CityHash32(name))
         self.rng = None
 
@@ -51,5 +50,5 @@ class Feature(anytree.Node):
 
     @staticmethod
     def size(feature):
-        """Returns'size' of feature"""
-        return len(feature.static_indices) + len(feature.temporal_indices)
+        """Returns 'size' of feature"""
+        return len(feature.idx)

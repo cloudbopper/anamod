@@ -91,6 +91,9 @@ def temporal_analysis_pipeline(args):
     """Temporal analysis pipeline"""
     args.logger.info("Begin temporal model analysis pipeline")
     # TODO
+    # 1) For each feature, test its importance
+    # 2) Then, test temporal importance
+    # 3) Then, test windows
     args.logger.info("End temporal model analysis pipeline")
 
 
@@ -132,8 +135,7 @@ def load_hierarchy(hierarchy_filename):
         for row in reader:
             node = Feature(row[constants.NODE_NAME],
                            parent_name=row[constants.PARENT_NAME], description=row[constants.DESCRIPTION],
-                           static_indices=Feature.unpack_indices(row[constants.STATIC_INDICES]),
-                           temporal_indices=Feature.unpack_indices(row[constants.TEMPORAL_INDICES]))
+                           idx=Feature.unpack_indices(row[constants.INDICES]))
             assert node.name not in nodes, "Node name must be unique across all features: %s" % node.name
             nodes[node.name] = node
     # Construct tree
@@ -146,23 +148,19 @@ def load_hierarchy(hierarchy_filename):
             node.parent = nodes[node.parent_name]
     assert root, "Invalid tree structure: root node missing (every node has a parent)"
     # Checks
-    all_static_indices = set()
-    all_temporal_indices = set()
+    all_idx = set()
     for node in anytree.PostOrderIter(root):
         if node.is_leaf:
-            assert node.static_indices or node.temporal_indices, "Leaf node %s must have at least one index of either type" % node.name
-            assert not all_static_indices.intersection(node.static_indices), "Leaf node %s has static index overlap with other leaf nodes" % node.name
-            assert not all_temporal_indices.intersection(node.temporal_indices), \
-                    "Leaf node %s has temporal index overlap with other leaf nodes" % node.name
+            assert node.idx, "Leaf node %s must have at least one index" % node.name
+            assert not all_idx.intersection(node.idx), "Leaf node %s has index overlap with other leaf nodes" % node.name
+            all_idx.update(node.idx)
         else:
             # Ensure non-leaf nodes have empty initial indices
-            assert not node.static_indices, "Non-leaf node %s has non-empty initial indices" % node.name
-            assert not node.temporal_indices, "Non-leaf node %s has non-empty initial indices" % node.name
+            assert not node.idx, "Non-leaf node %s has non-empty initial indices" % node.name
     # Populate data structures
     for node in anytree.PostOrderIter(root):
         for child in node.children:
-            node.static_indices += child.static_indices
-            node.temporal_indices += child.temporal_indices
+            node.idx += child.idx
     return root
 
 

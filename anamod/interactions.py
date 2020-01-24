@@ -97,8 +97,7 @@ def get_interaction_groups(args, potential_interactions):
     interaction_groups = []
     for left, right in potential_interactions:
         name = left.name + " + " + right.name
-        parent_node = Feature(name, static_indices=left.static_indices + right.static_indices,
-                              temporal_indices=left.temporal_indices + right.temporal_indices)
+        parent_node = Feature(name, idx=left.idx + right.idx)
         if Feature.size(left) >= Feature.size(right):
             cached_node = left
             redo_node = right

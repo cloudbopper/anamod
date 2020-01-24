@@ -147,25 +147,25 @@ def gen_hierarchy(args, clustering_data):
     feature_id_map = {}  # mapping from visual feature ids to original ids
     if args.contiguous_node_names:
         for idx, node in enumerate(anytree.PostOrderIter(hierarchy_root)):
-            node.idx = idx
+            node.vidx = idx
             if node.is_leaf:
-                node.min_child_idx = idx
-                node.max_child_idx = idx
+                node.min_child_vidx = idx
+                node.max_child_vidx = idx
                 node.num_base_features = 1
                 node.name = str(idx)
-                feature_id_map[idx] = int(node.static_indices)
+                feature_id_map[idx] = int(node.idx)
             else:
-                node.min_child_idx = min([child.min_child_idx for child in node.children])
-                node.max_child_idx = max([child.idx for child in node.children])
+                node.min_child_vidx = min([child.min_child_vidx for child in node.children])
+                node.max_child_vidx = max([child.vidx for child in node.children])
                 node.num_base_features = sum([child.num_base_features for child in node.children])
-                node.name = "[%d-%d] (size: %d)" % (node.min_child_idx, node.max_child_idx, node.num_base_features)
+                node.name = "[%d-%d] (size: %d)" % (node.min_child_vidx, node.max_child_vidx, node.num_base_features)
     return hierarchy_root, feature_id_map
 
 
 def gen_random_hierarchy(args):
     """Generates balanced random hierarchy"""
     args.logger.info("Begin generating hierarchy")
-    nodes = [anytree.Node(str(idx), static_indices=str(idx)) for idx in range(args.num_features)]
+    nodes = [anytree.Node(str(idx), idx=str(idx)) for idx in range(args.num_features)]
     args.rng.shuffle(nodes)
     node_count = len(nodes)
     while len(nodes) > 1:
@@ -205,7 +205,7 @@ def gen_hierarchy_from_clusters(args, clusters):
         hierarchy_root: root of resulting hierarchy over features
     """
     # Generate hierarchy from clusters
-    nodes = [anytree.Node(str(idx), static_indices=str(idx)) for idx in range(args.num_features)]
+    nodes = [anytree.Node(str(idx), idx=str(idx)) for idx in range(args.num_features)]
     for idx, cluster in enumerate(clusters):
         cluster_idx = idx + args.num_features
         left_idx, right_idx, _, _ = cluster
@@ -232,7 +232,7 @@ def update_hierarchy_relevance(hierarchy_root, relevant_feature_map, features):
     for node in anytree.PostOrderIter(hierarchy_root):
         node.description = constants.IRRELEVANT
         if node.is_leaf:
-            idx = int(node.static_indices)
+            idx = int(node.idx)
             node.poly_coeff = 0.0
             node.bin_prob = probs[idx]
             coeff = relevant_feature_map.get(frozenset([idx]))
@@ -250,24 +250,13 @@ def update_hierarchy_relevance(hierarchy_root, relevant_feature_map, features):
 
 
 def write_data(args, data, targets):
-    """
-    Write data in HDF5 format.
-
-    Groups:
-        /temporal               (Group containing temporal data)
-
-    Datasets:
-        /record_ids             (List of record identifiers (strings) of length M = number of records/instances)
-        /targets                (vector of target values (regression/classification outputs) of length M)
-        /static_data            (matrix of static data of size M x L)
-        /temporal/<record_id>   (One dataset per record_id) (List (of variable length V) of vectors (of fixed length W))
-    """
+    """Write data in HDF5 format"""
     data_filename = "%s/%s" % (args.output_dir, "data.hdf5")
     root = h5py.File(data_filename, "w")
     record_ids = [str(idx).encode("utf8") for idx in range(args.num_instances)]
     root.create_dataset(constants.RECORD_IDS, data=record_ids)
     root.create_dataset(constants.TARGETS, data=targets)
-    root.create_dataset(constants.STATIC, data=data)
+    root.create_dataset(constants.DATA, data=data)
     root.close()
     return data_filename
 
@@ -279,20 +268,18 @@ def write_hierarchy(args, hierarchy_root):
     Columns:    *name*:             feature name, must be unique across features
                 *parent_name*:      name of parent if it exists, else '' (root node)
                 *description*:      node description
-                *static_indices*:   [only required for leaf nodes] list of tab-separated indices corresponding to the indices
-                                    of these features in the static data
-                *temporal_indices*: [only required for leaf nodes] list of tab-separated indices corresponding to the indices
-                                    of these features in the temporal data
+                *idx*:              [only required for leaf nodes] list of tab-separated indices corresponding to the indices
+                                    of these features in the data
     """
     hierarchy_filename = "%s/%s" % (args.output_dir, "hierarchy.csv")
     with open(hierarchy_filename, "w", newline="") as hierarchy_file:
         writer = csv.writer(hierarchy_file, delimiter=",")
         writer.writerow([constants.NODE_NAME, constants.PARENT_NAME,
-                         constants.DESCRIPTION, constants.STATIC_INDICES, constants.TEMPORAL_INDICES])
+                         constants.DESCRIPTION, constants.INDICES])
         for node in anytree.PreOrderIter(hierarchy_root):
-            static_indices = node.static_indices if node.is_leaf else ""
+            idx = node.idx if node.is_leaf else ""
             parent_name = node.parent.name if node.parent else ""
-            writer.writerow([node.name, parent_name, node.description, static_indices, ""])
+            writer.writerow([node.name, parent_name, node.description, idx])
     return hierarchy_filename
 
 

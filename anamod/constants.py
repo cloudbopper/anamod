@@ -7,8 +7,7 @@ HIERARCHICAL = "hierarchical"
 NODE_NAME = "name"
 PARENT_NAME = "parent_name"
 DESCRIPTION = "description"
-STATIC_INDICES = "static_indices"
-TEMPORAL_INDICES = "temporal_indices"
+INDICES = "idx"
 CLUSTER_FROM_DATA = "cluster_from_data"
 RANDOM = "random"
 
@@ -58,6 +57,7 @@ RECORD_IDS = "record_ids"
 TARGETS = "targets"
 STATIC = "static"
 TEMPORAL = "temporal"
+DATA = "data"
 
 # Simulation
 RELEVANT = "relevant"
