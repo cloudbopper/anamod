@@ -72,7 +72,7 @@ def compute_p_values(args, interaction_groups, interaction_predictions, cached_p
         pvalue = compute_p_value(lhs, rhs, alternative=constants.TWOSIDED)
         effect_size = np.mean(lhs - rhs)  # TODO: confirm sign
         # TODO: Add description?
-        writer.writerow([parent_node.name, constants.DUMMY_ROOT, "", effect_size, "", pvalue])
+        writer.writerow([parent_node.name, constants.DUMMY_ROOT, "", np.around(effect_size, 10), "", np.around(pvalue, 10)])
     outfile.close()
 
 

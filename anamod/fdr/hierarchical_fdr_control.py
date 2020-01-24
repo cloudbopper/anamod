@@ -9,6 +9,7 @@ import os
 import anytree
 from anytree.exporter import DotExporter
 from anytree.exporter import JsonExporter
+import numpy as np
 
 from anamod import constants, utils
 from anamod.fdr.fdr_algorithms import hierarchical_fdr_control
@@ -67,7 +68,8 @@ def write_outputs(args, tree):
             parent_name = ""
             if node.parent:
                 parent_name = node.parent.name
-            writer.writerow([node.name, parent_name, node.pvalue, int(node.rejected), node.adjusted_pvalue])
+            writer.writerow([node.name, parent_name, np.around(node.pvalue, 10),
+                            int(node.rejected), np.around(node.adjusted_pvalue, 10)])
     # Generate tree of rejected hypotheses with colour grading based on adjusted p-value
     generate_tree_of_rejected_hypotheses(args, tree)
     args.logger.info("End writing outputs")

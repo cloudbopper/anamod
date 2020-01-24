@@ -217,7 +217,8 @@ def compute_p_values(args, hierarchy_root, losses, predictions):
         mean_loss = np.mean(loss)
         pvalue_loss = compute_p_value(baseline_loss, loss)
         effect_size = mean_loss - mean_baseline_loss
-        writer.writerow([name, parent_name, node.description, effect_size, mean_loss, pvalue_loss])
+        writer.writerow([name, parent_name, node.description,
+                        np.around(effect_size, 10), np.around(mean_loss, 10), np.around(pvalue_loss, 10)])
     outfile.close()
 
 
