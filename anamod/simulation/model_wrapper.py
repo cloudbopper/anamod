@@ -2,8 +2,8 @@
 
 from functools import reduce
 
+import cityhash
 import numpy as np
-from pyhashxx import hashxx
 
 from anamod import constants
 
@@ -36,7 +36,7 @@ class ModelWrapper():
         noise = np.zeros(len(X))
         for idx, instance in enumerate(X):
             # The amount of noise is randomly chosen based on the instance
-            hashval = hashxx(instance.tobytes())
+            hashval = cityhash.CityHash32(instance)
             self.rng.seed(hashval)
             if self.noise_type == constants.EPSILON_IRRELEVANT:
                 # Add noise - small random non-zero coefficients for irrelevant features

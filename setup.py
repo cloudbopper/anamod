@@ -38,7 +38,6 @@ setup(
         "cloudpickle",
         "h5py",
         "numpy>=1.17.0",
-        "pyhashxx",
         "scikit-learn",
         "scipy",
         "sympy",
