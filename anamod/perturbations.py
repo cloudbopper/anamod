@@ -66,7 +66,7 @@ class PerturbTensor(PerturbationMechanism):
     def perturb(self, X, feature, *args, **kwargs):
         timesteps = kwargs.get("timesteps", ...)
         X_hat = np.copy(X)
-        perturbed_slice = self._perturbation_fn(X_hat[:, feature.idx, timesteps])
+        perturbed_slice = self._perturbation_fn(feature.rng).operate(X_hat[:, feature.idx, timesteps])
         if timesteps == ... and np.isscalar(feature.idx):
             # Basic indexing - view was perturbed, so no assignment needed
             assert perturbed_slice.base is X_hat

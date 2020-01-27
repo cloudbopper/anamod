@@ -3,29 +3,11 @@
 import sys
 from unittest.mock import patch
 
-from anamod import constants
 from anamod.simulation import simulation
-from tests.utils import write_logfile, pre_test
+from tests.utils import pre_test, post_test
 
 
 # pylint: disable = invalid-name, protected-access
-def post_test(file_regression, caplog, output_dir, interactions=False):
-    """Post-test verification"""
-    write_logfile(caplog, output_dir)
-    pvalues_filename = "%s/%s" % (output_dir, constants.PVALUES_FILENAME)
-    if interactions:
-        pvalues_filename = "%s/%s" % (output_dir, constants.INTERACTIONS_PVALUES_FILENAME)
-    with open(pvalues_filename, "r") as pvalues_file:
-        pvalues = sorted(pvalues_file.readlines())
-    file_regression.check("\n".join(pvalues), extension="_pvalues.csv")
-    fdr_filename = "%s/%s/%s.csv" % (output_dir, constants.HIERARCHICAL_FDR_DIR, constants.HIERARCHICAL_FDR_OUTPUTS)
-    if interactions:
-        fdr_filename = "%s/%s/%s.csv" % (output_dir, constants.INTERACTIONS_FDR_DIR, constants.HIERARCHICAL_FDR_OUTPUTS)
-    with open(fdr_filename, "r") as fdr_file:
-        fdr = sorted(fdr_file.readlines())
-    file_regression.check("\n".join(fdr), extension="_fdr.txt")
-
-
 def test_simulation_random_hierarchy(file_regression, tmpdir, caplog):
     """Test simulation with random hierarchy"""
     func_name = sys._getframe().f_code.co_name

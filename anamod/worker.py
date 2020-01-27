@@ -16,7 +16,7 @@ from anamod import constants, utils
 from anamod.feature import Feature
 from anamod.perturbations import PerturbMatrix, PerturbTensor, Zeroing, Shuffling
 
-PERTURBATION_TYPES = {constants.ZEROING: Zeroing, constants.SHUFFLING: Shuffling}
+PERTURBATION_FUNCTIONS = {constants.ZEROING: Zeroing, constants.SHUFFLING: Shuffling}
 PERTURBATION_MECHANISMS = {constants.HIERARCHICAL: PerturbMatrix, constants.TEMPORAL: PerturbTensor}
 
 
@@ -86,9 +86,9 @@ def perturb_features(args, features, data_root, model):
     X = data_root[constants.DATA]
     y_true = data_root[constants.TARGETS]
     # Select perturbation
-    perturbation_type_class = PERTURBATION_TYPES[args.perturbation]
+    perturbation_fn_class = PERTURBATION_FUNCTIONS[args.perturbation]
     perturbation_mechanism_class = PERTURBATION_MECHANISMS[args.analysis_type]
-    perturbation_mechanism = perturbation_mechanism_class(perturbation_type_class, None)
+    perturbation_mechanism = perturbation_mechanism_class(perturbation_fn_class, None)
     predictions = {feature.name: np.zeros(len(y_true)) for feature in features}
     losses = {feature.name: np.zeros(len(y_true)) for feature in features}
     # Perturb each feature

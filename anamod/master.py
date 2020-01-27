@@ -12,6 +12,7 @@ import sys
 from unittest.mock import patch
 
 import anytree
+import h5py
 import numpy as np
 
 from anamod.compute_p_values import compute_p_value
@@ -81,39 +82,32 @@ def pipeline(args):
     """Master pipeline"""
     args.logger.info("Begin anamod master pipeline with args: %s" % args)
     if args.analysis_type == constants.HIERARCHICAL:
-        hierarchical_analysis_pipeline(args)
+        # Load hierarchy from file
+        hierarchy_root = load_hierarchy(args.hierarchy_filename)
+        # Prepare features
+        features = list(anytree.PreOrderIter(hierarchy_root))  # flatten hierarchy
     else:
-        temporal_analysis_pipeline(args)
-    args.logger.info("End anamod master pipeline")
-
-
-def temporal_analysis_pipeline(args):
-    """Temporal analysis pipeline"""
-    args.logger.info("Begin temporal model analysis pipeline")
-    # TODO
-    # 1) For each feature, test its importance
-    # 2) Then, test temporal importance
-    # 3) Then, test windows
-    args.logger.info("End temporal model analysis pipeline")
-
-
-def hierarchical_analysis_pipeline(args):
-    """Hierarchical analysis pipeline"""
-    args.logger.info("Begin hierarchical analysis pipeline")
-    # Load hierarchy from file
-    hierarchy_root = load_hierarchy(args.hierarchy_filename)
-    # Flatten hierarchy to allow partitioning across workers
-    feature_nodes = flatten_hierarchy(args, hierarchy_root)
+        # TODO: Temporal model analysis
+        # 1) For each feature, test its importance
+        # 2) Then, test temporal importance
+        # 3) Then, test windows
+        # TODO: get number of features more efficiently
+        data_root = h5py.File(args.data_filename, "r")
+        data = data_root[constants.DATA]
+        num_features = data.shape[1]  # data is instances X features X timesteps
+        features = [Feature(str(idx), idx=[idx]) for idx in range(num_features)]
+    # Prepare features for perturbation
+    features = prepare_features(args, features)
     # Perturb features
-    _, losses, predictions = perturb_features(args, feature_nodes)
+    _, losses, predictions = perturb_features(args, features)
     # Compute p-values
-    compute_p_values(args, hierarchy_root, losses, predictions)
+    compute_p_values(args, features, losses, predictions)
     # Run hierarchical FDR
     hierarchical_fdr(args)
     # Analyze pairwise interactions
     if args.analyze_interactions:
-        analyze_interactions(args, feature_nodes, predictions)
-    args.logger.info("End hierarchical analysis pipeline")
+        analyze_interactions(args, features, predictions)
+    args.logger.info("End anamod master pipeline")
 
 
 def load_hierarchy(hierarchy_filename):
@@ -181,6 +175,14 @@ def flatten_hierarchy(args, hierarchy_root):
     return nodes
 
 
+def prepare_features(args, features):
+    """Prepare features for perturbation"""
+    features.append(Feature(constants.BASELINE, description="No perturbation"))  # Baseline corresponds to no perturbation
+    features.sort(key=lambda node: node.name)  # For reproducibility across python versions
+    args.rng.shuffle(features)  # To balance load across workers
+    return features
+
+
 def perturb_features(args, feature_nodes):
     """
     Perturb features, observe effect on model loss and aggregate results
@@ -199,7 +201,7 @@ def perturb_features(args, feature_nodes):
     return worker_pipeline.run()
 
 
-def compute_p_values(args, hierarchy_root, losses, predictions):
+def compute_p_values(args, features, losses, predictions):
     """Evaluates and compares different feature erasures"""
     # pylint: disable = too-many-locals
     losses = round_vectordict(losses)
@@ -210,15 +212,20 @@ def compute_p_values(args, hierarchy_root, losses, predictions):
                      constants.MEAN_LOSS, constants.PVALUE_LOSSES])
     baseline_loss = losses[constants.BASELINE]
     mean_baseline_loss = np.mean(baseline_loss)
-    for node in anytree.PreOrderIter(hierarchy_root):
+    root_name = ""  # FIXME: inelegant solution
+    if args.analysis_type == constants.TEMPORAL:
+        root_name = constants.DUMMY_ROOT
+    for node in filter(lambda node: node.name != constants.BASELINE, features):
         name = node.name
-        parent_name = node.parent.name if node.parent else ""
+        parent_name = node.parent.name if node.parent else root_name
         loss = losses[node.name]
         mean_loss = np.mean(loss)
         pvalue_loss = compute_p_value(baseline_loss, loss)
         effect_size = mean_loss - mean_baseline_loss
         writer.writerow([name, parent_name, node.description,
                          np.around(effect_size, 10), np.around(mean_loss, 10), np.around(pvalue_loss, 10)])
+    if root_name:
+        writer.writerow([constants.DUMMY_ROOT, "", "", "", "", 0.])  # Dummy root node for FDR analysis of temporal model analysis results
     outfile.close()
 
 
