@@ -4,6 +4,8 @@ from abc import ABC
 
 import numpy as np
 
+from anamod import constants
+
 
 # pylint: disable = invalid-name
 class PerturbationFunction(ABC):
@@ -33,43 +35,57 @@ class Shuffling(PerturbationFunction):
         return X
 
 
-class PerturbationType(ABC):
-    """Perturbation type base class"""
-    # TODO: Across-instance vs within-across-instance
-
-
 class PerturbationMechanism(ABC):
     """Performs perturbation"""
     def __init__(self, perturbation_fn, perturbation_type):
+        assert issubclass(perturbation_fn, PerturbationFunction)
         self._perturbation_fn = perturbation_fn
-        self._perturbation_type = perturbation_type  # TODO: use this field
+        assert perturbation_type in {constants.ACROSS_INSTANCES, constants.WITHIN_INSTANCE}
+        self._perturbation_type = perturbation_type
 
     def perturb(self, X, feature, *args, **kwargs):
-        """Perturb feature for input data"""
+        """Perturb feature for input data and given feature(s)"""
+        size = feature.size
+        if size == 0:
+            return X  # No feature(s) to be perturbed
+        if size == 1:
+            idx = feature.idx[0]  # To enable fast view-based indexing for singleton features
+        else:
+            idx = feature.idx
+        X_hat = np.copy(X)
+        return self._perturb(X_hat, idx, feature.rng, *args, **kwargs)
+
+    def _perturb(self, X_hat, idx, rng, *args, **kwargs):
+        """Perturb feature for input data and given feature indices"""
 
 
 class PerturbMatrix(PerturbationMechanism):
     """Perturb input arranged as matrix of instances X features"""
-    def perturb(self, X, feature, *args, **kwargs):
-        X_hat = np.copy(X)
-        perturbed_slice = self._perturbation_fn(feature.rng).operate(X_hat[:, feature.idx])
-        if np.isscalar(feature.idx):
+    def _perturb(self, X_hat, idx, rng, *args, **kwargs):
+        perturbed_slice = self._perturbation_fn(rng).operate(X_hat[:, idx])
+        if np.isscalar(idx):
             # Basic indexing - view was perturbed, so no assignment needed
             assert perturbed_slice.base is X_hat
             return X_hat
-        X_hat[:, feature.idx] = perturbed_slice
+        X_hat[:, idx] = perturbed_slice
         return X_hat
 
 
 class PerturbTensor(PerturbationMechanism):
     """Perturb input arranged as tensor of instances X features X time"""
-    def perturb(self, X, feature, *args, **kwargs):
-        timesteps = kwargs.get("timesteps", ...)
-        X_hat = np.copy(X)
-        perturbed_slice = self._perturbation_fn(feature.rng).operate(X_hat[:, feature.idx, timesteps])
-        if timesteps == ... and np.isscalar(feature.idx):
+    def _perturb(self, X_hat, idx, rng, *args, **kwargs):
+        timesteps = kwargs.get("timesteps", slice(None))
+        axis0 = slice(None)  # all sequences
+        axis1 = idx  # features to be perturbed
+        axis2 = timesteps  # timesteps to be perturbed
+        if self._perturbation_type == constants.WITHIN_INSTANCE:
+            X_hat = np.transpose(X_hat)
+            axis0, axis2 = axis2, axis0  # swap sequence and timestep axis for within-instance shuffling
+        perturbed_slice = self._perturbation_fn(rng).operate(X_hat[axis0, axis1, axis2])
+        if timesteps == ... and np.isscalar(idx):
             # Basic indexing - view was perturbed, so no assignment needed
+            X_hat = np.transpose(X_hat) if self._perturbation_type == constants.WITHIN_INSTANCE else X_hat
             assert perturbed_slice.base is X_hat
             return X_hat
-        X_hat[:, feature.idx, timesteps] = perturbed_slice
-        return X_hat
+        X_hat[axis0, axis1, axis2] = perturbed_slice
+        return np.transpose(X_hat) if self._perturbation_type == constants.WITHIN_INSTANCE else X_hat

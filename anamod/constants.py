@@ -102,6 +102,8 @@ TREE = "tree"
 ZEROING = "zeroing"
 SHUFFLING = "shuffling"
 RNG_SEED = "rng_seed"
+ACROSS_INSTANCES = "across"
+WITHIN_INSTANCE = "within"
 
 # Miscellaneous
 BASELINE = u"baseline"

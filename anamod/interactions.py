@@ -15,7 +15,8 @@ from anamod.compute_p_values import compute_p_value
 from anamod import constants
 from anamod.fdr import hierarchical_fdr_control
 from anamod.feature import Feature
-from anamod.pipelines import CondorPipeline, SerialPipeline, round_vector
+from anamod.pipelines import CondorPipeline, SerialPipeline
+from anamod.utils import round_value
 
 
 def analyze_interactions(args, feature_nodes, cached_predictions):
@@ -64,11 +65,11 @@ def compute_p_values(args, interaction_groups, interaction_predictions, cached_p
     writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.DESCRIPTION, constants.EFFECT_SIZE,
                      constants.MEAN_LOSS, constants.PVALUE_LOSSES])
     writer.writerow([constants.DUMMY_ROOT, "", "", "", "", 0.])
-    baseline_prediction = cached_predictions[constants.BASELINE]
+    baseline_prediction = interaction_predictions[constants.BASELINE]
     redo_predictions = interaction_predictions if args.perturbation == constants.SHUFFLING else cached_predictions
     for cached_node, redo_node, parent_node in interaction_groups:
-        lhs = round_vector(interaction_predictions[parent_node.name])
-        rhs = round_vector(cached_predictions[cached_node.name] + redo_predictions[redo_node.name] - baseline_prediction)
+        lhs = round_value(interaction_predictions[parent_node.name], decimals=4)
+        rhs = round_value(cached_predictions[cached_node.name] + redo_predictions[redo_node.name] - baseline_prediction, decimals=4)
         pvalue = compute_p_value(lhs, rhs, alternative=constants.TWOSIDED)
         effect_size = np.mean(lhs - rhs)  # TODO: confirm sign
         # TODO: Add description?
@@ -84,10 +85,14 @@ def perturb_interactions(args, interaction_groups):
         interaction_nodes.append(parent_node)
         if args.perturbation == constants.SHUFFLING:
             interaction_nodes.append(redo_node)
+
+    # Need to recompute baseline since it's not one of the features and so not included in worker results
+    interaction_nodes.append(Feature(constants.BASELINE, description="No perturbation"))
+
     worker_pipeline = SerialPipeline(args, interaction_nodes)
     if args.condor:
         worker_pipeline = CondorPipeline(args, interaction_nodes)
-    _, _, interaction_predictions = worker_pipeline.run()
+    _, _, _, interaction_predictions = worker_pipeline.run()
     args.logger.info("End perturbing interactions")
     return interaction_predictions
 

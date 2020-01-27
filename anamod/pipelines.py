@@ -1,7 +1,6 @@
 """Serial and distributed (condor) perturbation pipelines"""
 
 import copy
-import csv
 from datetime import datetime
 import glob
 import math
@@ -11,11 +10,10 @@ import re
 import subprocess
 import time
 
+import cloudpickle
 import h5py
-import numpy as np
 
 from anamod import constants, worker
-from anamod.feature import Feature
 
 
 class SerialPipeline():
@@ -64,12 +62,9 @@ class CondorPipeline():
 
     def write_features(self, targs, task_features):
         """Write features to file"""
-        targs.features_filename = self.get_output_filepath(targs, "features")
-        with open(targs.features_filename, "w", newline="") as features_file:
-            writer = csv.writer(features_file)
-            writer.writerow([constants.NODE_NAME, constants.RNG_SEED, constants.INDICES])
-            for feature_node in task_features:
-                writer.writerow([feature_node.name, feature_node.rng_seed, Feature.pack_indices(feature_node.idx)])
+        targs.features_filename = self.get_output_filepath(targs, "features", suffix="cpkl")
+        with open(targs.features_filename, "wb") as features_file:
+            cloudpickle.dump(task_features, features_file)
 
     def write_arguments(self, targs):
         """Write task-specific arguments"""
@@ -270,10 +265,16 @@ class CondorPipeline():
     def compile_results(self):
         """Compile condor task results"""
         self.logger.info("Compiling condor task results")
+        # TODO: Decide if all these are still necessary - targets and losses aren't being used upstream
         all_losses = {}
         all_predictions = {}
         targets = None
         for task_idx in range(self.task_count):
+            # Load features
+            features_filename = "%s/features_worker_%d.cpkl" % (self.master_args.output_dir, task_idx)
+            with open(features_filename, "rb") as features_file:
+                features = cloudpickle.load(features_file)
+
             results_filename = "results_worker_%d.hdf5" % task_idx
             self.logger.info("Processing %s" % results_filename)
             root = h5py.File("%s/%s" % (self.master_args.output_dir, results_filename), "r")
@@ -291,7 +292,7 @@ class CondorPipeline():
                 # Only first worker outputs labels since they're common
                 targets = root[constants.TARGETS][...]
         assert targets is not None
-        return targets, all_losses, all_predictions
+        return features, targets, all_losses, all_predictions
 
     def cleanup(self):
         """Clean files after completion"""
@@ -309,18 +310,8 @@ class CondorPipeline():
             tasks = self.create_tasks()
             self.launch_tasks(tasks)
             self.monitor_tasks(tasks)
-        targets, losses, predictions = self.compile_results()
+        features, targets, losses, predictions = self.compile_results()
         if self.master_args.cleanup:
             self.cleanup()
         self.logger.info("End condor pipeline")
-        return targets, losses, predictions
-
-
-def round_vectordict(vectordict):
-    """Round dictionary of vectors to 4 decimals to avoid floating-point errors"""
-    return {key: round_vector(value) for (key, value) in vectordict.items()}
-
-
-def round_vector(vector):
-    """Round vector to 4 decimals to avoid floating-point errors"""
-    return np.around(vector, decimals=4)
+        return features, targets, losses, predictions

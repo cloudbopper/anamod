@@ -5,16 +5,16 @@ computes the effect on the model's output loss
 """
 
 import argparse
-import csv
 import pickle
 
 import cloudpickle
 import h5py
 import numpy as np
 
-from anamod import constants, utils
-from anamod.feature import Feature
+from anamod import constants
+from anamod.compute_p_values import compute_p_value
 from anamod.perturbations import PerturbMatrix, PerturbTensor, Zeroing, Shuffling
+from anamod.utils import get_logger, round_value, round_vectordict
 
 PERTURBATION_FUNCTIONS = {constants.ZEROING: Zeroing, constants.SHUFFLING: Shuffling}
 PERTURBATION_MECHANISMS = {constants.HIERARCHICAL: PerturbMatrix, constants.TEMPORAL: PerturbTensor}
@@ -28,7 +28,7 @@ def main():
     cargs = parser.parse_args()
     with open(cargs.args_filename, "rb") as args_file:
         args = pickle.load(args_file)
-    args.logger = utils.get_logger(__name__, "%s/worker_%d.log" % (args.output_dir, args.task_idx))
+    args.logger = get_logger(__name__, "%s/worker_%d.log" % (args.output_dir, args.task_idx))
     pipeline(args)
 
 
@@ -41,25 +41,23 @@ def pipeline(args):
     data_root = load_data(args.data_filename)
     # Load model
     model = load_model(args)
+    # Baseline predictions/losses
+    baseline_loss = compute_baseline(data_root, model)
     # Perturb features
     targets, predictions, losses = perturb_features(args, features, data_root, model)
+    compute_p_values(features, predictions, losses, baseline_loss)
+    # TODO: For important features, proceed with further analysis (temporal model analysis)
     # Write outputs
-    write_outputs(args, targets, predictions, losses)
+    write_outputs(args, features, targets, predictions, losses)
     args.logger.info("End anamod worker pipeline")
 
 
 def load_features(features_filename):
     """Load feature/feature groups to test from file"""
-    features = []
-    with open(features_filename, "r") as features_file:
-        reader = csv.DictReader(features_file)
-        for row in reader:
-            node = Feature(row[constants.NODE_NAME], rng_seed=int(row[constants.RNG_SEED]),
-                           idx=Feature.unpack_indices(row[constants.INDICES]))
-            if len(node.idx) == 1:
-                node.idx = node.idx[0]  # FIXME: ugly hack to enable fast slicing during perturbation
-            node.initialize_rng()
-            features.append(node)
+    with open(features_filename, "rb") as features_file:
+        features = cloudpickle.load(features_file)
+    for feature in features:
+        feature.initialize_rng()
     return features
 
 
@@ -78,17 +76,26 @@ def load_model(args):
     return model
 
 
-def perturb_features(args, features, data_root, model):
+def compute_baseline(data_root, model):
+    """Compute baseline prediction/loss"""
+    data = data_root[constants.DATA][...]
+    y_true = data_root[constants.TARGETS]
+    y_pred = model.predict(data)
+    baseline_loss = model.loss(y_true, y_pred)
+    return round_value(baseline_loss, 4)
+
+
+def perturb_features(args, features, data_root, model, perturbation_type=constants.ACROSS_INSTANCES):
     """Perturb features"""
     # TODO: Perturbation modules should be provided as input so custom modules may be used
-    # pylint: disable = invalid-name
+    # pylint: disable = invalid-name, too-many-locals
     args.logger.info("Begin perturbing features")
     X = data_root[constants.DATA]
     y_true = data_root[constants.TARGETS]
     # Select perturbation
     perturbation_fn_class = PERTURBATION_FUNCTIONS[args.perturbation]
     perturbation_mechanism_class = PERTURBATION_MECHANISMS[args.analysis_type]
-    perturbation_mechanism = perturbation_mechanism_class(perturbation_fn_class, None)
+    perturbation_mechanism = perturbation_mechanism_class(perturbation_fn_class, perturbation_type)
     predictions = {feature.name: np.zeros(len(y_true)) for feature in features}
     losses = {feature.name: np.zeros(len(y_true)) for feature in features}
     # Perturb each feature
@@ -110,9 +117,29 @@ def perturb_features(args, features, data_root, model):
     return y_true, predictions, losses
 
 
-def write_outputs(args, targets, predictions, losses):
+def compute_p_values(features, predictions, losses, baseline_loss):
+    """Computes p-values indicating feature importances"""
+    losses = round_vectordict(losses)
+    predictions = round_vectordict(predictions)
+    mean_baseline_loss = np.mean(baseline_loss)
+    for feature in features:
+        loss = losses[feature.name]
+        mean_loss = np.mean(loss)
+        pvalue_loss = compute_p_value(baseline_loss, loss)
+        effect_size = mean_loss - mean_baseline_loss
+        feature.effect_size = round_value(effect_size)
+        feature.mean_loss = round_value(mean_loss)
+        feature.pvalue_loss = round_value(pvalue_loss)
+
+
+def write_outputs(args, features, targets, predictions, losses):
     """Write outputs to results file"""
     args.logger.info("Begin writing outputs")
+    # Write features
+    features_filename = "%s/features_worker_%d.cpkl" % (args.output_dir, args.task_idx)
+    with open(features_filename, "wb") as features_file:
+        cloudpickle.dump(features, features_file)
+    # TODO: Decide if all these are still necessary (only features and predictions used by callers)
     results_filename = "%s/results_worker_%d.hdf5" % (args.output_dir, args.task_idx)
     root = h5py.File(results_filename, "w")
 

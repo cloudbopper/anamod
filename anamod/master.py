@@ -15,12 +15,11 @@ import anytree
 import h5py
 import numpy as np
 
-from anamod.compute_p_values import compute_p_value
 from anamod import constants, utils
 from anamod.fdr import hierarchical_fdr_control
 from anamod.feature import Feature
 from anamod.interactions import analyze_interactions
-from anamod.pipelines import CondorPipeline, SerialPipeline, round_vectordict
+from anamod.pipelines import CondorPipeline, SerialPipeline
 
 
 def main():
@@ -97,13 +96,11 @@ def pipeline(args):
         num_features = data.shape[1]  # data is instances X features X timesteps
         features = [Feature(str(idx), idx=[idx]) for idx in range(num_features)]
     # Prepare features for perturbation
-    features = prepare_features(args, features)
+    prepare_features(args, features)
     # Perturb features
-    _, losses, predictions = perturb_features(args, features)
-    # Compute p-values
-    compute_p_values(args, features, losses, predictions)
+    features, _, _, predictions = perturb_features(args, features)
     # Run hierarchical FDR
-    hierarchical_fdr(args)
+    hierarchical_fdr(args, features)
     # Analyze pairwise interactions
     if args.analyze_interactions:
         analyze_interactions(args, features, predictions)
@@ -158,29 +155,10 @@ def load_hierarchy(hierarchy_filename):
     return root
 
 
-def flatten_hierarchy(args, hierarchy_root):
-    """
-    Flatten hierarchy to allow partitioning across workers
-
-    Args:
-        hierarchy_root: root of feature hierarchy
-
-    Returns:
-        Flattened hierarchy comprising list of features/feature groups
-    """
-    nodes = list(anytree.PreOrderIter(hierarchy_root))
-    nodes.append(Feature(constants.BASELINE, description="No perturbation"))  # Baseline corresponds to no perturbation
-    nodes.sort(key=lambda node: node.name)  # For reproducibility across python versions
-    args.rng.shuffle(nodes)  # To balance load across workers
-    return nodes
-
-
 def prepare_features(args, features):
     """Prepare features for perturbation"""
-    features.append(Feature(constants.BASELINE, description="No perturbation"))  # Baseline corresponds to no perturbation
     features.sort(key=lambda node: node.name)  # For reproducibility across python versions
     args.rng.shuffle(features)  # To balance load across workers
-    return features
 
 
 def perturb_features(args, feature_nodes):
@@ -201,37 +179,24 @@ def perturb_features(args, feature_nodes):
     return worker_pipeline.run()
 
 
-def compute_p_values(args, features, losses, predictions):
-    """Evaluates and compares different feature erasures"""
-    # pylint: disable = too-many-locals
-    losses = round_vectordict(losses)
-    predictions = round_vectordict(predictions)
-    outfile = open("%s/%s" % (args.output_dir, constants.PVALUES_FILENAME), "w", newline="")
-    writer = csv.writer(outfile, delimiter=",")
-    writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.DESCRIPTION, constants.EFFECT_SIZE,
-                     constants.MEAN_LOSS, constants.PVALUE_LOSSES])
-    baseline_loss = losses[constants.BASELINE]
-    mean_baseline_loss = np.mean(baseline_loss)
-    root_name = ""  # FIXME: inelegant solution
-    if args.analysis_type == constants.TEMPORAL:
-        root_name = constants.DUMMY_ROOT
-    for node in filter(lambda node: node.name != constants.BASELINE, features):
-        name = node.name
-        parent_name = node.parent.name if node.parent else root_name
-        loss = losses[node.name]
-        mean_loss = np.mean(loss)
-        pvalue_loss = compute_p_value(baseline_loss, loss)
-        effect_size = mean_loss - mean_baseline_loss
-        writer.writerow([name, parent_name, node.description,
-                         np.around(effect_size, 10), np.around(mean_loss, 10), np.around(pvalue_loss, 10)])
-    if root_name:
-        writer.writerow([constants.DUMMY_ROOT, "", "", "", "", 0.])  # Dummy root node for FDR analysis of temporal model analysis results
-    outfile.close()
-
-
-def hierarchical_fdr(args):
+def hierarchical_fdr(args, features):
     """Performs hierarchical FDR control on results"""
+    # Write FDR control input file
     input_filename = "%s/%s" % (args.output_dir, constants.PVALUES_FILENAME)
+    with open(input_filename, "w", newline="") as outfile:
+        writer = csv.writer(outfile, delimiter=",")
+        writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.DESCRIPTION, constants.EFFECT_SIZE,
+                         constants.MEAN_LOSS, constants.PVALUE_LOSSES])
+        root_name = ""  # FIXME: inelegant solution
+        if args.analysis_type == constants.TEMPORAL:
+            root_name = constants.DUMMY_ROOT
+        for node in features:
+            name = node.name
+            parent_name = node.parent.name if node.parent else root_name
+            writer.writerow([name, parent_name, node.description, node.effect_size, node.mean_loss, node.pvalue_loss])
+        if root_name:
+            writer.writerow([constants.DUMMY_ROOT, "", "", "", "", 0.])  # Dummy root node for FDR analysis of temporal model analysis results
+    # Run FDR control
     output_dir = "%s/%s" % (args.output_dir, constants.HIERARCHICAL_FDR_DIR)
     cmd = ("python -m anamod.fdr.hierarchical_fdr_control -output_dir %s -procedure yekutieli "
            "-rectangle_leaves %s" % (output_dir, input_filename))
