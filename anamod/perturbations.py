@@ -74,7 +74,7 @@ class PerturbMatrix(PerturbationMechanism):
 class PerturbTensor(PerturbationMechanism):
     """Perturb input arranged as tensor of instances X features X time"""
     def _perturb(self, X_hat, idx, rng, *args, **kwargs):
-        timesteps = kwargs.get("timesteps", slice(None))
+        timesteps = kwargs.get("timesteps", ...)
         axis0 = slice(None)  # all sequences
         axis1 = idx  # features to be perturbed
         axis2 = timesteps  # timesteps to be perturbed
@@ -89,3 +89,7 @@ class PerturbTensor(PerturbationMechanism):
             return X_hat
         X_hat[axis0, axis1, axis2] = perturbed_slice
         return np.transpose(X_hat) if self._perturbation_type == constants.WITHIN_INSTANCE else X_hat
+
+
+PERTURBATION_FUNCTIONS = {constants.ZEROING: Zeroing, constants.SHUFFLING: Shuffling}
+PERTURBATION_MECHANISMS = {constants.HIERARCHICAL: PerturbMatrix, constants.TEMPORAL: PerturbTensor}

@@ -86,10 +86,6 @@ def pipeline(args):
         # Prepare features
         features = list(anytree.PreOrderIter(hierarchy_root))  # flatten hierarchy
     else:
-        # TODO: Temporal model analysis
-        # 1) For each feature, test its importance
-        # 2) Then, test temporal importance
-        # 3) Then, test windows
         # TODO: get number of features more efficiently
         data_root = h5py.File(args.data_filename, "r")
         data = data_root[constants.DATA]
@@ -99,6 +95,7 @@ def pipeline(args):
     prepare_features(args, features)
     # Perturb features
     features, _, _, predictions = perturb_features(args, features)
+    # TODO: Run these only for hierarchical feature importance analysis
     # Run hierarchical FDR
     hierarchical_fdr(args, features)
     # Analyze pairwise interactions

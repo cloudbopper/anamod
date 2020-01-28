@@ -104,6 +104,7 @@ SHUFFLING = "shuffling"
 RNG_SEED = "rng_seed"
 ACROSS_INSTANCES = "across"
 WITHIN_INSTANCE = "within"
+PVALUE_THRESHOLD = 0.05
 
 # Miscellaneous
 BASELINE = u"baseline"
