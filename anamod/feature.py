@@ -16,6 +16,10 @@ class Feature(anytree.Node):
         self.idx = kwargs.get(constants.INDICES, [])
         self._rng_seed = kwargs.get(constants.RNG_SEED, cityhash.CityHash32(name))
         self.rng = None
+        # Importance attributes
+        self.important = False
+        self.temporally_important = False
+        self.temporal_window = None
 
     @property
     def rng_seed(self):

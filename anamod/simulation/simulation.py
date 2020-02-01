@@ -25,9 +25,13 @@ from anamod.simulation.model_wrapper import ModelWrapper
 # TODO maybe: write arguments to separate readme.txt for documenting runs
 
 # Simulation results object
-Results = namedtuple(constants.SIMULATION_RESULTS, [constants.FDR, constants.POWER,
-                                                    constants.BASE_FEATURES_FDR, constants.BASE_FEATURES_POWER,
-                                                    constants.INTERACTIONS_FDR, constants.INTERACTIONS_POWER])
+HierarchicalResults = namedtuple(constants.SIMULATION_RESULTS, [constants.FDR, constants.POWER,
+                                                                constants.BASE_FEATURES_FDR, constants.BASE_FEATURES_POWER,
+                                                                constants.INTERACTIONS_FDR, constants.INTERACTIONS_POWER])
+
+TemporalResults = namedtuple(constants.SIMULATION_RESULTS, [constants.FDR, constants.POWER,
+                                                            constants.TEMPORAL_FDR, constants.TEMPORAL_POWER,
+                                                            constants.AVERAGE_WINDOW_FDR, constants.AVERAGE_WINDOW_POWER])
 
 
 def main():
@@ -80,7 +84,7 @@ def main():
     args.logger = utils.get_logger(__name__, "%s/simulation.log" % args.output_dir)
     if args.analysis_type == constants.TEMPORAL:
         args.noise_type = constants.NO_NOISE
-    pipeline(args, pass_args)
+    return pipeline(args, pass_args)
 
 
 def pipeline(args, pass_args):
@@ -102,14 +106,16 @@ def pipeline(args, pass_args):
         # Compare anamod outputs with ground truth outputs
         compare_with_ground_truth(args, hierarchy_root)
         # Evaluate anamod outputs - power/FDR for all nodes/outer nodes/base features
-        results = evaluate(args, model.relevant_feature_map, feature_id_map)
-        args.logger.info("Results:\n%s" % str(results))
-        write_results(args, results)
+        results = evaluate_hierarchical(args, model.relevant_feature_map, feature_id_map)
     else:
         # Temporal model analysis
-        run_anamod(args, pass_args, data_filename, model_filename)
-        # TODO: evaluation
+        # FIXME: should have similar mode of parsing outputs for both analyses
+        analyzed_features = run_anamod(args, pass_args, data_filename, model_filename)
+        results = evaluate_temporal(args, model, analyzed_features)
+    args.logger.info("Results:\n%s" % str(results))
+    write_results(args, results)
     args.logger.info("End anamod simulation")
+    return results
 
 
 def run_synmod(args):
@@ -319,8 +325,9 @@ def run_anamod(args, pass_args, data_filename, model_filename, hierarchy_filenam
     args.logger.info("Running cmd: %s" % cmd)
     nargs = cmd.split()[2:]
     with patch.object(sys, 'argv', nargs):
-        master.main()
+        features = master.main()
     args.logger.info("End running anamod")
+    return features
 
 
 def compare_with_ground_truth(args, hierarchy_root):
@@ -359,9 +366,9 @@ def compare_with_ground_truth(args, hierarchy_root):
     args.logger.info("anamod results: %s" % anamod_outputs_filename)
 
 
-def evaluate(args, relevant_feature_map, feature_id_map):
+def evaluate_hierarchical(args, relevant_feature_map, feature_id_map):
     """
-    Evaluate anamod results - obtain power/FDR measures for all nodes/base features/interactions
+    Evaluate hierarchical analysis results - obtain power/FDR measures for all nodes/base features/interactions
     """
     # pylint: disable = too-many-locals
     def get_relevant_rejected(nodes, leaves=False):
@@ -385,7 +392,54 @@ def evaluate(args, relevant_feature_map, feature_id_map):
         # Interactions FDR/power
         interaction_precision, interaction_recall = get_precision_recall_interactions(args, relevant_feature_map, feature_id_map)
 
-        return Results(1 - precision, recall, 1 - bf_precision, bf_recall, 1 - interaction_precision, interaction_recall)
+        return HierarchicalResults(1 - precision, recall, 1 - bf_precision, bf_recall, 1 - interaction_precision, interaction_recall)
+
+
+def evaluate_temporal(args, model, features):
+    """Evaluate results of temporal model analysis - obtain power/FDR measures for importance, temporal importance and windows"""
+    # pylint: disable = protected-access, too-many-locals
+
+    def init_vectors():
+        """Initialize vectors indicating importances"""
+        important = [False for idx, _ in enumerate(features)]
+        temporally_important = [False for idx, _ in enumerate(features)]
+        windows = np.zeros((len(features), args.sequence_length))
+        return important, temporally_important, windows
+
+    # Populate importance vectors (ground truth and inferred)
+    features = sorted(features, key=lambda feature: feature.idx[0])  # To ensure features are ordered by their index in the feature vector
+    important, temporally_important, windows = init_vectors()
+    inferred_important, inferred_temporally_important, inferred_windows = init_vectors()
+    for idx, feature in enumerate(features):
+        assert idx == feature.idx[0]
+        # Ground truth values
+        if model.relevant_feature_map.get(frozenset({idx})):
+            important[idx] = True
+            left, right = model._operation._windows[idx]
+            if right - left + 1 < args.sequence_length:
+                temporally_important[idx] = True
+                windows[idx][left: right + 1] = 1  # algorithm doesn't test for window unless feature is identified as temporally important
+        # Inferred values
+        inferred_important[idx] = feature.important
+        inferred_temporally_important[idx] = feature.temporally_important
+        if inferred_temporally_important[idx]:
+            left, right = feature.temporal_window
+            inferred_windows[idx][left: right + 1] = 1
+    # Get scores
+    imp_precision, imp_recall, _, _ = precision_recall_fscore_support(important, inferred_important, average="binary")
+    timp_precision, timp_recall, _, _ = precision_recall_fscore_support(temporally_important, inferred_temporally_important, average="binary")
+    avg_window_precision, avg_window_recall = (0, 0)
+    num_windows = 0
+    for idx, _ in enumerate(features):
+        if not temporally_important[idx] and not inferred_temporally_important[idx]:
+            continue  # Don't include irrelevant features unless incorrectly identified as relevant
+        window_precision, window_recall, _, _ = precision_recall_fscore_support(windows[idx], inferred_windows[idx], average="binary")
+        avg_window_precision += window_precision
+        avg_window_recall += window_recall
+        num_windows += 1
+    avg_window_precision /= num_windows
+    avg_window_recall /= num_windows
+    return TemporalResults(1 - imp_precision, imp_recall, 1 - timp_precision, timp_recall, 1 - avg_window_precision, avg_window_recall)
 
 
 def get_precision_recall_interactions(args, relevant_feature_map, feature_id_map):

@@ -182,6 +182,7 @@ def compute_p_values(features, predictions, losses, baseline_loss):
         feature.effect_size = round_value(effect_size)
         feature.mean_loss = round_value(mean_loss)
         feature.pvalue_loss = round_value(pvalue_loss)
+        feature.important = feature.pvalue_loss < constants.PVALUE_THRESHOLD
 
 
 def temporal_analysis(args, inputs, features, baseline_loss):
@@ -193,11 +194,12 @@ def temporal_analysis(args, inputs, features, baseline_loss):
     perturbation_mechanism_across = get_perturbation_mechanism(args, perturbation_type=constants.ACROSS_INSTANCES)
     for feature in features:
         _, loss = perturb_feature(args, inputs, feature, perturbation_mechanism_within)
-        important = compute_p_value(baseline_loss, loss) < constants.PVALUE_THRESHOLD
-        if important:
+        feature.temporally_important = compute_p_value(baseline_loss, loss) < constants.PVALUE_THRESHOLD
+        if feature.temporally_important:
             args.logger.info("Feature %s identified as temporally important" % feature.name)
             # TODO: figure out why within-instance perturbations to search window fail so haphazardly
             left, right = search_window(args, inputs, feature, perturbation_mechanism_across, baseline_loss)
+            feature.temporal_window = (left, right)
             args.logger.info("Found window for feature %s: (%d, %d)" % (feature.name, left, right))
         else:
             args.logger.info("Feature %s identified as temporally unimportant" % feature.name)

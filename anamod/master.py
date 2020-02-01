@@ -74,7 +74,7 @@ def main():
     args.rng = np.random.default_rng(constants.SEED)
     args.logger = utils.get_logger(__name__, "%s/anamod.log" % args.output_dir)
     validate_args(args)
-    pipeline(args)
+    return pipeline(args)
 
 
 def pipeline(args):
@@ -96,12 +96,13 @@ def pipeline(args):
     # Perturb features
     features, _, _, predictions = perturb_features(args, features)
     # TODO: Run these only for hierarchical feature importance analysis
-    # Run hierarchical FDR
-    hierarchical_fdr(args, features)
+    if args.analysis_type == constants.HIERARCHICAL:
+        hierarchical_fdr(args, features)
     # Analyze pairwise interactions
     if args.analyze_interactions:
         analyze_interactions(args, features, predictions)
     args.logger.info("End anamod master pipeline")
+    return features  # FIXME: some outputs returned via return value (temporal analysis), other via output file (hierarchical analysis)
 
 
 def load_hierarchy(hierarchy_filename):
@@ -184,15 +185,10 @@ def hierarchical_fdr(args, features):
         writer = csv.writer(outfile, delimiter=",")
         writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.DESCRIPTION, constants.EFFECT_SIZE,
                          constants.MEAN_LOSS, constants.PVALUE_LOSSES])
-        root_name = ""  # FIXME: inelegant solution
-        if args.analysis_type == constants.TEMPORAL:
-            root_name = constants.DUMMY_ROOT
         for node in features:
             name = node.name
-            parent_name = node.parent.name if node.parent else root_name
+            parent_name = node.parent.name if node.parent else ""
             writer.writerow([name, parent_name, node.description, node.effect_size, node.mean_loss, node.pvalue_loss])
-        if root_name:
-            writer.writerow([constants.DUMMY_ROOT, "", "", "", "", 0.])  # Dummy root node for FDR analysis of temporal model analysis results
     # Run FDR control
     output_dir = "%s/%s" % (args.output_dir, constants.HIERARCHICAL_FDR_DIR)
     cmd = ("python -m anamod.fdr.hierarchical_fdr_control -output_dir %s -procedure yekutieli "
@@ -201,6 +197,8 @@ def hierarchical_fdr(args, features):
     pass_args = cmd.split()[2:]
     with patch.object(sys, 'argv', pass_args):
         hierarchical_fdr_control.main()
+    # TODO: update feature importance attributes based on results of hierarchical FDR control
+    # Better yet, pass features directly to hierarchical FDR control and update
 
 
 def validate_args(args):
