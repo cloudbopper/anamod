@@ -12,11 +12,6 @@ def get_logger(name, filename, level=logging.INFO):
     return logger
 
 
-def round_vectordict(vectordict):
-    """Round dictionary of vectors to 4 decimals to avoid floating-point errors"""
-    return {key: round_value(value, decimals=4) for (key, value) in vectordict.items()}
-
-
-def round_value(value, decimals=10):
-    """Round input to 10 decimals to avoid floating-point errors"""
+def round_value(value, decimals=4):
+    """Round input to avoid floating-point errors"""
     return np.around(value, decimals=decimals)

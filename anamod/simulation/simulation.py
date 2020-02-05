@@ -91,7 +91,7 @@ def pipeline(args, pass_args):
     """Simulation pipeline"""
     args.logger.info("Begin anamod simulation with args: %s" % args)
     features, data, model = run_synmod(args)
-    targets = model.predict(data)
+    targets = model.predict(data, labels=True) if args.model_type == constants.CLASSIFIER else model.predict(data)
     data_filename = write_data(args, data, targets)
     model_filename = write_model(args, model)
     if args.analysis_type == constants.HIERARCHICAL:
@@ -431,8 +431,8 @@ def evaluate_temporal(args, model, features):
     avg_window_precision, avg_window_recall = (0, 0)
     num_windows = 0
     for idx, _ in enumerate(features):
-        if not temporally_important[idx] and not inferred_temporally_important[idx]:
-            continue  # Don't include irrelevant features unless incorrectly identified as relevant
+        if not inferred_temporally_important[idx]:
+            continue  # Don't include features unless identified as temporally relevant
         window_precision, window_recall, _, _ = precision_recall_fscore_support(windows[idx], inferred_windows[idx], average="binary")
         avg_window_precision += window_precision
         avg_window_recall += window_recall

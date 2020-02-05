@@ -15,7 +15,7 @@ import numpy as np
 from anamod import constants
 from anamod.compute_p_values import compute_p_value
 from anamod.perturbations import PERTURBATION_FUNCTIONS, PERTURBATION_MECHANISMS
-from anamod.utils import get_logger, round_value, round_vectordict
+from anamod.utils import get_logger, round_value
 
 Inputs = namedtuple("Inputs", ["data", "targets", "model"])
 
@@ -46,7 +46,7 @@ def pipeline(args):
     baseline_loss = compute_baseline(inputs)
     # Perturb features
     predictions, losses = perturb_features(args, inputs, features)
-    compute_p_values(features, predictions, losses, baseline_loss)
+    compute_importances(features, losses, baseline_loss)
     # For important features, proceed with further analysis (temporal model analysis):
     if args.analysis_type == constants.TEMPORAL:
         temporal_analysis(args, inputs, features, baseline_loss)
@@ -86,7 +86,7 @@ def compute_baseline(inputs):
     data, targets, model = inputs
     pred = model.predict(data)
     baseline_loss = model.loss(targets, pred)
-    return round_value(baseline_loss, 4)
+    return baseline_loss
 
 
 def get_perturbation_mechanism(args, perturbation_type=constants.ACROSS_INSTANCES):
@@ -135,6 +135,7 @@ def perturb_feature(args, inputs, feature, perturbation_mechanism, timesteps=...
 def search_window(args, inputs, feature, perturbation_mechanism, baseline_loss):
     """Search temporal window of importance for given feature"""
     args.logger.info("Begin searching for temporal window for feature %s" % feature.name)
+    # TODO: verify this will work if window spans the whole sequence
     T = inputs.data.shape[2]  # pylint: disable = invalid-name
     # Search left edge
     lbound, current, rbound = (0, T // 2, T)
@@ -169,10 +170,8 @@ def search_window(args, inputs, feature, perturbation_mechanism, baseline_loss):
     return left, right
 
 
-def compute_p_values(features, predictions, losses, baseline_loss):
+def compute_importances(features, losses, baseline_loss):
     """Computes p-values indicating feature importances"""
-    losses = round_vectordict(losses)
-    predictions = round_vectordict(predictions)
     mean_baseline_loss = np.mean(baseline_loss)
     for feature in features:
         loss = losses[feature.name]

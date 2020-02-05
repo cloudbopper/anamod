@@ -68,8 +68,8 @@ def compute_p_values(args, interaction_groups, interaction_predictions, cached_p
     baseline_prediction = interaction_predictions[constants.BASELINE]
     redo_predictions = interaction_predictions if args.perturbation == constants.SHUFFLING else cached_predictions
     for cached_node, redo_node, parent_node in interaction_groups:
-        lhs = round_value(interaction_predictions[parent_node.name], decimals=4)
-        rhs = round_value(cached_predictions[cached_node.name] + redo_predictions[redo_node.name] - baseline_prediction, decimals=4)
+        lhs = round_value(interaction_predictions[parent_node.name])
+        rhs = round_value(cached_predictions[cached_node.name] + redo_predictions[redo_node.name] - baseline_prediction)
         pvalue = compute_p_value(lhs, rhs, alternative=constants.TWOSIDED)
         effect_size = np.mean(lhs - rhs)  # TODO: confirm sign
         # TODO: Add description?

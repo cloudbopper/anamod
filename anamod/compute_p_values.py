@@ -4,11 +4,14 @@ import numpy as np
 from numpy import asarray, compress, sqrt
 from scipy.stats import find_repeats, rankdata, norm, ttest_rel
 
-from anamod import constants
+from anamod import constants, utils
 
 
 def compute_p_value(baseline, perturbed, test=constants.WILCOXON_TEST, alternative=constants.LESS):
     """Compute p-value using paired difference test on input numpy arrays"""
+    baseline = utils.round_value(baseline)
+    perturbed = utils.round_value(perturbed)
+    # Perform statistical test
     valid_tests = [constants.PAIRED_TTEST, constants.WILCOXON_TEST]
     assert test in valid_tests, "Invalid test name %s" % test
     if test == constants.PAIRED_TTEST:
