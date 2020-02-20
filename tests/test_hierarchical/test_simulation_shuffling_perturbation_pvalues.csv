@@ -1,32 +1,32 @@
 0,[0-1] (size: 2),irrelevant,-0.0004,0.0193,0.191
 
-1,[0-1] (size: 2),"relevant feature:
+1,[0-1] (size: 2),irrelevant,-0.0,0.0196,0.6104
 
-10,[10-11] (size: 2),"relevant feature:
+10,[10-11] (size: 2),irrelevant,0.0011,0.0207,0.0441
 
 11,[10-11] (size: 2),"relevant feature:
 
 15,[15-16] (size: 2),"relevant feature:
 
-16,[15-16] (size: 2),irrelevant,0.0004,0.02,0.1829
+16,[15-16] (size: 2),"relevant feature:
 
-3,[3-4] (size: 2),"relevant feature:
+3,[3-4] (size: 2),irrelevant,0.0009,0.0205,0.0
 
-4,[3-4] (size: 2),irrelevant,0.0001,0.0198,0.5601
+4,[3-4] (size: 2),"relevant feature:
 
-7,[7-8] (size: 2),irrelevant,0.0005,0.0202,0.0001
+7,[7-8] (size: 2),irrelevant,-0.0004,0.0192,0.2258
 
-8,[7-8] (size: 2),irrelevant,0.0001,0.0197,0.112
+8,[7-8] (size: 2),"relevant feature:
 
-Binomial probability: 0.094129",0.0767,0.0964,0.0
+Binomial probability: 0.094129",0.0806,0.1002,0.0
 
-Binomial probability: 0.433127",0.05,0.0697,0.0
+Binomial probability: 0.433127",0.0478,0.0675,0.0
 
-Binomial probability: 0.582162",0.0743,0.0939,0.0
+Binomial probability: 0.582162",0.0715,0.0912,0.0
 
-Binomial probability: 0.734577",0.1163,0.136,0.0
+Binomial probability: 0.734577",0.1157,0.1354,0.0
 
-Binomial probability: 0.801274",0.1289,0.1486,0.0
+Binomial probability: 0.801274",0.1268,0.1465,0.0
 
 Polynomial coefficient: 0.113672
 
@@ -38,26 +38,26 @@ Polynomial coefficient: 0.479051
 
 Polynomial coefficient: 0.734577
 
-[0-13] (size: 8),[0-19] (size: 10),relevant,0.2287,0.2483,0.0
+[0-13] (size: 8),[0-19] (size: 10),relevant,0.2328,0.2524,0.0
 
 [0-19] (size: 10),,relevant,0.3203,0.34,0.0
 
-[0-1] (size: 2),[0-5] (size: 4),relevant,0.0461,0.0657,0.0
+[0-1] (size: 2),[0-5] (size: 4),irrelevant,-0.0007,0.0189,0.5588
 
-[0-5] (size: 4),[0-13] (size: 8),relevant,0.1466,0.1663,0.0
+[0-5] (size: 4),[0-13] (size: 8),relevant,0.1321,0.1517,0.0
 
-[10-11] (size: 2),[7-12] (size: 4),relevant,0.1497,0.1693,0.0
+[10-11] (size: 2),[7-12] (size: 4),relevant,0.0486,0.0682,0.0
 
-[15-16] (size: 2),[15-17] (size: 2),relevant,0.1297,0.1493,0.0
+[15-16] (size: 2),[15-17] (size: 2),relevant,0.1654,0.1851,0.0
 
-[15-17] (size: 2),[15-18] (size: 2),relevant,0.1212,0.1408,0.0
+[15-17] (size: 2),[15-18] (size: 2),relevant,0.1679,0.1876,0.0
 
-[15-18] (size: 2),[0-19] (size: 10),relevant,0.1322,0.1518,0.0
+[15-18] (size: 2),[0-19] (size: 10),relevant,0.1666,0.1862,0.0
 
-[3-4] (size: 2),[0-5] (size: 4),relevant,0.1174,0.137,0.0
+[3-4] (size: 2),[0-5] (size: 4),relevant,0.1253,0.145,0.0
 
-[7-12] (size: 4),[0-13] (size: 8),relevant,0.1445,0.1641,0.0
+[7-12] (size: 4),[0-13] (size: 8),relevant,0.1159,0.1356,0.0
 
-[7-8] (size: 2),[7-12] (size: 4),irrelevant,-0.0005,0.0191,0.0785
+[7-8] (size: 2),[7-12] (size: 4),relevant,0.0829,0.1026,0.0
 
 name,parent_name,description,effect_size,mean_loss,p-value-losses

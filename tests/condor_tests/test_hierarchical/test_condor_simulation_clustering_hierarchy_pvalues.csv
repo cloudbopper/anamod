@@ -1,59 +1,59 @@
-0,[0-9] (size: 6),irrelevant,-0.000897,0.03106,0.6367592742
+0,[0-9] (size: 6),"relevant feature:
 
-1,[1-8] (size: 5),irrelevant,0.001275,0.033232,0.3929987511
+1,[1-8] (size: 5),"relevant feature:
 
-11,[11-12] (size: 2),irrelevant,0.000529,0.032486,0.4912258549
+11,[11-12] (size: 2),irrelevant,-0.0005,0.0362,0.6022
 
-12,[11-12] (size: 2),irrelevant,-0.004842,0.027115,0.9790588346
+12,[11-12] (size: 2),irrelevant,-0.0073,0.0294,0.9903
 
-14,[14-15] (size: 2),"relevant feature:
+14,[14-15] (size: 2),irrelevant,0.0017,0.0384,0.2262
 
 15,[14-15] (size: 2),"relevant feature:
 
-2,[2-7] (size: 4),"relevant feature:
+2,[2-7] (size: 4),irrelevant,-0.0031,0.0336,0.9526
 
-3,[3-6] (size: 3),irrelevant,-0.003841,0.028116,0.9771413508
+3,[3-6] (size: 3),"relevant feature:
 
-4,[4-5] (size: 2),"relevant feature:
+4,[4-5] (size: 2),irrelevant,-0.0002,0.0364,0.5833
 
 5,[4-5] (size: 2),"relevant feature:
 
-Binomial probability: 0.055147",0.029279,0.061236,0.0501741232
+Binomial probability: 0.055147",0.02,0.0566,0.0502
 
-Binomial probability: 0.091916",0.040964,0.072921,0.0070737019
+Binomial probability: 0.187901",0.125,0.1617,0.0
 
-Binomial probability: 0.274969",0.050125,0.082082,2.9558e-06
+Binomial probability: 0.261612",0.002,0.0387,0.2963
 
-Binomial probability: 0.600101",0.26536,0.297317,0.0
+Binomial probability: 0.298491",0.0588,0.0955,0.0
 
-Binomial probability: 0.657433",0.484086,0.516043,0.0
+Binomial probability: 0.657433",0.0803,0.117,0.0
 
-Polynomial coefficient: 0.218505
+Polynomial coefficient: 0.055147
 
-Polynomial coefficient: 0.486289
+Polynomial coefficient: 0.150062
 
-Polynomial coefficient: 0.540512
+Polynomial coefficient: 0.274969
 
-Polynomial coefficient: 0.697932
+Polynomial coefficient: 0.562266
 
-Polynomial coefficient: 0.761786
+Polynomial coefficient: 0.657433
 
-[0-17] (size: 10),,relevant,0.890155,0.922112,0.0
+[0-17] (size: 10),,relevant,0.3079,0.3446,0.0
 
-[0-9] (size: 6),[0-17] (size: 10),relevant,0.111007,0.142964,1.65e-07
+[0-9] (size: 6),[0-17] (size: 10),relevant,0.2024,0.2391,0.0
 
-[1-8] (size: 5),[0-9] (size: 6),relevant,0.117687,0.149644,5.5e-09
+[1-8] (size: 5),[0-9] (size: 6),relevant,0.1982,0.2349,0.0
 
-[11-12] (size: 2),[11-16] (size: 4),irrelevant,-0.018013,0.013944,0.9999999961
+[11-12] (size: 2),[11-16] (size: 4),irrelevant,-0.0161,0.0205,1.0
 
-[11-16] (size: 4),[0-17] (size: 10),relevant,0.763209,0.795166,0.0
+[11-16] (size: 4),[0-17] (size: 10),relevant,0.0742,0.1109,0.0
 
-[14-15] (size: 2),[11-16] (size: 4),relevant,0.76735,0.799307,0.0
+[14-15] (size: 2),[11-16] (size: 4),relevant,0.0732,0.1099,0.0
 
-[2-7] (size: 4),[1-8] (size: 5),relevant,0.121734,0.153691,1.19e-08
+[2-7] (size: 4),[1-8] (size: 5),relevant,0.1442,0.1809,0.0
 
-[3-6] (size: 3),[2-7] (size: 4),relevant,0.068937,0.100894,0.0198380195
+[3-6] (size: 3),[2-7] (size: 4),relevant,0.147,0.1836,0.0
 
-[4-5] (size: 2),[3-6] (size: 3),relevant,0.070243,0.1022,0.0012582483
+[4-5] (size: 2),[3-6] (size: 3),relevant,0.0197,0.0564,0.063
 
 name,parent_name,description,effect_size,mean_loss,p-value-losses
