@@ -1,28 +1,35 @@
 """Evaluate simulation results"""
 
-from collections import namedtuple
 import csv
 import pickle
+import pprint
 import sys
 from unittest.mock import patch
 
 import anytree
 from anytree.importer import JsonImporter
 import numpy as np
-from sklearn.metrics import precision_recall_fscore_support
+from sklearn.metrics import balanced_accuracy_score, precision_recall_fscore_support
 
 from anamod import constants
 from anamod.fdr import hierarchical_fdr_control
 
 
 # Simulation results object
-HierarchicalResults = namedtuple(constants.SIMULATION_RESULTS, [constants.FDR, constants.POWER,
-                                                                constants.BASE_FEATURES_FDR, constants.BASE_FEATURES_POWER,
-                                                                constants.INTERACTIONS_FDR, constants.INTERACTIONS_POWER])
+class Results():
+    """Results"""
+    def __init__(self, results_type, results):
+        self.results_type = results_type
+        self.results = results
 
-TemporalResults = namedtuple(constants.SIMULATION_RESULTS, [constants.FDR, constants.POWER,
-                                                            constants.TEMPORAL_FDR, constants.TEMPORAL_POWER,
-                                                            constants.AVERAGE_WINDOW_FDR, constants.AVERAGE_WINDOW_POWER])
+    def __repr__(self):
+        return pprint.pformat(self.results)
+
+    def write(self, output_dir):
+        """Write results to pickle file"""
+        results_filename = "%s/%s" % (output_dir, constants.SIMULATION_RESULTS_FILENAME)
+        with open(results_filename, "wb") as results_file:
+            pickle.dump(self.results, results_file)
 
 
 def compare_with_ground_truth(args, hierarchy_root):
@@ -86,8 +93,9 @@ def evaluate_hierarchical(args, relevant_feature_map, feature_id_map):
         bf_precision, bf_recall, _, _ = precision_recall_fscore_support(bf_relevant, bf_rejected, average="binary")
         # Interactions FDR/power
         interaction_precision, interaction_recall = get_precision_recall_interactions(args, relevant_feature_map, feature_id_map)
-
-        return HierarchicalResults(1 - precision, recall, 1 - bf_precision, bf_recall, 1 - interaction_precision, interaction_recall)
+        return Results(constants.TEMPORAL, {"FDR": 1 - precision, "Power": recall,
+                                            "Base-Features-FDR": 1 - bf_precision, "Base-Features-Power": bf_recall,
+                                            "Interaction-FDR": 1 - interaction_precision, "Interaction-Power": interaction_recall})
 
 
 def evaluate_temporal(args, model, features):
@@ -123,18 +131,20 @@ def evaluate_temporal(args, model, features):
     # Get scores
     imp_precision, imp_recall, _, _ = precision_recall_fscore_support(important, inferred_important, average="binary")
     timp_precision, timp_recall, _, _ = precision_recall_fscore_support(temporally_important, inferred_temporally_important, average="binary")
-    avg_window_precision, avg_window_recall = (0, 0)
-    num_windows = 0  # FIXME: Will fail due to division by zero if no feature identified as temporal relevant
+    window_results = {}
     for idx, _ in enumerate(features):
         if not inferred_temporally_important[idx]:
             continue  # Don't include features unless identified as temporally relevant
         window_precision, window_recall, _, _ = precision_recall_fscore_support(windows[idx], inferred_windows[idx], average="binary")
-        avg_window_precision += window_precision
-        avg_window_recall += window_recall
-        num_windows += 1
-    avg_window_precision /= num_windows
-    avg_window_recall /= num_windows
-    return TemporalResults(1 - imp_precision, imp_recall, 1 - timp_precision, timp_recall, 1 - avg_window_precision, avg_window_recall)
+        window_overlap = balanced_accuracy_score(windows[idx], inferred_windows[idx])
+        window_results[idx] = {"precision": window_precision, "recall": window_recall, "overlap": window_overlap}
+    avg_window_precision = np.mean([result["precision"] for result in window_results.values()])
+    avg_window_recall = np.mean([result["recall"] for result in window_results.values()])
+    window_overlaps = {idx: result["overlap"] for idx, result in window_results.items()}
+    return Results(constants.TEMPORAL, {"FDR": 1 - imp_precision, "Power": imp_recall,
+                                        "Temporal-FDR": 1 - timp_precision, "Temporal-Power": timp_recall,
+                                        "Average-Window-FDR": 1 - avg_window_precision, "Average-Window-Power": avg_window_recall,
+                                        "Window-Overlap": window_overlaps})
 
 
 def get_precision_recall_interactions(args, relevant_feature_map, feature_id_map):
@@ -177,10 +187,3 @@ def get_precision_recall_interactions(args, relevant_feature_map, feature_id_map
     precision = tp / (tp + fp)
     recall = tp / (tp + fn)
     return precision, recall
-
-
-def write_results(args, results):
-    """Write results to pickle file"""
-    results_filename = "%s/%s" % (args.output_dir, constants.SIMULATION_RESULTS_FILENAME)
-    with open(results_filename, "wb") as results_file:
-        pickle.dump(results._asdict(), results_file)

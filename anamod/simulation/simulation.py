@@ -103,7 +103,7 @@ def pipeline(args, pass_args):
         analyzed_features = run_anamod(args, pass_args, data_filename, model_filename)
         results = evaluation.evaluate_temporal(args, model, analyzed_features)
     args.logger.info("Results:\n%s" % str(results))
-    evaluation.write_results(args, results)
+    results.write(args.output_dir)
     args.logger.info("End anamod simulation")
     return results
 
