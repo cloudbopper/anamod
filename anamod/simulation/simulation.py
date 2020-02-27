@@ -39,6 +39,7 @@ def main():
     common.add_argument("-num_interactions", type=int, default=0, help="number of interaction pairs in model")
     common.add_argument("-include_interaction_only_features", help="include interaction-only features in model"
                         " in addition to linear + interaction features (default enabled)", type=strtobool, default=True)
+    common.add_argument("-cleanup", type=strtobool, default=True, help="Clean data and model files after completing simulation")
     # Hierarchical feature importance analysis arguments
     hierarchical = parser.add_argument_group("Hierarchical feature analysis arguments")
     hierarchical.add_argument("-noise_multiplier", type=float, default=.05,
@@ -102,6 +103,7 @@ def pipeline(args, pass_args):
         results = evaluation.evaluate_temporal(args, model, analyzed_features)
     args.logger.info("Results:\n%s" % str(results))
     results.write(args.output_dir)
+    cleanup(args, data_filename, model_filename)
     args.logger.info("End anamod simulation")
     return results
 
@@ -315,6 +317,14 @@ def run_anamod(args, pass_args, data_filename, model_filename, hierarchy_filenam
         features = master.main()
     args.logger.info("End running anamod")
     return features
+
+
+def cleanup(args, data_filename, model_filename):
+    """Clean data and model files after completing simulation"""
+    if not args.cleanup:
+        return
+    os.remove(data_filename)
+    os.remove(model_filename)
 
 
 if __name__ == "__main__":

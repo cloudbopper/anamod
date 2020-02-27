@@ -9,6 +9,8 @@ import subprocess
 
 import numpy as np
 from anamod import constants, utils
+from anamod.constants import DEFAULT, INSTANCE_COUNTS, NOISE_LEVELS, FEATURE_COUNTS, SHUFFLING_COUNTS
+from anamod.constants import SEQUENCE_LENGTHS, WINDOW_SEQUENCE_DEPENDENCE, MODEL_TYPES
 
 TRIAL = "trial"
 SUMMARY_FILENAME = "all_trials_summary"
@@ -27,9 +29,9 @@ def parse_arguments(strargs):
     parser = argparse.ArgumentParser()
     parser.add_argument("-num_trials", type=int, default=3)
     parser.add_argument("-start_seed", type=int, default=100000)
-    parser.add_argument("-type", choices=[constants.DEFAULT, constants.INSTANCE_COUNTS, constants.FEATURE_COUNTS,
-                                          constants.NOISE_LEVELS, constants.SHUFFLING_COUNTS],
-                        default=constants.DEFAULT)
+    parser.add_argument("-type", choices=[DEFAULT, INSTANCE_COUNTS, FEATURE_COUNTS, NOISE_LEVELS, SHUFFLING_COUNTS,
+                                          SEQUENCE_LENGTHS, WINDOW_SEQUENCE_DEPENDENCE, MODEL_TYPES],
+                        default=DEFAULT)
     parser.add_argument("-analysis_type", default=constants.TEMPORAL, choices=[constants.TEMPORAL, constants.HIERARCHICAL])
     parser.add_argument("-summarize_only", help="enable to assume that the results are already generated,"
                         " and just summarize them", type=strtobool, default=False)

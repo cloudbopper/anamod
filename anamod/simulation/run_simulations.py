@@ -1,7 +1,8 @@
 """Run a bunch of simulations"""
 
 import argparse
-from collections import OrderedDict
+from collections import namedtuple, OrderedDict
+from distutils.util import strtobool
 import configparser
 import json
 import os
@@ -10,8 +11,10 @@ import subprocess
 
 from anamod import constants, utils
 from anamod.constants import DEFAULT, INSTANCE_COUNTS, NOISE_LEVELS, FEATURE_COUNTS, SHUFFLING_COUNTS, ALL_SIMULATION_RESULTS
+from anamod.constants import SEQUENCE_LENGTHS, WINDOW_SEQUENCE_DEPENDENCE, MODEL_TYPES
 
 OUTPUTS = "%s/%s_%s"
+TestParam = namedtuple("TestParameter", ["key", "values"])
 
 
 class Simulation():
@@ -27,9 +30,10 @@ class Simulation():
 def main():
     """Main"""
     parser = argparse.ArgumentParser()
-    parser.add_argument("-analyze_results_only", action="store_true", help="only analyze results, instead of generating them as well"
+    parser.add_argument("-analyze_results_only", type=strtobool, default=False, help="only analyze results, instead of generating them as well"
                         " (useful when results already generated")
-    parser.add_argument("-type", choices=[DEFAULT, INSTANCE_COUNTS, FEATURE_COUNTS, NOISE_LEVELS, SHUFFLING_COUNTS],
+    parser.add_argument("-type", choices=[DEFAULT, INSTANCE_COUNTS, FEATURE_COUNTS, NOISE_LEVELS, SHUFFLING_COUNTS,
+                                          SEQUENCE_LENGTHS, WINDOW_SEQUENCE_DEPENDENCE, MODEL_TYPES],
                         default=DEFAULT)
     parser.add_argument("-analysis_type", default=constants.TEMPORAL, choices=[constants.TEMPORAL, constants.HIERARCHICAL])
     parser.add_argument("-output_dir", required=True)
@@ -46,8 +50,8 @@ def main():
     args.config_filename = constants.CONFIG_HIERARCHICAL if args.analysis_type == constants.HIERARCHICAL else constants.CONFIG_TEMPORAL
 
     args.logger.info("Begin running/analyzing simulations")
-    args.config = load_config(args)
-    simulations = parametrize_simulations(args)
+    args.config, test_param = load_config(args)
+    simulations = parametrize_simulations(args, test_param)
     run_simulations(args, simulations)
     analyze_simulations(args, simulations)
     args.logger.info("End running simulations")
@@ -61,86 +65,28 @@ def load_config(args):
     config.read(config_filename)
     dconfig = config[args.type]
     sconfig = ""
+    test_param = None
     for option, value in dconfig.items():
-        if value == "-1":
+        if "," in value:
+            test_param = TestParam(option, [item.strip() for item in value.split(",")])
             continue
         sconfig += "-%s " % option
         sconfig += "%s " % value
-    return sconfig
+    return sconfig, test_param
 
 
-def parametrize_simulations(args):
+def parametrize_simulations(args, test_param):
     """Parametrize simulations"""
-    if args.type == DEFAULT:
-        return default_sims(args)
-    if args.type == INSTANCE_COUNTS:
-        return instance_count_sims(args)
-    if args.type == FEATURE_COUNTS:
-        return feature_count_sims(args)
-    if args.type == NOISE_LEVELS:
-        return noise_level_sims(args)
-    if args.type == SHUFFLING_COUNTS:
-        return shuffling_count_sims(args)
-    raise NotImplementedError("Unknown simulation type")
-
-
-def default_sims(args):
-    """Configure simulation with default config values"""
     sims = []
-    output_dir = OUTPUTS % (args.output_dir, DEFAULT, DEFAULT)
-    cmd = ("python -m anamod.simulation.simulation %s -seed %d -output_dir %s %s" %
-           (args.config, args.seed, output_dir, args.pass_arglist))
-    sims.append(Simulation(cmd, output_dir, DEFAULT))
-    return sims
-
-
-def instance_count_sims(args):
-    """Configure simulations for different values of instance counts"""
-    sims = []
-    instance_counts = [16 * 2 ** x for x in range(11)]
-    max_instance_count = instance_counts[-1]
-    for instance_count in instance_counts:
-        output_dir = OUTPUTS % (args.output_dir, INSTANCE_COUNTS, str(instance_count))
-        cmd = ("python -m anamod.simulation.simulation %s -num_instances %d -clustering_instance_count %d "
-               "-seed %d -output_dir %s %s" %
-               (args.config, instance_count, max_instance_count, args.seed, output_dir, args.pass_arglist))
-        sims.append(Simulation(cmd, output_dir, instance_count))
-    return sims
-
-
-def feature_count_sims(args):
-    """Run simulations for different values of feature counts"""
-    sims = []
-    feature_counts = [8 * 2 ** x for x in range(8)]
-    for feature_count in feature_counts:
-        output_dir = OUTPUTS % (args.output_dir, FEATURE_COUNTS, str(feature_count))
-        cmd = ("python -m anamod.simulation.simulation %s -num_features %d -seed %d -output_dir %s %s" %
-               (args.config, feature_count, args.seed, output_dir, args.pass_arglist))
-        sims.append(Simulation(cmd, output_dir, feature_count))
-    return sims
-
-
-def noise_level_sims(args):
-    """Run simulations for different values of noise"""
-    sims = []
-    noise_levels = [0.0] + [0.01 * 2 ** x for x in range(8)]
-    for noise_level in noise_levels:
-        output_dir = OUTPUTS % (args.output_dir, NOISE_LEVELS, str(noise_level))
-        cmd = ("python -m anamod.simulation.simulation %s -noise_multiplier %f -seed %d -output_dir %s %s" %
-               (args.config, noise_level, args.seed, output_dir, args.pass_arglist))
-        sims.append(Simulation(cmd, output_dir, noise_level))
-    return sims
-
-
-def shuffling_count_sims(args):
-    """Run simulations for different number of shuffling trials"""
-    sims = []
-    shuffling_counts = [1000, 750, 500, 250, 100]
-    for shuffling_count in shuffling_counts:
-        output_dir = OUTPUTS % (args.output_dir, SHUFFLING_COUNTS, str(shuffling_count))
-        cmd = ("python -m anamod.simulation.simulation %s -num_shuffling_trials %d -seed %d -output_dir %s %s" %
-               (args.config, shuffling_count, args.seed, output_dir, args.pass_arglist))
-        sims.append(Simulation(cmd, output_dir, shuffling_count))
+    if test_param is None:
+        test_param = TestParam("", [DEFAULT])
+    key, values = test_param
+    for value in values:
+        output_dir = OUTPUTS % (args.output_dir, args.type, value)
+        test_param_str = "-%s %s" % (key, value) if key else ""
+        cmd = ("python -m anamod.simulation.simulation %s %s -seed %d -output_dir %s %s" %
+               (test_param_str, args.config, args.seed, output_dir, args.pass_arglist))
+        sims.append(Simulation(cmd, output_dir, value))
     return sims
 
 
