@@ -56,7 +56,7 @@ def main():
                               "when shuffling perturbations are selected")
     # Temporal model analysis arguments
     temporal = parser.add_argument_group("Temporal model analysis arguments")
-    temporal.add_argument("-sequence_length", help="sequence length for temporal models", default=20)
+    temporal.add_argument("-sequence_length", help="sequence length for temporal models", type=int, default=20)
     temporal.add_argument("-model_type", default=constants.REGRESSION)
     temporal.add_argument("-sequences_independent_of_windows", action="store_true", dest="window_independent")
     temporal.add_argument("-sequences_dependent_on_windows", action="store_false", dest="window_independent")

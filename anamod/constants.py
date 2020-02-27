@@ -78,16 +78,19 @@ TEMPORAL_FDR = "Temporal_FDR"
 TEMPORAL_POWER = "Temporal_Power"
 AVERAGE_WINDOW_FDR = "Average_Window_FDR"
 AVERAGE_WINDOW_POWER = "Average_Window_Power"
+WINDOW_OVERLAP = "Window_Overlap"
 SIMULATION_RESULTS = "simulation_results"
-SIMULATION_RESULTS_FILENAME = "simulation_results.pkl"
+SIMULATION_RESULTS_FILENAME = "simulation_results.json"
 
 # Trial (multiple simulations)
+DEFAULT = "DEFAULT"
 INSTANCE_COUNTS = "instance_counts"
 NOISE_LEVELS = "noise_levels"
 FEATURE_COUNTS = "feature_counts"
 SHUFFLING_COUNTS = "shuffling_counts"
 ALL_SIMULATION_RESULTS = "all_simulation_results"
-CONFIG_TRIAL = "config_run_simulations.ini"
+CONFIG_HIERARCHICAL = "config_run_simulations_hierarchical.ini"
+CONFIG_TEMPORAL = "config_run_simulations_temporal.ini"
 
 # Hierarchical FDR
 HIERARCHICAL_FDR_DIR = "hierarchical_fdr_results"
