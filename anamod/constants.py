@@ -83,7 +83,7 @@ SIMULATION_RESULTS = "simulation_results"
 SIMULATION_RESULTS_FILENAME = "simulation_results.json"
 
 # Trial (multiple simulations)
-DEFAULT = "default"
+DEFAULT = "DEFAULT"
 INSTANCE_COUNTS = "instance_counts"
 NOISE_LEVELS = "noise_levels"
 FEATURE_COUNTS = "feature_counts"
