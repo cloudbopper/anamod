@@ -16,6 +16,7 @@ SUBSTITUTIONS = {TEST_SIMULATION: TEST_CONDOR_SIMULATION, "python -m anamod.simu
 
 def main():
     """Generate condor tests by copying/substituting existing non-condor tests"""
+    # pylint: disable = too-many-locals
     # Parse args
     parser = argparse.ArgumentParser()
     parser.add_argument("-overwrite_golds", help="overwrite existing gold files", action="store_true")
