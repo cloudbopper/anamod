@@ -37,7 +37,7 @@ class SerialPipeline():
             worker.pipeline(self.args)
         # Aggregate results
         results = condor_helper.compile_results()
-        if self.args.cleanup:
+        if self.args.condor_cleanup:
             condor_helper.cleanup()
         return results
 
@@ -311,7 +311,7 @@ class CondorPipeline():
             self.launch_tasks(tasks)
             self.monitor_tasks(tasks)
         features, targets, losses, predictions = self.compile_results()
-        if self.master_args.cleanup:
+        if self.master_args.condor_cleanup:
             self.cleanup()
         self.logger.info("End condor pipeline")
         return features, targets, losses, predictions

@@ -3,6 +3,7 @@
 import argparse
 import codecs
 import csv
+from distutils.util import strtobool
 import math
 import os
 
@@ -34,8 +35,9 @@ def main():
     parser.add_argument("-color_range", help="range for chosen color scheme", nargs=2, type=int, default=[1, 9])
     parser.add_argument("-sorting_param", help="parameter to sort on for color grading", default=constants.ADJUSTED_PVALUE,
                         choices=[constants.ADJUSTED_PVALUE, constants.EFFECT_SIZE])
-    parser.add_argument("-minimal_labels", help="do not write descriptions/effect sizes on node labels", action="store_true")
-    parser.add_argument("-rectangle_leaves", help="enable to generate rectangular nodes for leaves of original hierarchy", action="store_true")
+    parser.add_argument("-minimal_labels", help="do not write descriptions/effect sizes on node labels", type=strtobool, default=False)
+    parser.add_argument("-rectangle_leaves", help="enable to generate rectangular nodes for leaves of original hierarchy",
+                        type=strtobool, default=False)
     args = parser.parse_args()
 
     if not args.output_dir:

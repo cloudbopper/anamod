@@ -58,7 +58,7 @@ def compare_with_ground_truth(args, hierarchy_root):
     # Generate hierarchical FDR results for ground truth values
     ground_truth_dir = "%s/ground_truth_fdr" % args.output_dir
     cmd = ("python -m anamod.fdr.hierarchical_fdr_control -output_dir %s -procedure yekutieli "
-           "-rectangle_leaves %s" % (ground_truth_dir, input_filename))
+           "-rectangle_leaves 1 %s" % (ground_truth_dir, input_filename))
     args.logger.info("Running cmd: %s" % cmd)
     pass_args = cmd.split()[2:]
     with patch.object(sys, 'argv', pass_args):

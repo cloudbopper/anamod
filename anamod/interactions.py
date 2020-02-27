@@ -46,7 +46,7 @@ def bh_procedure(args):
     input_filename = "%s/%s" % (args.output_dir, constants.INTERACTIONS_PVALUES_FILENAME)
     output_dir = "%s/%s" % (args.output_dir, constants.INTERACTIONS_FDR_DIR)
     cmd = ("python -m anamod.fdr.hierarchical_fdr_control -output_dir %s -procedure yekutieli "
-           "-rectangle_leaves %s" % (output_dir, input_filename))
+           "-rectangle_leaves 1 %s" % (output_dir, input_filename))
     args.logger.info("Running cmd: %s" % cmd)
     pass_args = cmd.split()[2:]
     with patch.object(sys, 'argv', pass_args):

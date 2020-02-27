@@ -1,6 +1,7 @@
 """Run multiple trials of multiple simulations"""
 
 import argparse
+from distutils.util import strtobool
 import json
 from collections import namedtuple, OrderedDict
 import os
@@ -31,7 +32,7 @@ def parse_arguments(strargs):
                         default=constants.DEFAULT)
     parser.add_argument("-analysis_type", default=constants.TEMPORAL, choices=[constants.TEMPORAL, constants.HIERARCHICAL])
     parser.add_argument("-summarize_only", help="enable to assume that the results are already generated,"
-                        " and just summarize them", action="store_true")
+                        " and just summarize them", type=strtobool, default=False)
     parser.add_argument("-output_dir", required=True)
     args, pass_arglist = parser.parse_known_args(strargs.split(" ")) if strargs else parser.parse_known_args()
     args.pass_arglist = " ".join(pass_arglist)

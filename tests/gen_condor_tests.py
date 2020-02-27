@@ -1,6 +1,7 @@
 """Generate condor tests from non-condor tests"""
 
 import argparse
+from distutils.util import strtobool
 import os
 import re
 import shutil
@@ -11,7 +12,7 @@ GOLDS = {HIERARCHICAL: "test_hierarchical", TEMPORAL: "test_temporal"}
 CONDOR_TEST_DIRECTORY = "condor_tests"
 TEST_SIMULATION = "test_simulation"
 TEST_CONDOR_SIMULATION = "test_condor_simulation"
-SUBSTITUTIONS = {TEST_SIMULATION: TEST_CONDOR_SIMULATION, "python -m anamod.simulation": "python -m anamod.simulation -condor"}
+SUBSTITUTIONS = {TEST_SIMULATION: TEST_CONDOR_SIMULATION, "python -m anamod.simulation": "python -m anamod.simulation -condor 1"}
 
 
 def main():
@@ -19,7 +20,7 @@ def main():
     # pylint: disable = too-many-locals
     # Parse args
     parser = argparse.ArgumentParser()
-    parser.add_argument("-overwrite_golds", help="overwrite existing gold files", action="store_true")
+    parser.add_argument("-overwrite_golds", help="overwrite existing gold files", type=strtobool, default=True)
     parser.add_argument("-type", default=HIERARCHICAL, choices=[HIERARCHICAL, TEMPORAL])
     args = parser.parse_args()
     test_dir = os.path.dirname(os.path.realpath(__file__))

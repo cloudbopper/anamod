@@ -3,6 +3,7 @@
 import argparse
 import copy
 import csv
+from distutils.util import strtobool
 import os
 import sys
 from unittest.mock import patch
@@ -36,10 +37,8 @@ def main():
     common.add_argument("-num_features", type=int, default=100)
     common.add_argument("-fraction_relevant_features", type=float, default=.05)
     common.add_argument("-num_interactions", type=int, default=0, help="number of interaction pairs in model")
-    common.add_argument("-exclude_interaction_only_features", help="exclude interaction-only features in model"
-                        " in addition to linear + interaction features (default included)", action="store_false",
-                        dest="include_interaction_only_features")
-    common.set_defaults(include_interaction_only_features=True)
+    common.add_argument("-include_interaction_only_features", help="include interaction-only features in model"
+                        " in addition to linear + interaction features (default enabled)", type=strtobool, default=True)
     # Hierarchical feature importance analysis arguments
     hierarchical = parser.add_argument_group("Hierarchical feature analysis arguments")
     hierarchical.add_argument("-noise_multiplier", type=float, default=.05,
@@ -48,9 +47,9 @@ def main():
                               default=constants.EPSILON_IRRELEVANT)
     hierarchical.add_argument("-hierarchy_type", help="Choice of hierarchy to generate", default=constants.CLUSTER_FROM_DATA,
                               choices=[constants.CLUSTER_FROM_DATA, constants.RANDOM])
-    hierarchical.add_argument("-contiguous_node_names", action="store_true", help="enable to change node names in hierarchy "
+    hierarchical.add_argument("-contiguous_node_names", type=strtobool, default=False, help="enable to change node names in hierarchy "
                               "to be contiguous for better visualization (but creating mismatch between node names and features indices)")
-    hierarchical.add_argument("-analyze_interactions", help="enable analyzing interactions", action="store_true")
+    hierarchical.add_argument("-analyze_interactions", help="enable analyzing interactions", type=strtobool, default=False)
     hierarchical.add_argument("-perturbation", default=constants.SHUFFLING, choices=[constants.ZEROING, constants.SHUFFLING])
     hierarchical.add_argument("-num_shuffling_trials", type=int, default=100, help="Number of shuffling trials to average over, "
                               "when shuffling perturbations are selected")
@@ -58,8 +57,7 @@ def main():
     temporal = parser.add_argument_group("Temporal model analysis arguments")
     temporal.add_argument("-sequence_length", help="sequence length for temporal models", type=int, default=20)
     temporal.add_argument("-model_type", default=constants.REGRESSION)
-    temporal.add_argument("-sequences_independent_of_windows", action="store_true", dest="window_independent")
-    temporal.add_argument("-sequences_dependent_on_windows", action="store_false", dest="window_independent")
+    temporal.add_argument("-sequences_independent_of_windows", type=strtobool, dest="window_independent")
     temporal.set_defaults(window_independent=False)
 
     args, pass_args = parser.parse_known_args()
@@ -295,9 +293,8 @@ def write_model(args, model):
 def run_anamod(args, pass_args, data_filename, model_filename, hierarchy_filename=""):
     """Run analysis algorithms"""
     args.logger.info("Begin running anamod")
-    analyze_interactions = "-analyze_interactions" if args.analyze_interactions else ""
-    hierarchical_analysis_options = ("-hierarchy_filename {0} -perturbation {1} {2}".format
-                                     (hierarchy_filename, args.perturbation, analyze_interactions))
+    hierarchical_analysis_options = ("-hierarchy_filename {0} -perturbation {1} -analyze_interactions {2}".format
+                                     (hierarchy_filename, args.perturbation, args.analyze_interactions))
     temporal_analysis_options = ""
     analysis_options = hierarchical_analysis_options if args.analysis_type == constants.HIERARCHICAL else temporal_analysis_options
     args.logger.info("Passing the following arguments to anamod.master without parsing: %s" % pass_args)

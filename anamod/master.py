@@ -7,6 +7,7 @@ in the hierarchy.
 
 import argparse
 import csv
+from distutils.util import strtobool
 import os
 import sys
 from unittest.mock import patch
@@ -39,27 +40,23 @@ def main():
     common.add_argument("-num_shuffling_trials", type=int, default=50, help="Number of shuffling trials to average over, "
                         "when shuffling perturbations are selected")
     common.add_argument("-compile_results_only", help="only compile results (assuming they already exist), "
-                        "skipping actually launching jobs", action="store_true")
+                        "skipping actually launching jobs", type=strtobool, default=False)
     # Hierarchical feature importance analysis arguments
     hierarchical = parser.add_argument_group("Hierarchical feature analysis arguments")
     hierarchical.add_argument("-hierarchy_filename", help="Feature hierarchy in CSV format", default="")
     hierarchical.add_argument("-analyze_interactions", help="flag to enable testing of interaction significance. By default,"
                               " only pairwise interactions between leaf features identified as important by hierarchical FDR"
                               " are tested. To enable testing of all pairwise interactions, also use -analyze_all_pairwise_interactions",
-                              action="store_true")
+                              type=strtobool, default=False)
     hierarchical.add_argument("-analyze_all_pairwise_interactions", help="analyze all pairwise interactions between leaf features,"
                               " instead of just pairwise interactions of leaf features identified by hierarchical FDR",
-                              action="store_true")
+                              type=strtobool, default=False)
     # Condor arguments
     condor = parser.add_argument_group("Condor parameters")
-    condor.add_argument("-condor", dest="condor", action="store_true",
-                        help="Enable parallelization using condor (default disabled)")
-    condor.add_argument("-no-condor", dest="condor", action="store_false", help="Disable parallelization using condor")
-    condor.set_defaults(condor=False)
-    condor.add_argument("-no-condor-cleanup", action="store_false", help="disable removal of intermediate condor files"
-                        " after completion (typically for debugging). By default these files will be cleared to remove"
-                        " space and clutter, and to avoid condor file issues", dest="cleanup")
-    condor.set_defaults(cleanup=True)
+    condor.add_argument("-condor", help="Use condor for parallelization", type=strtobool, default=False)
+    condor.add_argument("-condor_cleanup", type=strtobool, default=True, help="remove intermediate condor files"
+                        " after completion (typically for debugging). Enabled by default to remove"
+                        " space and clutter, and to avoid condor file issues")
     condor.add_argument("-features_per_worker", type=int, default=10, help="worker load")
     condor.add_argument("-eviction_timeout", type=int, default=14400, help="time in seconds to allow condor jobs"
                         " to run before evicting and restarting them on another condor node")
@@ -192,7 +189,7 @@ def hierarchical_fdr(args, features):
     # Run FDR control
     output_dir = "%s/%s" % (args.output_dir, constants.HIERARCHICAL_FDR_DIR)
     cmd = ("python -m anamod.fdr.hierarchical_fdr_control -output_dir %s -procedure yekutieli "
-           "-rectangle_leaves %s" % (output_dir, input_filename))
+           "-rectangle_leaves 1 %s" % (output_dir, input_filename))
     args.logger.info("Running cmd: %s" % cmd)
     pass_args = cmd.split()[2:]
     with patch.object(sys, 'argv', pass_args):
