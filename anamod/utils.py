@@ -80,11 +80,13 @@ class CondorJobWrapper():
             # Setup environment and inputs
             exec_file.write("#!/bin/sh\n")
             if not self.shared_filesystem:
+                # TODO: make more general by reading package from argument
                 exec_file.write(f"mkdir {self.job_dir_remote}\n"
                                 "tar -xzf python36.tar.gz\n"
                                 "export PATH=${PWD}/python/bin/:${PATH}\n"
                                 "export PYTHONPATH=${PWD}/packages\n"
                                 "export LC_ALL=en_US.UTF-8\n"
+                                "python3 -m pip install --upgrade pip\n"
                                 "python3 -m pip install git+https://github.com/cloudbopper/anamod --target ${PWD}/packages\n")
             else:
                 virtualenv = os.environ.get(VIRTUAL_ENV, "")
@@ -140,7 +142,7 @@ class CondorJobWrapper():
                             or (event_type == JobEventType.JOB_EVICTED and not event["TerminatedNormally"])):  # noqa: W503
                         CondorJobWrapper.remove_all_jobs()
                         raise RuntimeError(f"Cmd: '{job.cmd}' failed failed to terminate - see log: {job.filenames.log_filename}.")
-            time.sleep(5)  # FIXME
+            time.sleep(30)
 
     @staticmethod
     def remove_all_jobs():
