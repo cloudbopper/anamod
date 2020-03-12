@@ -92,7 +92,7 @@ def perturb_interactions(args, interaction_groups):
     worker_pipeline = SerialPipeline(args, interaction_nodes)
     if args.condor:
         worker_pipeline = CondorPipeline(args, interaction_nodes)
-    _, _, _, interaction_predictions = worker_pipeline.run()
+    _, interaction_predictions = worker_pipeline.run()
     args.logger.info("End perturbing interactions")
     return interaction_predictions
 

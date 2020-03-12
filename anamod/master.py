@@ -8,6 +8,7 @@ in the hierarchy.
 import argparse
 import csv
 from distutils.util import strtobool
+import importlib
 import os
 import sys
 from unittest.mock import patch
@@ -58,11 +59,10 @@ def main():
                         " after completion (typically for debugging). Enabled by default to remove"
                         " space and clutter, and to avoid condor file issues")
     condor.add_argument("-features_per_worker", type=int, default=10, help="worker load")
-    condor.add_argument("-eviction_timeout", type=int, default=14400, help="time in seconds to allow condor jobs"
-                        " to run before evicting and restarting them on another condor node")
-    condor.add_argument("-idle_timeout", type=int, default=3600, help="time in seconds to allow condor jobs"
-                        " to stay idle before removing them from condor and attempting them on the master node.")
-    condor.add_argument("-memory_requirement", type=int, default=16, help="memory requirement in GB, minimum 1, default 16")
+    condor.add_argument("-memory_requirement", type=int, default=8, help="memory requirement in GB, minimum 1, default 8")
+    condor.add_argument("-disk_requirement", type=int, default=8, help="disk requirment in GB, default 8")
+    condor.add_argument("-shared_filesystem", type=strtobool, default=False, help="Flag to indicate a shared filesystem, making "
+                        "file/software transfer unnecessary for running condor (default disabled).")
 
     args = parser.parse_args()
 
@@ -91,7 +91,7 @@ def pipeline(args):
     # Prepare features for perturbation
     prepare_features(args, features)
     # Perturb features
-    features, _, _, predictions = perturb_features(args, features)
+    features, predictions = perturb_features(args, features)
     # TODO: Run these only for hierarchical feature importance analysis
     if args.analysis_type == constants.HIERARCHICAL:
         hierarchical_fdr(args, features)
@@ -168,9 +168,7 @@ def perturb_features(args, feature_nodes):
         Aggregated results from workers
     """
     # Partition features, Launch workers, Aggregate results
-    worker_pipeline = SerialPipeline(args, feature_nodes)
-    if args.condor:
-        worker_pipeline = CondorPipeline(args, feature_nodes)
+    worker_pipeline = CondorPipeline(args, feature_nodes) if args.condor else SerialPipeline(args, feature_nodes)
     return worker_pipeline.run()
 
 
@@ -204,6 +202,13 @@ def validate_args(args):
         raise ValueError("Interaction analysis is not supported with shuffling perturbations")
     if args.analysis_type == constants.HIERARCHICAL:
         assert args.hierarchy_filename, "Hierarchy filename required for hierarchical feature importance analysis"
+    if args.condor:
+        try:
+            importlib.import_module("htcondor")
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError("htcondor module not found. "
+                                      "Use 'pip install htcondor' to install htcondor on a compatible platform, or "
+                                      "disable condor by passing command-line argument -condor 0'")
 
 
 if __name__ == "__main__":

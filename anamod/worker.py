@@ -6,7 +6,6 @@ computes the effect on the model's output loss
 
 import argparse
 from collections import namedtuple
-import pickle
 
 import cloudpickle
 import h5py
@@ -23,12 +22,16 @@ Inputs = namedtuple("Inputs", ["data", "targets", "model"])
 def main():
     """Main"""
     parser = argparse.ArgumentParser()
-    parser.add_argument("args_filename", help="pickle file containing arguments"
-                        " passed by master.py")
-    cargs = parser.parse_args()
-    with open(cargs.args_filename, "rb") as args_file:
-        args = pickle.load(args_file)
-    args.logger = get_logger(__name__, "%s/worker_%d.log" % (args.output_dir, args.task_idx))
+    parser.add_argument("-features_filename", required=True)
+    parser.add_argument("-model_filename", required=True)
+    parser.add_argument("-data_filename", required=True)
+    parser.add_argument("-output_dir", required=True)
+    parser.add_argument("-analysis_type", required=True)
+    parser.add_argument("-perturbation", required=True)
+    parser.add_argument("-num_shuffling_trials", required=True)
+    parser.add_argument("-worker_idx", required=True)
+    args = parser.parse_args()
+    args.logger = get_logger(__name__, "%s/worker_%d.log" % (args.output_dir, args.worker_idx))
     pipeline(args)
 
 
@@ -51,7 +54,7 @@ def pipeline(args):
     if args.analysis_type == constants.TEMPORAL:
         temporal_analysis(args, inputs, features, baseline_loss)
     # Write outputs
-    write_outputs(args, features, targets, predictions, losses)
+    write_outputs(args, features, predictions)
     args.logger.info("End anamod worker pipeline")
 
 
@@ -204,15 +207,15 @@ def temporal_analysis(args, inputs, features, baseline_loss):
             args.logger.info("Feature %s identified as temporally unimportant" % feature.name)
 
 
-def write_outputs(args, features, targets, predictions, losses):
+def write_outputs(args, features, predictions):
     """Write outputs to results file"""
     args.logger.info("Begin writing outputs")
     # Write features
-    features_filename = "%s/features_worker_%d.cpkl" % (args.output_dir, args.task_idx)
+    features_filename = "%s/features_worker_%d.cpkl" % (args.output_dir, args.worker_idx)
     with open(features_filename, "wb") as features_file:
         cloudpickle.dump(features, features_file)
     # TODO: Decide if all these are still necessary (only features and predictions used by callers)
-    results_filename = "%s/results_worker_%d.hdf5" % (args.output_dir, args.task_idx)
+    results_filename = "%s/results_worker_%d.hdf5" % (args.output_dir, args.worker_idx)
     root = h5py.File(results_filename, "w")
 
     def store_data(group, data):
@@ -221,9 +224,6 @@ def write_outputs(args, features, targets, predictions, losses):
             group.create_dataset(feature_id, data=feature_data)
 
     store_data(root.create_group(constants.PREDICTIONS), predictions)
-    store_data(root.create_group(constants.LOSSES), losses)
-    if args.task_idx == 0:
-        root.create_dataset(constants.TARGETS, data=targets)  # TODO: remove
     root.close()
     args.logger.info("End writing outputs")
 

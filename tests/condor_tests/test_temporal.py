@@ -7,7 +7,7 @@ from anamod.simulation import simulation
 from tests.utils import pre_test, write_logfile
 
 
-# pylint: disable = protected-access
+# pylint: disable = protected-access, invalid-name
 def test_condor_simulation_regressor1(data_regression, tmpdir, caplog):
     """Test simulation with random hierarchy"""
     func_name = sys._getframe().f_code.co_name
