@@ -46,6 +46,7 @@ def pipeline(args):
     model = load_model(args)
     inputs = Inputs(data, targets, model)
     # Baseline predictions/losses
+    # FIXME: baseline may be computed in master and provided to all workers
     baseline_loss = compute_baseline(inputs)
     # Perturb features
     predictions, losses = perturb_features(args, inputs, features)

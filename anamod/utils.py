@@ -4,6 +4,7 @@ from collections import namedtuple
 import contextlib
 import os
 import subprocess
+import sys
 import time
 
 import numpy as np
@@ -41,8 +42,7 @@ class CondorJobWrapper():
         self.name = f"job_{CondorJobWrapper.idx}"
         CondorJobWrapper.idx += 1
         self.cmd = cmd
-        # FIXME: python version here has to match python version on master node for cloudpickle to work
-        self.input_files = input_files + ["http://proxy.chtc.wisc.edu/SQUID/chtc/python38.tar.gz"]  # List of input files
+        self.input_files = input_files + [f"http://proxy.chtc.wisc.edu/SQUID/chtc/python3{sys.version_info.minor}.tar.gz"]  # List of input files
         self.job_dir = job_dir  # Directory for job logs/outputs in submit host
         if not os.path.exists(self.job_dir):
             os.makedirs(self.job_dir)
@@ -54,7 +54,6 @@ class CondorJobWrapper():
                                    err_filename=f"{self.job_dir}/{self.name}.err")
         self.job = self.create_job(**kwargs)
         self.cluster_id = -1  # set by running job
-        self.run()  # FIXME: add job argument, remove job attribute
 
     def create_job(self, **kwargs):
         """Create job"""
