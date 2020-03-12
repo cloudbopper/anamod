@@ -41,7 +41,8 @@ class CondorJobWrapper():
         self.name = f"job_{CondorJobWrapper.idx}"
         CondorJobWrapper.idx += 1
         self.cmd = cmd
-        self.input_files = input_files + ["http://proxy.chtc.wisc.edu/SQUID/chtc/python36.tar.gz"]  # List of input files
+        # FIXME: python version here has to match python version on master node for cloudpickle to work
+        self.input_files = input_files + ["http://proxy.chtc.wisc.edu/SQUID/chtc/python38.tar.gz"]  # List of input files
         self.job_dir = job_dir  # Directory for job logs/outputs in submit host
         if not os.path.exists(self.job_dir):
             os.makedirs(self.job_dir)
@@ -82,12 +83,12 @@ class CondorJobWrapper():
             if not self.shared_filesystem:
                 # TODO: make more general by reading package from argument
                 exec_file.write(f"mkdir {self.job_dir_remote}\n"
-                                "tar -xzf python36.tar.gz\n"
+                                "tar -xzf python38.tar.gz\n"
                                 "export PATH=${PWD}/python/bin/:${PATH}\n"
                                 "export PYTHONPATH=${PWD}/packages\n"
                                 "export LC_ALL=en_US.UTF-8\n"
                                 "python3 -m pip install --upgrade pip\n"
-                                "python3 -m pip install git+https://github.com/cloudbopper/anamod --target ${PWD}/packages\n")
+                                "python3 -m pip install git+https://github.com/cloudbopper/anamod@condor_nonshared --target ${PWD}/packages\n")
             else:
                 virtualenv = os.environ.get(VIRTUAL_ENV, "")
                 exec_file.write(f"source ${virtualenv}/bin/activate")
