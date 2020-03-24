@@ -4,6 +4,7 @@ import copy
 import glob
 import math
 import os
+import shutil
 
 import cloudpickle
 import h5py
@@ -23,7 +24,7 @@ class SerialPipeline():
 
     def write_features(self):
         """Write features to analyze to files"""
-        num_features_per_file = math.floor(len(self.features) / self.num_jobs)
+        num_features_per_file = math.ceil(len(self.features) / self.num_jobs)
         for idx in range(self.num_jobs):
             job_features = self.features[idx * num_features_per_file: (idx + 1) * num_features_per_file]
             features_filename = FEATURES_FILENAME.format(self.args.output_dir, idx)
@@ -66,7 +67,7 @@ class SerialPipeline():
                 os.remove(filename)
         if job_dirs:  # Remove condor job directories
             for job_dir in job_dirs:
-                os.rmdir(job_dir)
+                shutil.rmtree(job_dir)
         self.args.logger.info("End intermediate file cleanup")
 
     def run(self):

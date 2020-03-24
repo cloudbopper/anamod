@@ -3,14 +3,13 @@ import logging
 from collections import namedtuple
 import contextlib
 import os
-import subprocess
 import sys
 import time
 
 import numpy as np
 try:
     import htcondor
-    from htcondor import JobEventType
+    from htcondor import JobEventType, JobAction
 except ImportError:
     pass  # Caller performs its own check to validate condor availability
 
@@ -135,16 +134,18 @@ class CondorJobWrapper():
                             job.cleanup()
                             break
                         # Terminated abnormally
-                        CondorJobWrapper.remove_all_jobs()
+                        CondorJobWrapper.remove_jobs(jobs, reason=f"Job {job.name} terminated abnormally")
                         raise RuntimeError(f"Cmd: '{job.cmd}' terminated abnormally - see log: {job.filenames.log_filename}.")
                     if (event_type == JobEventType.JOB_ABORTED
                             or event_type == JobEventType.SHADOW_EXCEPTION  # noqa: W503
                             or (event_type == JobEventType.JOB_EVICTED and not event["TerminatedNormally"])):  # noqa: W503
-                        CondorJobWrapper.remove_all_jobs()
-                        raise RuntimeError(f"Cmd: '{job.cmd}' failed failed to terminate - see log: {job.filenames.log_filename}.")
+                        CondorJobWrapper.remove_jobs(jobs, reason=f"Job {job.name} failed to terminate")
+                        raise RuntimeError(f"Cmd: '{job.cmd}' failed to terminate - see log: {job.filenames.log_filename}.")
             time.sleep(30)
 
     @staticmethod
-    def remove_all_jobs():
-        """Remove all jobs from condor queue"""
-        subprocess.check_call("condor_rm -all", shell=True)
+    def remove_jobs(jobs, reason=None):
+        """Remove jobs from condor queue"""
+        schedd = htcondor.Schedd()
+        for job in jobs:
+            schedd.act(JobAction.Remove, f"ClusterId=={job.cluster_id}", reason=reason)
