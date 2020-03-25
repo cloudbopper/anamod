@@ -119,6 +119,3 @@ PVALUE_THRESHOLD = 0.05
 # Miscellaneous
 BASELINE = u"baseline"
 SEED = 13997
-BINARY_CLASSIFIER = "binary_classifier"
-CLASSIFIER = "classifier"
-REGRESSION = "regression"

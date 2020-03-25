@@ -14,10 +14,12 @@ import h5py
 import numpy as np
 from scipy.cluster.hierarchy import linkage
 import synmod.master
+from synmod.constants import CLASSIFIER, REGRESSOR, FEATURES_FILENAME, MODEL_FILENAME, INSTANCES_FILENAME
 
 from anamod import constants, master, utils
 from anamod.simulation.model_wrapper import ModelWrapper
 from anamod.simulation import evaluation
+from anamod.utils import CondorJobWrapper
 
 # TODO maybe: write arguments to separate readme.txt for documenting runs
 
@@ -39,6 +41,8 @@ def main():
     common.add_argument("-num_interactions", type=int, default=0, help="number of interaction pairs in model")
     common.add_argument("-include_interaction_only_features", help="include interaction-only features in model"
                         " in addition to linear + interaction features (default enabled)", type=strtobool, default=True)
+    common.add_argument("-condor", help="Use condor for parallelization", type=strtobool, default=False)
+    common.add_argument("-shared_filesystem", type=strtobool, default=False)
     common.add_argument("-cleanup", type=strtobool, default=True, help="Clean data and model files after completing simulation")
     # Hierarchical feature importance analysis arguments
     hierarchical = parser.add_argument_group("Hierarchical feature analysis arguments")
@@ -57,7 +61,7 @@ def main():
     # Temporal model analysis arguments
     temporal = parser.add_argument_group("Temporal model analysis arguments")
     temporal.add_argument("-sequence_length", help="sequence length for temporal models", type=int, default=20)
-    temporal.add_argument("-model_type", default=constants.REGRESSION)
+    temporal.add_argument("-model_type", default=REGRESSOR, choices=[CLASSIFIER, REGRESSOR])
     temporal.add_argument("-sequences_independent_of_windows", type=strtobool, dest="window_independent")
     temporal.set_defaults(window_independent=False)
 
@@ -80,7 +84,7 @@ def pipeline(args, pass_args):
     """Simulation pipeline"""
     args.logger.info("Begin anamod simulation with args: %s" % args)
     features, data, model = run_synmod(args)
-    targets = model.predict(data, labels=True) if args.model_type == constants.CLASSIFIER else model.predict(data)
+    targets = model.predict(data, labels=True) if args.model_type == CLASSIFIER else model.predict(data)
     data_filename = write_data(args, data, targets)
     model_filename = write_model(args, model)
     if args.analysis_type == constants.HIERARCHICAL:
@@ -110,12 +114,41 @@ def pipeline(args, pass_args):
 
 def run_synmod(args):
     """Synthesize data and model"""
-    pass_args = copy.copy(args)
+    args = copy.copy(args)
     if args.analysis_type == constants.HIERARCHICAL:
-        pass_args.synthesis_type = constants.STATIC
+        args.synthesis_type = constants.STATIC
     else:
-        pass_args.synthesis_type = constants.TEMPORAL
-    return synmod.master.pipeline(pass_args)
+        args.synthesis_type = constants.TEMPORAL
+    if not args.condor:
+        args.write_outputs = False
+        return synmod.master.pipeline(args)
+    # Spawn condor job to synthesize data
+    # Compute size requirements
+    data_size = args.num_instances * args.num_features * args.sequence_length // (8 * (2 ** 30))  # Data size in GB
+    memory_requirement = "%dGB" % (1 + data_size)
+    disk_requirement = "%dGB" % (4 + data_size)
+    # Set up command-line arguments
+    args.write_outputs = True
+    args.sequences_independent_of_windows = args.window_independent
+    cmd = "python3 -m synmod"
+    job_dir = f"{args.output_dir}/synthesis"
+    args.output_dir = job_dir if args.shared_filesystem else "synthesis"
+    for arg in ["output_dir", "num_features", "num_instances", "synthesis_type",
+                "fraction_relevant_features", "num_interactions", "include_interaction_only_features", "seed", "write_outputs",
+                "sequence_length", "sequences_independent_of_windows", "model_type"]:
+        cmd += f" -{arg} {args.__getattribute__(arg)}"
+    # Launch and monitor job
+    job = CondorJobWrapper(cmd, [], job_dir, memory=memory_requirement, disk=disk_requirement)
+    job.run()
+    CondorJobWrapper.monitor([job], cleanup=args.cleanup)
+    # Extract data
+    features, instances, model = [None] * 3
+    with open(f"{job_dir}/{FEATURES_FILENAME}", "rb") as data_file:
+        features = cloudpickle.load(data_file)
+    instances = np.load(f"{job_dir}/{INSTANCES_FILENAME}")
+    with open(f"{job_dir}/{MODEL_FILENAME}", "rb") as model_file:
+        model = cloudpickle.load(model_file)
+    return features, instances, model
 
 
 def gen_hierarchy(args, clustering_data):
@@ -301,14 +334,17 @@ def run_anamod(args, pass_args, data_filename, model_filename, hierarchy_filenam
     analysis_options = hierarchical_analysis_options if args.analysis_type == constants.HIERARCHICAL else temporal_analysis_options
     args.logger.info("Passing the following arguments to anamod.master without parsing: %s" % pass_args)
     memory_requirement = 1 + (os.stat(data_filename).st_size // (2 ** 30))  # Compute approximate memory requirement in GB
-    cmd = ("python -m anamod.master -analysis_type {0} -output_dir {1} -num_shuffling_trials {2} -data_filename {3} "
-           "-model_filename {4} -memory_requirement {5} {6} {7}"
+    disk_requirement = 3 + memory_requirement
+    cmd = ("python -m anamod.master -analysis_type {} -output_dir {} -condor {} -num_shuffling_trials {} -data_filename {} "
+           "-model_filename {} -memory_requirement {} -disk_requirement {} {} {}"
            .format(args.analysis_type,
                    args.output_dir,
+                   args.condor,
                    args.num_shuffling_trials,
                    data_filename,
                    model_filename,
                    memory_requirement,
+                   disk_requirement,
                    analysis_options,
                    pass_args))
     args.logger.info("Running cmd: %s" % cmd)

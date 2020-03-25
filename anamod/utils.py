@@ -38,6 +38,22 @@ class CondorJobWrapper():
     idx = 0
 
     def __init__(self, cmd, input_files, job_dir, **kwargs):
+        """
+        TODO: Improve documentation
+        Common considerations:
+        - job_dir should be an empty directory for condor files and job outputs, not the current working directory
+        If shared_filesystem is disabled:
+        - input files will be transferred to compute server
+        - input file paths need to be accessible from submit server
+        - cmd has access to input files/directory within the working directory on the compute server
+        - job_dir will be transferred back from compute server
+        - software will be downloaded and installed from the github package
+        If shared_filesystem is enabled:
+        - no file transfers or differing file path assumptions for submit/compute servers
+        - cmd has access to absolute file/directory paths
+        - assumes code running inside virtualenv
+        """
+        # TODO: unified list of kwargs
         self.name = f"job_{CondorJobWrapper.idx}"
         CondorJobWrapper.idx += 1
         self.cmd = cmd
