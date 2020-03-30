@@ -4,14 +4,13 @@ import copy
 import glob
 import math
 import os
+import shutil
 
 import cloudpickle
 import h5py
 
 from anamod import constants, worker
 from anamod.utils import CondorJobWrapper
-
-FEATURES_FILENAME = "{}/features_worker_{}.cpkl"  # FIXME: input vs. output features files
 
 
 class SerialPipeline():
@@ -23,23 +22,24 @@ class SerialPipeline():
 
     def write_features(self):
         """Write features to analyze to files"""
-        num_features_per_file = math.floor(len(self.features) / self.num_jobs)
+        num_features_per_file = math.ceil(len(self.features) / self.num_jobs)
         for idx in range(self.num_jobs):
             job_features = self.features[idx * num_features_per_file: (idx + 1) * num_features_per_file]
-            features_filename = FEATURES_FILENAME.format(self.args.output_dir, idx)
+            features_filename = constants.INPUT_FEATURES_FILENAME.format(self.args.output_dir, idx)
             with open(features_filename, "wb") as features_file:
                 cloudpickle.dump(job_features, features_file)
 
     def compile_results(self, output_dirs):
         """Compile results"""
         self.args.logger.info("Compiling results")
+        features = []
         all_predictions = {}
         for idx in range(self.num_jobs):
             directory = output_dirs[idx]
             # Load features
-            features_filename = FEATURES_FILENAME.format(directory, idx)
+            features_filename = constants.OUTPUT_FEATURES_FILENAME.format(directory, idx)
             with open(features_filename, "rb") as features_file:
-                features = cloudpickle.load(features_file)
+                features.extend(cloudpickle.load(features_file))
             # Compile predictions
             root = h5py.File(f"{directory}/results_worker_{idx}.hdf5", "r")
 
@@ -65,7 +65,7 @@ class SerialPipeline():
                 os.remove(filename)
         if job_dirs:  # Remove condor job directories
             for job_dir in job_dirs:
-                os.rmdir(job_dir)
+                shutil.rmtree(job_dir)
         self.args.logger.info("End intermediate file cleanup")
 
     def run(self):
@@ -76,7 +76,7 @@ class SerialPipeline():
             self.write_features()
             # Run worker pipeline
             self.args.worker_idx = 0
-            self.args.features_filename = FEATURES_FILENAME.format(self.args.output_dir, 0)
+            self.args.features_filename = constants.INPUT_FEATURES_FILENAME.format(self.args.output_dir, 0)
             worker.pipeline(self.args)
         results = self.compile_results([self.args.output_dir])
         self.cleanup()
@@ -89,22 +89,21 @@ class CondorPipeline(SerialPipeline):
         super().__init__(args, features)
         self.num_jobs = math.ceil(len(self.features) / self.args.features_per_worker)
 
-    def run_jobs(self):
+    def setup_jobs(self):
         """Setup and run condor jobs"""
         transfer_args = ["analysis_type", "perturbation", "num_shuffling_trials"]
         jobs = [None] * self.num_jobs
         for idx in range(self.num_jobs):
             # Create and launch condor job
-            # FIXME: verify: input file paths should be relative to working directory, but transfer file paths should be absolute.
-            features_filename = FEATURES_FILENAME.format(self.args.output_dir, idx)
+            features_filename = constants.INPUT_FEATURES_FILENAME.format(self.args.output_dir, idx)
             input_files = [features_filename, self.args.model_filename, self.args.data_filename]
             job_dir = f"{self.args.output_dir}/outputs_{idx}"
             cmd = f"python3 -m anamod.worker -worker_idx {idx}"
             for arg in transfer_args:
                 cmd += f" -{arg} {self.args.__getattribute__(arg)}"
+            # Relative file paths for non-shared FS, absolute for shared FS
             for name, path in dict(output_dir=job_dir, features_filename=features_filename, model_filename=self.args.model_filename,
                                    data_filename=self.args.data_filename).items():
-                # Base filepaths for non-shared filesystem
                 cmd += f" -{name} {path}" if self.args.shared_filesystem else f" -{name} {os.path.basename(path)}"
             job = CondorJobWrapper(cmd, input_files, job_dir, shared_filesystem=self.args.shared_filesystem,
                                    memory=f"{self.args.memory_requirement}GB", disk=f"{self.args.disk_requirement}GB",
@@ -115,10 +114,11 @@ class CondorPipeline(SerialPipeline):
     def run(self):
         """Run condor pipeline"""
         self.args.logger.info("Begin condor pipeline")
-        # FIXME: jobs not populated if compiling results only
+        self.write_features()
+        jobs = self.setup_jobs()
         if not self.args.compile_results_only:
-            self.write_features()
-            jobs = self.run_jobs()
+            for job in jobs:
+                job.run()
             CondorJobWrapper.monitor(jobs, cleanup=self.args.condor_cleanup)
         job_dirs = [job.job_dir for job in jobs]
         results = self.compile_results(job_dirs)

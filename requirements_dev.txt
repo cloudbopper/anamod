@@ -13,4 +13,5 @@ pytest-runner
 pytest-regressions
 pytest-profiling
 pytest-cov
+pytest-xdist
 codecov

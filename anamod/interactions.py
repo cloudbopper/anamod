@@ -89,9 +89,7 @@ def perturb_interactions(args, interaction_groups):
     # Need to recompute baseline since it's not one of the features and so not included in worker results
     interaction_nodes.append(Feature(constants.BASELINE, description="No perturbation"))
 
-    worker_pipeline = SerialPipeline(args, interaction_nodes)
-    if args.condor:
-        worker_pipeline = CondorPipeline(args, interaction_nodes)
+    worker_pipeline = CondorPipeline(args, interaction_nodes) if args.condor else SerialPipeline(args, interaction_nodes)
     _, interaction_predictions = worker_pipeline.run()
     args.logger.info("End perturbing interactions")
     return interaction_predictions

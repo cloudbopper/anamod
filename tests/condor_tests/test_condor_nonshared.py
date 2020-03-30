@@ -19,6 +19,7 @@ def test_condor_nonshared(tmpdir):
     for idx, cmd in enumerate(cmds):
         directory = dirs[idx]
         job = CondorJobWrapper(cmd, [files[idx]], directory)
+        job.run()
         jobs[idx] = job
     CondorJobWrapper.monitor(jobs)
     output = ""

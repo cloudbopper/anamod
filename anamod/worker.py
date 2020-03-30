@@ -28,8 +28,8 @@ def main():
     parser.add_argument("-output_dir", required=True)
     parser.add_argument("-analysis_type", required=True)
     parser.add_argument("-perturbation", required=True)
-    parser.add_argument("-num_shuffling_trials", required=True)
-    parser.add_argument("-worker_idx", required=True)
+    parser.add_argument("-num_shuffling_trials", required=True, type=int)
+    parser.add_argument("-worker_idx", required=True, type=int)
     args = parser.parse_args()
     args.logger = get_logger(__name__, "%s/worker_%d.log" % (args.output_dir, args.worker_idx))
     pipeline(args)
@@ -46,6 +46,7 @@ def pipeline(args):
     model = load_model(args)
     inputs = Inputs(data, targets, model)
     # Baseline predictions/losses
+    # FIXME: baseline may be computed in master and provided to all workers
     baseline_loss = compute_baseline(inputs)
     # Perturb features
     predictions, losses = perturb_features(args, inputs, features)
@@ -211,7 +212,7 @@ def write_outputs(args, features, predictions):
     """Write outputs to results file"""
     args.logger.info("Begin writing outputs")
     # Write features
-    features_filename = "%s/features_worker_%d.cpkl" % (args.output_dir, args.worker_idx)
+    features_filename = constants.OUTPUT_FEATURES_FILENAME.format(args.output_dir, args.worker_idx)
     with open(features_filename, "wb") as features_file:
         cloudpickle.dump(features, features_file)
     # TODO: Decide if all these are still necessary (only features and predictions used by callers)

@@ -108,7 +108,7 @@ def render_tree(args, tree):
         DotExporter(tree, options=graph_options, nodeattrfunc=lambda node: nodeattrfunc(args, node)
                     ).to_picture("{0}/{1}.png".format(args.output_dir, constants.TREE))
     except FileNotFoundError:
-        raise FileNotFoundError("Error during tree rendering - is Graphviz installed on your system?\n")
+        args.logger.warning("Error during tree rendering - is Graphviz installed on your system?\n")
 
 
 def prune_tree_on_effect_size(args, tree):

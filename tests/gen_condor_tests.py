@@ -12,7 +12,8 @@ GOLDS = {HIERARCHICAL: "test_hierarchical", TEMPORAL: "test_temporal"}
 CONDOR_TEST_DIRECTORY = "condor_tests"
 TEST_SIMULATION = "test_simulation"
 TEST_CONDOR_SIMULATION = "test_condor_simulation"
-SUBSTITUTIONS = {TEST_SIMULATION: TEST_CONDOR_SIMULATION, "python -m anamod.simulation": "python -m anamod.simulation -condor 1"}
+SUBSTITUTIONS = {TEST_SIMULATION: TEST_CONDOR_SIMULATION,
+                 "python -m anamod.simulation": "python -m anamod.simulation -condor 1 -memory_requirement 1 -disk_requirement 1"}
 
 
 def main():
