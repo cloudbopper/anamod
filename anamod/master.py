@@ -55,8 +55,7 @@ def main():
     # Condor arguments
     condor = parser.add_argument_group("Condor parameters")
     condor.add_argument("-condor", help="Use condor for parallelization", type=strtobool, default=False)
-    # FIXME: change to '-cleanup' for uniformity (see simulation)
-    condor.add_argument("-condor_cleanup", type=strtobool, default=True, help="remove intermediate condor files"
+    condor.add_argument("-cleanup", type=strtobool, default=True, help="remove intermediate condor files"
                         " after completion (typically for debugging). Enabled by default to remove"
                         " space and clutter, and to avoid condor file issues")
     condor.add_argument("-features_per_worker", type=int, default=10, help="worker load")

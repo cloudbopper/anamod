@@ -55,7 +55,7 @@ class SerialPipeline():
 
     def cleanup(self, job_dirs=None):
         """Clean intermediate files after completing pipeline"""
-        if not self.args.condor_cleanup:
+        if not self.args.cleanup:
             return
         self.args.logger.info("Begin intermediate file cleanup")
         # Remove intermediate working directory files
@@ -104,10 +104,10 @@ class CondorPipeline(SerialPipeline):
             # Relative file paths for non-shared FS, absolute for shared FS
             for name, path in dict(output_dir=job_dir, features_filename=features_filename, model_filename=self.args.model_filename,
                                    data_filename=self.args.data_filename).items():
-                cmd += f" -{name} {path}" if self.args.shared_filesystem else f" -{name} {os.path.basename(path)}"
+                cmd += f" -{name} {os.path.abspath(path)}" if self.args.shared_filesystem else f" -{name} {os.path.basename(path)}"
             job = CondorJobWrapper(cmd, input_files, job_dir, shared_filesystem=self.args.shared_filesystem,
                                    memory=f"{self.args.memory_requirement}GB", disk=f"{self.args.disk_requirement}GB",
-                                   cleanup=self.args.condor_cleanup)
+                                   cleanup=self.args.cleanup)
             jobs[idx] = job
         return jobs
 
@@ -119,7 +119,7 @@ class CondorPipeline(SerialPipeline):
         if not self.args.compile_results_only:
             for job in jobs:
                 job.run()
-            CondorJobWrapper.monitor(jobs, cleanup=self.args.condor_cleanup)
+            CondorJobWrapper.monitor(jobs, cleanup=self.args.cleanup)
         job_dirs = [job.job_dir for job in jobs]
         results = self.compile_results(job_dirs)
         self.cleanup(job_dirs)

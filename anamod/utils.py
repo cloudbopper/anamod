@@ -43,7 +43,7 @@ class CondorJobWrapper():
         Args:
         * cmd: command to run on condor execute node
             * If non-shared FS, input file/directory paths supplied to cmd must be stripped of submit node directory structure
-            * If shared FS, input file/directory paths supplied to cmd may be absolute file/directory paths
+            * If shared FS, input file/directory paths supplied to cmd must be absolute paths, since cmd will be run from inside job_dir
        * input_files: list of input files for cmd (must be accessible from submit node)
             * If non-shared FS, these will be transferred to root working directory in execute node
         * job_dir: empty directory for condor logs (submit node) and job outputs (execute node) (will be created if it doesn't exist)
@@ -72,17 +72,18 @@ class CondorJobWrapper():
                                    out_filename=f"{self.job_dir}/{self.name}.out",
                                    err_filename=f"{self.job_dir}/{self.name}.err")
         # Process keyword args
-        shared_filesystem = kwargs.get("shared_filesystem", False)
+        self.shared_filesystem = kwargs.get("shared_filesystem", False)
         memory = kwargs.get("memory", "1GB")
         disk = kwargs.get("disk", "4GB")
-        package = kwargs.get("package", "git+https://github.com/cloudbopper/anamod@condor_nonshared")
+        package = kwargs.get("package", "git+https://github.com/cloudbopper/anamod")
         # Create job
-        self.job = self.create_job(shared_filesystem, memory, disk, package)
+        self.job = self.create_job(memory, disk, package)
         self.cluster_id = -1  # set by running job
 
-    def create_job(self, shared_filesystem, memory, disk, package):
+    def create_job(self, memory, disk, package):
         """Create job"""
-        self.create_executable(shared_filesystem, package)
+        self.create_executable(package)
+        # TODO: add options for automatic job retries https://bcg.biostat.wisc.edu/condor-best-practices/
         job = htcondor.Submit({"initialdir": f"{self.job_dir}",
                                "executable": f"{self.filenames.exec_filename}",
                                "output": f"{self.filenames.out_filename}",
@@ -91,20 +92,24 @@ class CondorJobWrapper():
                                "request_memory": f"{memory}",
                                "request_disk": f"{disk}",
                                "universe": "vanilla",
-                               "should_transfer_files": "NO" if shared_filesystem else "YES",
-                               "transfer_input_files": ",".join(self.input_files),
-                               "transfer_output_files": f"{self.job_dir_remote}/"
+                               "should_transfer_files": "NO" if self.shared_filesystem else "YES",
+                               "transfer_input_files": "" if self.shared_filesystem else ",".join(self.input_files),
+                               "transfer_output_files": "" if self.shared_filesystem else f"{self.job_dir_remote}/",
+                               # Send the job to Held state on failure
+                               "on_exit_hold": "(ExitBySignal == True) || (ExitCode != 0)",
+                               # Periodically retry the jobs every 10 minutes, up to a maximum of 5 retries.
+                               "periodic_release": "(NumJobStarts < 5) && ((CurrentTime - EnteredCurrentStatus) > 600)"
                                })
         return job
 
-    def create_executable(self, shared_filesystem, package):
+    def create_executable(self, package):
         """Create executable shell script"""
         with open(self.filenames.exec_filename, "w") as exec_file:
             # Setup environment and inputs
             exec_file.write("#!/bin/sh\n")
-            if not shared_filesystem:
+            if not self.shared_filesystem:
                 exec_file.write(f"mkdir {self.job_dir_remote}\n"
-                                "tar -xzf python38.tar.gz\n"
+                                f"tar -xzf python3{sys.version_info.minor}.tar.gz\n"
                                 "export PATH=${PWD}/python/bin/:${PATH}\n"
                                 "export PYTHONPATH=${PWD}/packages\n"
                                 "export LC_ALL=en_US.UTF-8\n"
@@ -112,9 +117,10 @@ class CondorJobWrapper():
                                 f"python3 -m pip install {package} --target ${{PWD}}/packages\n")
             else:
                 virtualenv = os.environ.get(VIRTUAL_ENV, "")
-                exec_file.write(f"source ${virtualenv}/bin/activate")
+                exec_file.write(f"source {virtualenv}/bin/activate\n")
             # Execute command
             exec_file.write(f"{self.cmd}\n")
+        os.chmod(self.filenames.exec_filename, 0o777)
 
     def run(self):
         """Run job"""
@@ -138,6 +144,8 @@ class CondorJobWrapper():
     def monitor(jobs, **kwargs):
         """Monitor jobs"""
         # pylint: disable = too-many-nested-blocks
+        # TODO: Handle node failures by restarts before throwing exception
+        # TODO: Don't wait for events indefinitely
         events = [htcondor.JobEventLog(job.filenames.log_filename).events(0) for job in jobs]
         num_unfinished_jobs = len(jobs)
         job_finished = [False] * num_unfinished_jobs
@@ -158,12 +166,12 @@ class CondorJobWrapper():
                         # Terminated abnormally
                         CondorJobWrapper.remove_jobs(jobs, reason=f"Job {job.name} terminated abnormally")
                         raise RuntimeError(f"Cmd: '{job.cmd}' terminated abnormally - see log: {job.filenames.log_filename}.")
-                    if (event_type == JobEventType.JOB_ABORTED
-                            or event_type == JobEventType.SHADOW_EXCEPTION  # noqa: W503
-                            or (event_type == JobEventType.JOB_EVICTED and not event["TerminatedNormally"])):  # noqa: W503
-                        CondorJobWrapper.remove_jobs(jobs, reason=f"Job {job.name} failed to terminate")
-                        raise RuntimeError(f"Cmd: '{job.cmd}' failed to terminate - see log: {job.filenames.log_filename}.")
+                    if event_type == JobEventType.JOB_ABORTED:
+                        CondorJobWrapper.remove_jobs(jobs, reason=f"Job {job.name} aborted")
+                        raise RuntimeError(f"Cmd: '{job.cmd}' aborted - see log: {job.filenames.log_filename}.")
             time.sleep(30)
+        if jobs and jobs[0].shared_filesystem:
+            time.sleep(30)  # Time to allow file changes to reflect in shared filesystem
 
     @staticmethod
     def remove_jobs(jobs, reason=None):

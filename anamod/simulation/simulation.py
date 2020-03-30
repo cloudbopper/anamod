@@ -114,6 +114,7 @@ def pipeline(args, pass_args):
 
 def run_synmod(args):
     """Synthesize data and model"""
+    args.logger.info("Begin running synmod")
     args = copy.copy(args)
     if args.analysis_type == constants.HIERARCHICAL:
         args.synthesis_type = constants.STATIC
@@ -132,13 +133,14 @@ def run_synmod(args):
     args.sequences_independent_of_windows = args.window_independent
     cmd = "python3 -m synmod"
     job_dir = f"{args.output_dir}/synthesis"
-    args.output_dir = job_dir if args.shared_filesystem else "synthesis"
+    args.output_dir = os.path.abspath(job_dir) if args.shared_filesystem else os.path.basename(job_dir)
     for arg in ["output_dir", "num_features", "num_instances", "synthesis_type",
                 "fraction_relevant_features", "num_interactions", "include_interaction_only_features", "seed", "write_outputs",
                 "sequence_length", "sequences_independent_of_windows", "model_type"]:
         cmd += f" -{arg} {args.__getattribute__(arg)}"
+    args.logger.info(f"Running cmd: {cmd}")
     # Launch and monitor job
-    job = CondorJobWrapper(cmd, [], job_dir, memory=memory_requirement, disk=disk_requirement)
+    job = CondorJobWrapper(cmd, [], job_dir, shared_filesystem=args.shared_filesystem, memory=memory_requirement, disk=disk_requirement)
     job.run()
     CondorJobWrapper.monitor([job], cleanup=args.cleanup)
     # Extract data
@@ -148,6 +150,7 @@ def run_synmod(args):
     instances = np.load(f"{job_dir}/{INSTANCES_FILENAME}")
     with open(f"{job_dir}/{MODEL_FILENAME}", "rb") as model_file:
         model = cloudpickle.load(model_file)
+    args.logger.info("End running synmod")
     return features, instances, model
 
 
@@ -336,15 +339,17 @@ def run_anamod(args, pass_args, data_filename, model_filename, hierarchy_filenam
     memory_requirement = 1 + (os.stat(data_filename).st_size // (2 ** 30))  # Compute approximate memory requirement in GB
     disk_requirement = 3 + memory_requirement
     cmd = ("python -m anamod.master -analysis_type {} -output_dir {} -condor {} -num_shuffling_trials {} -data_filename {} "
-           "-model_filename {} -memory_requirement {} -disk_requirement {} {} {}"
+           "-model_filename {} -shared_filesystem {} -memory_requirement {} -disk_requirement {} -cleanup {} {} {}"
            .format(args.analysis_type,
                    args.output_dir,
                    args.condor,
                    args.num_shuffling_trials,
                    data_filename,
                    model_filename,
+                   args.shared_filesystem,
                    memory_requirement,
                    disk_requirement,
+                   args.cleanup,
                    analysis_options,
                    pass_args))
     args.logger.info("Running cmd: %s" % cmd)

@@ -62,7 +62,13 @@ lint: ## check style with pylint/flake8
 	doc8 docs README.rst
 
 test: ## run tests quickly with the default Python
-	pytest tests
+	pytest -rA tests
+
+test-condor: ## run tests in parallel over condor with non-shared filesystem
+	pytest -rA tests/condor_tests/ -n 20
+
+test-condor-sharedfs: ## run tests in parallel over condor with shared filesystem; need to specify shared working directory
+	pytest -rA tests/condor_tests/ -n 20 --shared-fs --basetemp=condor_test_runs
 
 test-all: ## run tests on every Python version with tox
 	tox
