@@ -212,7 +212,7 @@ def write_outputs(args, features, predictions):
     """Write outputs to results file"""
     args.logger.info("Begin writing outputs")
     # Write features
-    features_filename = "%s/features_worker_%d.cpkl" % (args.output_dir, args.worker_idx)
+    features_filename = constants.OUTPUT_FEATURES_FILENAME.format(args.output_dir, args.worker_idx)
     with open(features_filename, "wb") as features_file:
         cloudpickle.dump(features, features_file)
     # TODO: Decide if all these are still necessary (only features and predictions used by callers)

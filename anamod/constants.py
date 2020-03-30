@@ -11,28 +11,10 @@ INDICES = "idx"
 CLUSTER_FROM_DATA = "cluster_from_data"
 RANDOM = "random"
 
-# Condor
-SUBMIT_FILENAME = "SUBMIT_FILENAME"
-ARGS_FILENAME = "ARGS_FILENAME"
-LOG_FILENAME = "LOG_FILENAME"
-OUTPUT_FILENAME = "OUTPUT_FILENAME"
-ERROR_FILENAME = "ERROR_FILENAME"
-CMD = "cmd"
-ATTEMPT = "attempt"
-MAX_ATTEMPTS = 50
-JOB_COMPLETE = "job_complete"
-JOB_HELD = "Job was held."
-JOB_TERMINATED = "Job terminated."
-NORMAL_TERMINATION_SUCCESS = "Normal termination (return value 0)"
-NORMAL_TERMINATION_FAILURE = "Normal termination (return value 1)"
-ABNORMAL_TERMINATION = "Abnormal termination"
-CLUSTER = "cluster"
-JOB_START_TIME = "job_start_time"
+# Pipeline
+INPUT_FEATURES_FILENAME = "{}/input_features_worker_{}.cpkl"
+OUTPUT_FEATURES_FILENAME = "{}/output_features_worker_{}.cpkl"
 VIRTUAL_ENV = "VIRTUAL_ENV"
-MEMORY_REQUIREMENT = "MEMORY_REQUIREMENT"
-SCRIPT_DIR = "SCRIPT_DIR"
-NORMAL_FAILURE_COUNT = "Normal failure count"
-MAX_NORMAL_FAILURE_COUNT = 5
 
 # Evaluation
 EFFECT_SIZE = "effect_size"

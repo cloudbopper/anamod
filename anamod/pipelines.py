@@ -12,8 +12,6 @@ import h5py
 from anamod import constants, worker
 from anamod.utils import CondorJobWrapper
 
-FEATURES_FILENAME = "{}/features_worker_{}.cpkl"  # FIXME: input vs. output features files
-
 
 class SerialPipeline():
     """Feature importance analysis pipeline"""
@@ -27,7 +25,7 @@ class SerialPipeline():
         num_features_per_file = math.ceil(len(self.features) / self.num_jobs)
         for idx in range(self.num_jobs):
             job_features = self.features[idx * num_features_per_file: (idx + 1) * num_features_per_file]
-            features_filename = FEATURES_FILENAME.format(self.args.output_dir, idx)
+            features_filename = constants.INPUT_FEATURES_FILENAME.format(self.args.output_dir, idx)
             with open(features_filename, "wb") as features_file:
                 cloudpickle.dump(job_features, features_file)
 
@@ -39,7 +37,7 @@ class SerialPipeline():
         for idx in range(self.num_jobs):
             directory = output_dirs[idx]
             # Load features
-            features_filename = FEATURES_FILENAME.format(directory, idx)
+            features_filename = constants.OUTPUT_FEATURES_FILENAME.format(directory, idx)
             with open(features_filename, "rb") as features_file:
                 features.extend(cloudpickle.load(features_file))
             # Compile predictions
@@ -78,7 +76,7 @@ class SerialPipeline():
             self.write_features()
             # Run worker pipeline
             self.args.worker_idx = 0
-            self.args.features_filename = FEATURES_FILENAME.format(self.args.output_dir, 0)
+            self.args.features_filename = constants.INPUT_FEATURES_FILENAME.format(self.args.output_dir, 0)
             worker.pipeline(self.args)
         results = self.compile_results([self.args.output_dir])
         self.cleanup()
@@ -97,7 +95,7 @@ class CondorPipeline(SerialPipeline):
         jobs = [None] * self.num_jobs
         for idx in range(self.num_jobs):
             # Create and launch condor job
-            features_filename = FEATURES_FILENAME.format(self.args.output_dir, idx)
+            features_filename = constants.INPUT_FEATURES_FILENAME.format(self.args.output_dir, idx)
             input_files = [features_filename, self.args.model_filename, self.args.data_filename]
             job_dir = f"{self.args.output_dir}/outputs_{idx}"
             cmd = f"python3 -m anamod.worker -worker_idx {idx}"

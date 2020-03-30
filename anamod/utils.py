@@ -39,42 +39,50 @@ class CondorJobWrapper():
 
     def __init__(self, cmd, input_files, job_dir, **kwargs):
         """
-        TODO: Improve documentation
-        Common considerations:
-        - job_dir should be an empty directory for condor files and job outputs, not the current working directory
-        If shared_filesystem is disabled:
-        - input files will be transferred to compute server
-        - input file paths need to be accessible from submit server
-        - cmd has access to input files/directory within the working directory on the compute server
-        - job_dir will be transferred back from compute server
-        - software will be downloaded and installed from the github package
-        If shared_filesystem is enabled:
-        - no file transfers or differing file path assumptions for submit/compute servers
-        - cmd has access to absolute file/directory paths
-        - assumes code running inside virtualenv
+        Creates htcondor job wrapper. Use 'run' to submit job and 'monitor' to monitor the status of submitted jobs.
+        Args:
+        * cmd: command to run on condor execute node
+            * If non-shared FS, input file/directory paths supplied to cmd must be stripped of submit node directory structure
+            * If shared FS, input file/directory paths supplied to cmd may be absolute file/directory paths
+       * input_files: list of input files for cmd (must be accessible from submit node)
+            * If non-shared FS, these will be transferred to root working directory in execute node
+        * job_dir: empty directory for condor logs (submit node) and job outputs (execute node) (will be created if it doesn't exist)
+            * If non-shared FS, outputs in this directory will be transferred back to submit node from execute node
+        Keyword args:
+        * shared_filesystem: Flag to specify shared/non-shared FS
+        * memory: amount of memory to request on condor execute node, default 1GB
+        * disk: amount of disk storage to request on condor execute node, default 4GB
+        * package: software package to install via pip on execute node, default cloudbopper/anamod (relevant for non-shared FS only)
+        Other considerations:
+        * If non-shared FS, software downloaded and installed in execute node from github package cloudbopper/anamod.git
+        * If shared FS, assumes that the submit node code is running inside virtualenv and tries to activate this on execute node
         """
-        # TODO: unified list of kwargs
+        # Distinguish jobs for monitoring
         self.name = f"job_{CondorJobWrapper.idx}"
         CondorJobWrapper.idx += 1
+        # Set up job input files and working directory
         self.cmd = cmd
         self.input_files = input_files + [f"http://proxy.chtc.wisc.edu/SQUID/chtc/python3{sys.version_info.minor}.tar.gz"]  # List of input files
         self.job_dir = job_dir  # Directory for job logs/outputs in submit host
         if not os.path.exists(self.job_dir):
             os.makedirs(self.job_dir)
         self.job_dir_remote = os.path.basename(self.job_dir.rstrip("/"))
-        self.shared_filesystem = kwargs.get("shared_filesystem", False)
         self.filenames = Filenames(exec_filename=f"{self.job_dir}/{self.name}.sh",
                                    log_filename=f"{self.job_dir}/{self.name}.log",
                                    out_filename=f"{self.job_dir}/{self.name}.out",
                                    err_filename=f"{self.job_dir}/{self.name}.err")
-        self.job = self.create_job(**kwargs)
-        self.cluster_id = -1  # set by running job
-
-    def create_job(self, **kwargs):
-        """Create job"""
-        self.create_executable()
+        # Process keyword args
+        shared_filesystem = kwargs.get("shared_filesystem", False)
         memory = kwargs.get("memory", "1GB")
         disk = kwargs.get("disk", "4GB")
+        package = kwargs.get("package", "git+https://github.com/cloudbopper/anamod@condor_nonshared")
+        # Create job
+        self.job = self.create_job(shared_filesystem, memory, disk, package)
+        self.cluster_id = -1  # set by running job
+
+    def create_job(self, shared_filesystem, memory, disk, package):
+        """Create job"""
+        self.create_executable(shared_filesystem, package)
         job = htcondor.Submit({"initialdir": f"{self.job_dir}",
                                "executable": f"{self.filenames.exec_filename}",
                                "output": f"{self.filenames.out_filename}",
@@ -83,26 +91,25 @@ class CondorJobWrapper():
                                "request_memory": f"{memory}",
                                "request_disk": f"{disk}",
                                "universe": "vanilla",
-                               "should_transfer_files": "NO" if self.shared_filesystem else "YES",
+                               "should_transfer_files": "NO" if shared_filesystem else "YES",
                                "transfer_input_files": ",".join(self.input_files),
                                "transfer_output_files": f"{self.job_dir_remote}/"
                                })
         return job
 
-    def create_executable(self):
+    def create_executable(self, shared_filesystem, package):
         """Create executable shell script"""
         with open(self.filenames.exec_filename, "w") as exec_file:
             # Setup environment and inputs
             exec_file.write("#!/bin/sh\n")
-            if not self.shared_filesystem:
-                # TODO: make more general by reading package from argument
+            if not shared_filesystem:
                 exec_file.write(f"mkdir {self.job_dir_remote}\n"
                                 "tar -xzf python38.tar.gz\n"
                                 "export PATH=${PWD}/python/bin/:${PATH}\n"
                                 "export PYTHONPATH=${PWD}/packages\n"
                                 "export LC_ALL=en_US.UTF-8\n"
                                 "python3 -m pip install --upgrade pip\n"
-                                "python3 -m pip install git+https://github.com/cloudbopper/anamod@condor_nonshared --target ${PWD}/packages\n")
+                                f"python3 -m pip install {package} --target ${{PWD}}/packages\n")
             else:
                 virtualenv = os.environ.get(VIRTUAL_ENV, "")
                 exec_file.write(f"source ${virtualenv}/bin/activate")
@@ -138,7 +145,6 @@ class CondorJobWrapper():
             for idx in filter(lambda idx: not job_finished[idx], range(len(jobs))):
                 job = jobs[idx]
                 for event in events[idx]:
-                    # FIXME: handle jobs held due to condor errors - e.g. low memory
                     event_type = event.type
                     if event_type == JobEventType.JOB_TERMINATED:
                         if event["TerminatedNormally"]:
