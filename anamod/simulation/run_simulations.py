@@ -2,6 +2,7 @@
 
 import argparse
 from collections import namedtuple, OrderedDict
+from copy import copy
 from distutils.util import strtobool
 import configparser
 import json
@@ -25,6 +26,9 @@ class Simulation():
         self.output_dir = output_dir
         self.param = param
         self.popen = popen
+
+    def __hash__(self):
+        return hash(self.cmd)
 
 
 def main():
@@ -93,19 +97,23 @@ def parametrize_simulations(args, test_param):
 def run_simulations(args, simulations):
     """Runs simulations in parallel"""
     if not args.analyze_results_only:
+        running_sims = set()
         for sim in simulations:
             args.logger.info("Running simulation: '%s'" % sim.cmd)
             sim.popen = subprocess.Popen(sim.cmd, shell=True)
+            running_sims.add(sim)
+        while running_sims:
+            time.sleep(args.wait_period)
+            for sim in copy(running_sims):
+                returncode = sim.popen.poll()
+                if returncode is not None:
+                    running_sims.remove(sim)
+                    if returncode != 0:
+                        args.logger.error(f"Simulation {sim.cmd} failed; see logs in {sim.output_dir}")
 
 
 def analyze_simulations(args, simulations):
-    """Runs and/or analyzes simulations"""
-    if not args.analyze_results_only:
-        # Wait for runs to complete
-        while not all([sim.popen.poll() is not None for sim in simulations]):
-            time.sleep(args.wait_period)
-
-    # Collate simulation results
+    """Collate and analyze simulation results"""
     results_filename = "%s/%s_%s.json" % (args.output_dir, ALL_SIMULATION_RESULTS, args.type)
     with open(results_filename, "w") as results_file:
         root = OrderedDict()

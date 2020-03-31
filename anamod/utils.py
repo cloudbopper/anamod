@@ -8,6 +8,7 @@ import time
 
 import numpy as np
 try:
+    # TODO: Add note about installing htcondor to documentation
     import htcondor
     from htcondor import JobEventType, JobAction
 except ImportError:
@@ -62,8 +63,11 @@ class CondorJobWrapper():
         CondorJobWrapper.idx += 1
         # Set up job input files and working directory
         self.cmd = cmd
-        self.input_files = input_files + [f"http://proxy.chtc.wisc.edu/SQUID/chtc/python3{sys.version_info.minor}.tar.gz"]  # List of input files
-        self.job_dir = job_dir  # Directory for job logs/outputs in submit host
+        self.input_files = ([os.path.abspath(input_file) for input_file in input_files])
+        for input_file in self.input_files:
+            assert os.path.exists(input_file)
+        self.input_files += [f"http://proxy.chtc.wisc.edu/SQUID/chtc/python3{sys.version_info.minor}.tar.gz"]
+        self.job_dir = os.path.abspath(job_dir)  # Directory for job logs/outputs in submit host
         if not os.path.exists(self.job_dir):
             os.makedirs(self.job_dir)
         self.job_dir_remote = os.path.basename(self.job_dir.rstrip("/"))

@@ -5,6 +5,7 @@ import copy
 import csv
 from distutils.util import strtobool
 import os
+import shutil
 import sys
 from unittest.mock import patch
 
@@ -150,6 +151,8 @@ def run_synmod(args):
     instances = np.load(f"{job_dir}/{INSTANCES_FILENAME}")
     with open(f"{job_dir}/{MODEL_FILENAME}", "rb") as model_file:
         model = cloudpickle.load(model_file)
+    if args.cleanup:
+        shutil.rmtree(job_dir)
     args.logger.info("End running synmod")
     return features, instances, model
 
