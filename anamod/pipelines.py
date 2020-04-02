@@ -41,7 +41,7 @@ class SerialPipeline():
             with open(features_filename, "rb") as features_file:
                 features.extend(cloudpickle.load(features_file))
             # Compile predictions
-            root = h5py.File(f"{directory}/results_worker_{idx}.hdf5", "r")
+            root = h5py.File(constants.RESULTS_FILENAME.format(directory, idx), "r")
 
             def load_data(group):
                 """Helper function to load data"""
@@ -59,9 +59,11 @@ class SerialPipeline():
             return
         self.args.logger.info("Begin intermediate file cleanup")
         # Remove intermediate working directory files
-        filetypes = ["features*", "results*"]
+        filetypes = [constants.INPUT_FEATURES_FILENAME.format(self.args.output_dir, "*"),
+                     constants.OUTPUT_FEATURES_FILENAME.format(self.args.output_dir, "*"),
+                     constants.RESULTS_FILENAME.format(self.args.output_dir, "*")]
         for filetype in filetypes:
-            for filename in glob.glob(f"{self.args.output_dir}/{filetype}"):
+            for filename in glob.glob(filetype):
                 os.remove(filename)
         if job_dirs:  # Remove condor job directories
             for job_dir in job_dirs:

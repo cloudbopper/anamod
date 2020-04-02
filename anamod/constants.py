@@ -11,9 +11,10 @@ INDICES = "idx"
 CLUSTER_FROM_DATA = "cluster_from_data"
 RANDOM = "random"
 
-# Pipeline
+# Worker I/O
 INPUT_FEATURES_FILENAME = "{}/input_features_worker_{}.cpkl"
 OUTPUT_FEATURES_FILENAME = "{}/output_features_worker_{}.cpkl"
+RESULTS_FILENAME = "{}/results_worker_{}.hdf5"
 VIRTUAL_ENV = "VIRTUAL_ENV"
 
 # Evaluation

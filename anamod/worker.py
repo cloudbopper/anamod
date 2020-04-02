@@ -216,7 +216,7 @@ def write_outputs(args, features, predictions):
     with open(features_filename, "wb") as features_file:
         cloudpickle.dump(features, features_file)
     # TODO: Decide if all these are still necessary (only features and predictions used by callers)
-    results_filename = "%s/results_worker_%d.hdf5" % (args.output_dir, args.worker_idx)
+    results_filename = constants.RESULTS_FILENAME.format(args.output_dir, args.worker_idx)
     root = h5py.File(results_filename, "w")
 
     def store_data(group, data):
