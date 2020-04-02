@@ -34,8 +34,8 @@ class Simulation():
 def main():
     """Main"""
     parser = argparse.ArgumentParser()
-    parser.add_argument("-analyze_results_only", type=strtobool, default=False, help="only analyze results, instead of generating them as well"
-                        " (useful when results already generated")
+    parser.add_argument("-summarize_only", type=strtobool, default=False,
+                        help="attempt to summarize results assuming they're already generated")
     parser.add_argument("-type", choices=[DEFAULT, INSTANCE_COUNTS, FEATURE_COUNTS, NOISE_LEVELS, SHUFFLING_COUNTS,
                                           SEQUENCE_LENGTHS, WINDOW_SEQUENCE_DEPENDENCE, MODEL_TYPES],
                         default=DEFAULT)
@@ -96,20 +96,24 @@ def parametrize_simulations(args, test_param):
 
 def run_simulations(args, simulations):
     """Runs simulations in parallel"""
-    if not args.analyze_results_only:
-        running_sims = set()
-        for sim in simulations:
-            args.logger.info("Running simulation: '%s'" % sim.cmd)
-            sim.popen = subprocess.Popen(sim.cmd, shell=True)
-            running_sims.add(sim)
-        while running_sims:
-            time.sleep(args.wait_period)
-            for sim in copy(running_sims):
-                returncode = sim.popen.poll()
-                if returncode is not None:
-                    running_sims.remove(sim)
-                    if returncode != 0:
-                        args.logger.error(f"Simulation {sim.cmd} failed; see logs in {sim.output_dir}")
+    if args.summarize_only:
+        return
+    error = False
+    running_sims = set()
+    for sim in simulations:
+        args.logger.info("Running simulation: '%s'" % sim.cmd)
+        sim.popen = subprocess.Popen(sim.cmd, shell=True)
+        running_sims.add(sim)
+    while running_sims:
+        time.sleep(args.wait_period)
+        for sim in copy(running_sims):
+            returncode = sim.popen.poll()
+            if returncode is not None:
+                running_sims.remove(sim)
+                if returncode != 0:
+                    args.logger.error(f"Simulation {sim.cmd} failed; see logs in {sim.output_dir}")
+                    error = True
+    assert not error, f"run_simulations.py failed, see log at {args.output_dir}"
 
 
 def analyze_simulations(args, simulations):

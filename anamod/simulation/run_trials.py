@@ -51,8 +51,8 @@ def parse_arguments(strargs):
                         default=DEFAULT, help="type of parameter to vary across simulations")
     parser.add_argument("-analysis_type", default=constants.TEMPORAL, choices=[constants.TEMPORAL, constants.HIERARCHICAL],
                         help="type of analysis to perform")
-    parser.add_argument("-summarize_only", help="enable to assume that the results are already generated,"
-                        " and just summarize them", type=strtobool, default=False)
+    parser.add_argument("-summarize_only", type=strtobool, default=False,
+                        help="attempt to summarize results assuming they're already generated")
     parser.add_argument("-output_dir", required=True)
     args, pass_arglist = parser.parse_known_args(strargs.split(" ")) if strargs else parser.parse_known_args()
     args.pass_arglist = " ".join(pass_arglist)
@@ -96,6 +96,7 @@ def run_trials(args, trials):
             if trial.returncode is not None:
                 running_trials.remove(trial)
 
+    error = False
     running_trials = set()
     # Run trials
     for trial in trials:
@@ -111,6 +112,8 @@ def run_trials(args, trials):
     for trial in trials:
         if trial.returncode != 0:
             args.logger.error(f"Trial {trial.cmd} failed; see logs in {trial.output_dir}")
+            error = True
+    assert not error, f"run_trials.py failed, see log at {args.output_dir}"
 
 
 def summarize_trials(args, trials):
