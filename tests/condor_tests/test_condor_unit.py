@@ -5,7 +5,7 @@ from anamod.utils import CondorJobWrapper
 
 
 # pylint: disable = protected-access, too-many-locals
-def test_condor_cat(tmpdir, shared_fs):
+def test_condor_cat(tmpdir, shared_fs, tracking):
     """Test condor functionality"""
     num_jobs = 100
     dirs = [None] * num_jobs
@@ -19,7 +19,7 @@ def test_condor_cat(tmpdir, shared_fs):
             cmd = f"cat {os.path.abspath(filename)} > {os.path.abspath(dirs[idx])}/newfile.txt"
         else:
             cmd = f"cat {os.path.basename(filename)} > {os.path.basename(dirs[idx])}/newfile.txt"
-        job = CondorJobWrapper(cmd, [filename], dirs[idx], shared_filesystem=shared_fs)
+        job = CondorJobWrapper(cmd, [filename], dirs[idx], shared_filesystem=shared_fs, tracking=tracking)
         job.run()
         jobs[idx] = job
     CondorJobWrapper.monitor(jobs)

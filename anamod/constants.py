@@ -11,6 +11,10 @@ INDICES = "idx"
 CLUSTER_FROM_DATA = "cluster_from_data"
 RANDOM = "random"
 
+# Condor
+POLL_BASED_TRACKING = "poll_based_tracking"
+EVENT_LOG_TRACKING = "event_log_tracking"
+
 # Worker I/O
 INPUT_FEATURES_FILENAME = "{}/input_features_worker_{}.cpkl"
 OUTPUT_FEATURES_FILENAME = "{}/output_features_worker_{}.cpkl"
