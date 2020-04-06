@@ -57,8 +57,8 @@ clean-test: ## remove test and coverage artifacts
 	rm -fr prof/
 
 lint: ## check style with pylint/flake8
-	pylint anamod tests
 	flake8 anamod tests
+	pylint anamod tests
 	doc8 docs README.rst
 
 test: ## run tests quickly with the default Python
