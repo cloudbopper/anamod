@@ -24,9 +24,9 @@ from anamod.interactions import analyze_interactions
 from anamod.pipelines import CondorPipeline, SerialPipeline
 
 
-def main():
-    """Parse arguments"""
-    parser = argparse.ArgumentParser("python anamod")
+def main(strargs=None):
+    """Parse arguments from command-line"""
+    parser = argparse.ArgumentParser("python anamod", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     # Required arguments
     required = parser.add_argument_group("Required parameters")
     required.add_argument("-output_dir", help="Output directory", required=True)
@@ -64,7 +64,7 @@ def main():
     condor.add_argument("-shared_filesystem", type=strtobool, default=False, help="Flag to indicate a shared filesystem, making "
                         "file/software transfer unnecessary for running condor (default disabled).")
 
-    args = parser.parse_args()
+    args = parser.parse_args(strargs.split(" ")) if strargs else parser.parse_args()
 
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)

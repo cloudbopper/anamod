@@ -15,6 +15,10 @@ RANDOM = "random"
 POLL_BASED_TRACKING = "poll_based_tracking"
 EVENT_LOG_TRACKING = "event_log_tracking"
 
+# Master I/O
+MODEL_FILENAME = "model.cpkl"
+DATA_FILENAME = "data.hdf5"
+
 # Worker I/O
 INPUT_FEATURES_FILENAME = "{}/input_features_worker_{}.cpkl"
 OUTPUT_FEATURES_FILENAME = "{}/output_features_worker_{}.cpkl"
@@ -49,7 +53,6 @@ DATA = "data"
 # Simulation
 RELEVANT = "relevant"
 IRRELEVANT = "irrelevant"
-MODEL_FILENAME = "model.cpkl"
 ADDITIVE_GAUSSIAN = "additive_gaussian"
 EPSILON_IRRELEVANT = "epsilon_irrelevant"
 NO_NOISE = "none"
