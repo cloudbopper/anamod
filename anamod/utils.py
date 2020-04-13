@@ -143,8 +143,8 @@ class CondorJobWrapper():
     def run(self):
         """Run job"""
         # Remove log file since it's used for tracking job progress
-        with contextlib.suppress(OSError):
-            os.remove(self.filenames.log_filename)
+        if os.path.exists(self.filenames.log_filename):
+            os.replace(self.filenames.log_filename, f"{self.filenames.log_filename}.{self.tries}")
         # Run job
         schedd = htcondor.Schedd()
         with schedd.transaction() as txn:
@@ -201,10 +201,11 @@ class CondorJobWrapper():
                     if event_type == JobEventType.JOB_TERMINATED:
                         if event["TerminatedNormally"]:
                             if event["ReturnValue"] != 0:
-                                CondorJobWrapper.process_failure(job, "terminated normally with non-zero return code", jobs)
-                            CondorJobWrapper.process_success(job, running_jobs_set, cleanup)
-                            break
-                        CondorJobWrapper.process_failure(job, "terminated abnormally", jobs)
+                                CondorJobWrapper.process_failure(job, "terminated normally with non-zero return code", jobs, retry=True)
+                            else:
+                                CondorJobWrapper.process_success(job, running_jobs_set, cleanup)
+                        else:
+                            CondorJobWrapper.process_failure(job, "terminated abnormally", jobs, retry=True)
                     elif event_type == JobEventType.JOB_HELD:
                         hold_reason_code = event["HoldReasonCode"]
                         if hold_reason_code != 1:
@@ -242,8 +243,9 @@ class CondorJobWrapper():
                         job.running = True
                 if job_status == 4:  # Job completed
                     if classad["ExitCode"] != 0:
-                        CondorJobWrapper.process_failure(job, "terminated normally with non-zero return code", jobs)
-                    CondorJobWrapper.process_success(job, running_jobs_set, cleanup)
+                        CondorJobWrapper.process_failure(job, "terminated normally with non-zero return code", jobs, retry=True)
+                    else:
+                        CondorJobWrapper.process_success(job, running_jobs_set, cleanup)
                 elif job_status == 5:  # Job held
                     hold_reason_code = classad["HoldReasonCode"]
                     if hold_reason_code != 1:
@@ -263,7 +265,7 @@ class CondorJobWrapper():
         remove_reason = (f"Job {job.name} failed: {reason}: see error file: {job.filenames.err_filename}.")
         if retry and job.tries <= CONDOR_MAX_RETRIES:
             remove_reason += (f" Retrying - attempt {job.tries + 1}")
-            CondorJobWrapper.remove_jobs(jobs, reason=remove_reason)
+            CondorJobWrapper.remove_jobs([job], reason=remove_reason)
             job.run()
             return
         CondorJobWrapper.remove_jobs(jobs, reason=remove_reason)
