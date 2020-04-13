@@ -98,14 +98,14 @@ class CondorPipeline(SerialPipeline):
         for idx in range(self.num_jobs):
             # Create and launch condor job
             features_filename = constants.INPUT_FEATURES_FILENAME.format(self.args.output_dir, idx)
-            input_files = [features_filename, self.args.model_filename, self.args.data_filename]
+            input_files = [features_filename, self.args.model_filename, self.args.model_loader_filename, self.args.data_filename]
             job_dir = f"{self.args.output_dir}/outputs_{idx}"
             cmd = f"python3 -m anamod.worker -worker_idx {idx}"
             for arg in transfer_args:
                 cmd += f" -{arg} {self.args.__getattribute__(arg)}"
             # Relative file paths for non-shared FS, absolute for shared FS
             for name, path in dict(output_dir=job_dir, features_filename=features_filename, model_filename=self.args.model_filename,
-                                   data_filename=self.args.data_filename).items():
+                                   model_loader_filename=self.args.model_loader_filename, data_filename=self.args.data_filename).items():
                 cmd += f" -{name} {os.path.abspath(path)}" if self.args.shared_filesystem else f" -{name} {os.path.basename(path)}"
             job = CondorJobWrapper(cmd, input_files, job_dir, shared_filesystem=self.args.shared_filesystem,
                                    memory=f"{self.args.memory_requirement}GB", disk=f"{self.args.disk_requirement}GB",

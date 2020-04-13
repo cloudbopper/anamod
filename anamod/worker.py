@@ -6,6 +6,9 @@ computes the effect on the model's output loss
 
 import argparse
 from collections import namedtuple
+import importlib
+import os
+import sys
 
 import cloudpickle
 import h5py
@@ -26,6 +29,7 @@ def main():
     parser.add_argument("-model_filename", required=True)
     parser.add_argument("-data_filename", required=True)
     parser.add_argument("-output_dir", required=True)
+    parser.add_argument("-model_loader_filename", required=True)
     parser.add_argument("-analysis_type", required=True)
     parser.add_argument("-perturbation", required=True)
     parser.add_argument("-num_shuffling_trials", required=True, type=int)
@@ -79,8 +83,10 @@ def load_data(data_filename):
 def load_model(args):
     """Load model object from model-generating python file"""
     args.logger.info("Begin loading model")
-    with open(args.model_filename, "rb") as model_file:
-        model = cloudpickle.load(model_file)
+    dirname, filename = os.path.split(os.path.abspath(args.model_loader_filename))
+    sys.path.insert(1, dirname)
+    loader = importlib.import_module(os.path.splitext(filename)[0])
+    model = loader.load_model(args.model_filename)
     args.logger.info("End loading model")
     return model
 

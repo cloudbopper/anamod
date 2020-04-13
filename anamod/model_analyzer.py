@@ -1,13 +1,15 @@
 """Python API to analyze temporal models"""
 from abc import ABC
 import csv
+import importlib
+import os
+import sys
 import tempfile
 
 import anytree
-import cloudpickle
 import h5py
 
-from anamod import master, constants
+from anamod import master, constants, model_loader
 
 
 class ModelAnalyzer(ABC):
@@ -20,7 +22,7 @@ class ModelAnalyzer(ABC):
         """
         # FIXME: Temporary directory may not be in shared location on shared FS
         self.output_dir = kwargs.pop("output_dir") if "output_dir" in kwargs else tempfile.mkdtemp()
-        self.model_filename = self.gen_model_file(model)
+        self.model_filename = self.gen_model_file(model, kwargs.get("model_loader_filename", os.path.abspath(model_loader.__file__)))
         self.data_filename = self.gen_data_file(data, targets)
         # TODO: Add optional feature names
         # TODO: Add -condor 1 -shared_filesystem 0 iff htcondor available
@@ -38,11 +40,14 @@ class ModelAnalyzer(ABC):
         features = master.main(strargs)
         return features
 
-    def gen_model_file(self, model):
+    def gen_model_file(self, model, model_loader_filename):
         """Generate model file"""
         model_filename = f"{self.output_dir}/{constants.MODEL_FILENAME}"
-        with open(model_filename, "wb") as model_file:
-            cloudpickle.dump(model, model_file)
+        assert os.path.exists(model_loader_filename), f"Model loader file {model_loader_filename} does not exist"
+        dirname, filename = os.path.split(os.path.abspath(model_loader_filename))
+        sys.path.insert(1, dirname)
+        loader = importlib.import_module(os.path.splitext(filename)[0])
+        loader.save_model(model, model_filename)
         return model_filename
 
     def gen_data_file(self, data, targets):
@@ -61,18 +66,16 @@ class ModelAnalyzer(ABC):
 class TemporalModelAnalyzer(ModelAnalyzer):
     """Analyzes properties of temporal model"""
     def __init__(self, model, data, targets, **kwargs):
+        kwargs["analysis_type"] = constants.TEMPORAL
         super().__init__(model, data, targets, **kwargs)
-        analysis_type = kwargs.get("analysis_type", constants.TEMPORAL)
-        assert analysis_type == constants.TEMPORAL
 
 
 class HierarchicalModelAnalyzer(ModelAnalyzer):
     """Analyzes hierarchical feature importance"""
     def __init__(self, model, data, targets, hierarchy, **kwargs):
         """Hierarchy in the form of an anytree root node"""
+        kwargs["analysis_type"] = constants.HIERARCHICAL
         super().__init__(model, data, targets, **kwargs)
-        analysis_type = kwargs.get("analysis_type", constants.HIERARCHICAL)
-        assert analysis_type == constants.HIERARCHICAL
         self.hierarchy_filename = self.gen_hierarchy_file(hierarchy)
         self.cmd += f" -hierarchy_filename {self.hierarchy_filename}"
 

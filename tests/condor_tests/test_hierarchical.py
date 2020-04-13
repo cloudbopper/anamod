@@ -1,8 +1,10 @@
 """Tests for `anamod` package."""
 
+import os
 import sys
 from unittest.mock import patch
 
+from anamod import model_loader
 from anamod.simulation import simulation
 from tests.utils import pre_test, post_test
 
@@ -15,6 +17,7 @@ def test_condor_simulation_random_hierarchy(file_regression, tmpdir, caplog, sha
     cmd = ("python -m anamod.simulation -condor 1 -memory_requirement 1 -disk_requirement 1"
            " -seed 1 -num_instances 100 -num_features 10 -fraction_relevant_features 0.5"
            " -contiguous_node_names 1 -hierarchy_type random -perturbation zeroing -cleanup 0"
+           f" -model_loader_filename {os.path.abspath(model_loader.__file__)}"
            f" -shared_filesystem {shared_fs} -output_dir {output_dir}")
     pass_args = cmd.split()[2:]
     with patch.object(sys, 'argv', pass_args):
@@ -57,6 +60,7 @@ def test_condor_simulation_gaussian_noise(file_regression, tmpdir, caplog, share
     cmd = ("python -m anamod.simulation -condor 1 -memory_requirement 1 -disk_requirement 1"
            " -seed 4 -num_instances 100 -num_features 10 -fraction_relevant_features 0.5"
            " -contiguous_node_names 1 -hierarchy_type random -perturbation zeroing -noise_multiplier 0.1"
+           f" -model_loader_filename {os.path.abspath(model_loader.__file__)}"
            " -noise_type additive_gaussian -cleanup 0"
            f" -shared_filesystem {shared_fs} -output_dir {output_dir}")
     pass_args = cmd.split()[2:]
@@ -102,6 +106,7 @@ def test_condor_simulation_noisy_interactions(file_regression, tmpdir, caplog, s
     cmd = ("python -m anamod.simulation -condor 1 -memory_requirement 1 -disk_requirement 1"
            " -seed 9 -num_instances 100 -num_features 10 -fraction_relevant_features 0.5"
            " -analyze_interactions 1 -hierarchy_type random -perturbation zeroing -noise_multiplier 0.1 -noise_type additive_gaussian"
+           f" -model_loader_filename {os.path.abspath(model_loader.__file__)}"
            " -num_interactions 3 -cleanup 0"
            f" -shared_filesystem {shared_fs} -output_dir {output_dir}")
     pass_args = cmd.split()[2:]

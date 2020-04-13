@@ -17,7 +17,7 @@ import anytree
 import h5py
 import numpy as np
 
-from anamod import constants, utils
+from anamod import constants, utils, model_loader
 from anamod.fdr import hierarchical_fdr_control
 from anamod.feature import Feature
 from anamod.interactions import analyze_interactions
@@ -34,6 +34,9 @@ def main(strargs=None):
     required.add_argument("-model_filename", help="File containing model, pickled using cloudpickle", required=True)
     # Optional common arguments
     common = parser.add_argument_group("Common optional parameters")
+    common.add_argument("-model_loader_filename", help="Python script that provides functions to load/save model. "
+                        "If none is provided, cloudpickle will be used - see anamod/model_loader.py for a template",
+                        default=os.path.abspath(model_loader.__file__))
     common.add_argument("-analysis_type", help="Type of model analysis to perform",
                         default=constants.HIERARCHICAL, choices=[constants.TEMPORAL, constants.HIERARCHICAL])
     common.add_argument("-perturbation", default=constants.SHUFFLING, choices=[constants.ZEROING, constants.SHUFFLING],
