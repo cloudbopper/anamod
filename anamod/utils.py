@@ -17,7 +17,7 @@ except ImportError:
 from anamod.constants import VIRTUAL_ENV, EVENT_LOG_TRACKING
 
 CONDOR_MAX_RUNNING_TIME = 4 * 3600
-CONDOR_MAX_WAIT_TIME = 300  # Time to wait for job to start running before retrying
+CONDOR_MAX_WAIT_TIME = 600  # Time to wait for job to start running before retrying
 CONDOR_MAX_RETRIES = 5
 # Reference: https://htcondor.readthedocs.io/en/latest/classad-attributes/job-classad-attributes.html
 CONDOR_HOLD_RETRY_CODES = set([6, 7, 8, 9, 10, 11, 12, 13, 14])
@@ -281,16 +281,13 @@ class CondorJobWrapper():
         running_time = current_time - job.execute_time
         remove_reason = ""
         if job.running and running_time > CONDOR_MAX_RUNNING_TIME:
-            remove_reason = f"failed to run in {CONDOR_MAX_RUNNING_TIME} seconds;"
+            remove_reason = f"failed to finish in {CONDOR_MAX_RUNNING_TIME} seconds;"
         elif not job.running and waiting_time > CONDOR_MAX_WAIT_TIME:
-            remove_reason = f"failed to start running in {CONDOR_MAX_RUNNING_TIME} seconds;"
+            remove_reason = f"failed to start running in {CONDOR_MAX_WAIT_TIME} seconds;"
         if remove_reason:
-            if job.tries > CONDOR_MAX_RETRIES:
-                remove_reason += f" exceeded max retries {CONDOR_MAX_RETRIES}"
-                CondorJobWrapper.process_failure(job, remove_reason, jobs)
-            remove_reason += (f" retrying - attempt {job.tries + 1}")
-            CondorJobWrapper.remove_jobs(jobs, reason=remove_reason)
-            job.run()
+            retry = job.tries < CONDOR_MAX_RETRIES
+            remove_reason += f" retrying - attempt {job.tries + 1}" if retry else f" exceeded max retries {CONDOR_MAX_RETRIES}"
+            CondorJobWrapper.process_failure(job, remove_reason, jobs, retry=retry)
 
     @staticmethod
     def remove_jobs(jobs, reason=None):
