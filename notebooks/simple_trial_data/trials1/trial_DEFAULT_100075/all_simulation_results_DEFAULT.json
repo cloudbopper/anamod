@@ -1,0 +1,1 @@
+{"DEFAULT": {"FDR": 0.0, "Power": 0.8, "Temporal_FDR": 0.0, "Temporal_Power": 0.8, "Average_Window_FDR": 0.0, "Average_Window_Power": 0.7215909090909092, "Window_Overlap": {"0": 0.9090909090909092, "5": 0.9090909090909092, "6": 1.0, "8": 0.625}}}
