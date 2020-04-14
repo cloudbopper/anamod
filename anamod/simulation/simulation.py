@@ -24,7 +24,7 @@ from anamod.utils import CondorJobWrapper
 
 def main():
     """Main"""
-    parser = argparse.ArgumentParser("python anamod.simulation")
+    parser = argparse.ArgumentParser("python anamod.simulation", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     # Required arguments
     required = parser.add_argument_group("Required parameters")
     required.add_argument("-output_dir", help="Name of output directory")

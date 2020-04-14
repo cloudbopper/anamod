@@ -20,7 +20,7 @@ from anamod.fdr.fdr_algorithms import hierarchical_fdr_control
 
 def main():
     """Main"""
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-output_dir", help="name of output directory")
     parser.add_argument("-dependence_assumption", help="choice of dependence assumption used by Lynch and Guo (2016) procedure",
                         choices=[constants.POSITIVE, constants.ARBITRARY], default=constants.POSITIVE)

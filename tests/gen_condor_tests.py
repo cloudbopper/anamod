@@ -20,7 +20,7 @@ def main():
     """Generate condor tests by copying/substituting existing non-condor tests"""
     # pylint: disable = too-many-locals
     # Parse args
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-overwrite_golds", help="overwrite existing gold files", type=strtobool, default=True)
     parser.add_argument("-type", default=HIERARCHICAL, choices=[HIERARCHICAL, TEMPORAL])
     args = parser.parse_args()

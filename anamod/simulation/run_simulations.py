@@ -33,7 +33,7 @@ class Simulation():
 
 def main():
     """Main"""
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-summarize_only", type=strtobool, default=False,
                         help="attempt to summarize results assuming they're already generated")
     parser.add_argument("-type", choices=[DEFAULT, INSTANCE_COUNTS, FEATURE_COUNTS, NOISE_LEVELS, SHUFFLING_COUNTS,
