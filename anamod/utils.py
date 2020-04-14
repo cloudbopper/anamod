@@ -21,6 +21,7 @@ CONDOR_MAX_WAIT_TIME = 300  # Time to wait for job to start running before retry
 CONDOR_MAX_RETRIES = 5
 # Reference: https://htcondor.readthedocs.io/en/latest/classad-attributes/job-classad-attributes.html
 CONDOR_HOLD_RETRY_CODES = set([6, 7, 8, 9, 10, 11, 12, 13, 14])
+CONDOR_AVOID_HOSTS = ["mastodon-5.biostat.wisc.edu"]  # List of hosts to avoid (if causing issues)
 
 
 def get_logger(name, filename, level=logging.INFO):
@@ -109,6 +110,7 @@ class CondorJobWrapper():
                                "log": f"{self.filenames.log_filename}",
                                "request_memory": f"{memory}",
                                "request_disk": f"{disk}",
+                               "requirements": " && ".join([f"(Machine != \"{hostname}\")" for hostname in CONDOR_AVOID_HOSTS]),
                                "universe": "vanilla",
                                "should_transfer_files": "NO" if self.shared_filesystem else "YES",
                                "transfer_input_files": "" if self.shared_filesystem else ",".join(self.input_files),
