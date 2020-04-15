@@ -101,7 +101,7 @@ def get_interaction_groups(args, potential_interactions):
     for left, right in potential_interactions:
         name = left.name + " + " + right.name
         parent_node = Feature(name, idx=left.idx + right.idx)
-        if Feature.size(left) >= Feature.size(right):
+        if left.size >= right.size:
             cached_node = left
             redo_node = right
         else:

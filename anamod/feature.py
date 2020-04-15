@@ -40,6 +40,11 @@ class Feature(anytree.Node):
         assert uniquifier
         self.name = "{0}->{1}".format(uniquifier, self.name)
 
+    @property
+    def size(self):
+        """Return size"""
+        return len(self.idx)
+
     @staticmethod
     def unpack_indices(str_indices):
         """Converts tab-separated string of indices to int list"""
@@ -51,8 +56,3 @@ class Feature(anytree.Node):
     def pack_indices(int_indices):
         """Converts int list of indices to tab-separated string"""
         return "\t".join([str(idx) for idx in int_indices])
-
-    @staticmethod
-    def size(feature):
-        """Returns 'size' of feature"""
-        return len(feature.idx)

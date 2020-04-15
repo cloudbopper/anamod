@@ -84,7 +84,7 @@ class PerturbTensor(PerturbationMechanism):
         perturbed_slice = self._perturbation_fn(rng).operate(X_hat[axis0, axis1, axis2])
         if timesteps == ... and np.isscalar(idx):
             # Basic indexing - view was perturbed, so no assignment needed
-            X_hat = np.transpose(X_hat) if self._perturbation_type == constants.WITHIN_INSTANCE else X_hat
+            X_hat = X_hat.base if self._perturbation_type == constants.WITHIN_INSTANCE else X_hat
             assert perturbed_slice.base is X_hat
             return X_hat
         X_hat[axis0, axis1, axis2] = perturbed_slice
