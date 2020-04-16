@@ -98,7 +98,8 @@ def perturb_interactions(args, interaction_groups):
 def get_interaction_groups(args, potential_interactions):
     """Transform into nodes for testing"""
     interaction_groups = []
-    for left, right in potential_interactions:
+    for interaction in potential_interactions:
+        left, right = sorted(interaction, key=lambda node: node.name)  # Order alphabetically for consistent outputs
         name = left.name + " + " + right.name
         parent_node = Feature(name, idx=left.idx + right.idx)
         if left.size >= right.size:

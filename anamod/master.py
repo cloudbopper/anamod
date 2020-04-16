@@ -34,6 +34,8 @@ def main(strargs=None):
     required.add_argument("-model_filename", help="File containing model, pickled using cloudpickle", required=True)
     # Optional common arguments
     common = parser.add_argument_group("Common optional parameters")
+    common.add_argument("-seed", help="Seed for random number generator (used to order features to be analyzed)",
+                        type=int, default=constants.SEED)
     common.add_argument("-model_loader_filename", help="Python script that provides functions to load/save model. "
                         "If none is provided, cloudpickle will be used - see anamod/model_loader.py for a template",
                         default=os.path.abspath(model_loader.__file__))
@@ -71,7 +73,7 @@ def main(strargs=None):
 
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
-    args.rng = np.random.default_rng(constants.SEED)
+    args.rng = np.random.default_rng(args.seed)
     args.logger = utils.get_logger(__name__, "%s/anamod.log" % args.output_dir)
     validate_args(args)
     return pipeline(args)

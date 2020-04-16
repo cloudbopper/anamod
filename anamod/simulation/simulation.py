@@ -287,6 +287,7 @@ def run_anamod(args, pass_args, model, data, targets, hierarchy=None):  # pylint
         analyzer = HierarchicalModelAnalyzer(model, data, targets, hierarchy, output_dir=args.output_dir)
     # Add options
     options = {}
+    options["seed"] = args.seed
     options["memory_requirement"] = 1 + (os.stat(analyzer.data_filename).st_size // (2 ** 30))
     options["disk_requirement"] = 3 + options["memory_requirement"]
     options["analysis_type"] = args.analysis_type
