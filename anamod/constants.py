@@ -1,5 +1,7 @@
 """Constant definitions"""
 
+# TODO: Remove redundant constants
+
 # Arguments
 HIERARCHICAL = "hierarchical"
 
@@ -7,7 +9,6 @@ HIERARCHICAL = "hierarchical"
 NODE_NAME = "name"
 PARENT_NAME = "parent_name"
 DESCRIPTION = "description"
-INDICES = "idx"
 CLUSTER_FROM_DATA = "cluster_from_data"
 RANDOM = "random"
 

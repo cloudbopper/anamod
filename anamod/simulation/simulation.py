@@ -162,6 +162,7 @@ def gen_hierarchy(args, clustering_data):
     Returns:
         hierarchy_root: root fo resulting hierarchy over features
     """
+    # TODO: Get rid of possibly redundant hierarchy attributes e.g. vidx
     # Generate hierarchy
     hierarchy_root = None
     if args.hierarchy_type == constants.CLUSTER_FROM_DATA:
@@ -181,7 +182,7 @@ def gen_hierarchy(args, clustering_data):
                 node.max_child_vidx = idx
                 node.num_base_features = 1
                 node.name = str(idx)
-                feature_id_map[idx] = int(node.idx)
+                feature_id_map[idx] = node.idx[0]
             else:
                 node.min_child_vidx = min([child.min_child_vidx for child in node.children])
                 node.max_child_vidx = max([child.vidx for child in node.children])
@@ -193,7 +194,7 @@ def gen_hierarchy(args, clustering_data):
 def gen_random_hierarchy(args):
     """Generates balanced random hierarchy"""
     args.logger.info("Begin generating hierarchy")
-    nodes = [anytree.Node(str(idx), idx=str(idx)) for idx in range(args.num_features)]
+    nodes = [anytree.Node(str(idx), idx=[idx]) for idx in range(args.num_features)]
     args.rng.shuffle(nodes)
     node_count = len(nodes)
     while len(nodes) > 1:
@@ -233,7 +234,7 @@ def gen_hierarchy_from_clusters(args, clusters):
         hierarchy_root: root of resulting hierarchy over features
     """
     # Generate hierarchy from clusters
-    nodes = [anytree.Node(str(idx), idx=str(idx)) for idx in range(args.num_features)]
+    nodes = [anytree.Node(str(idx), idx=[idx]) for idx in range(args.num_features)]
     for idx, cluster in enumerate(clusters):
         cluster_idx = idx + args.num_features
         left_idx, right_idx, _, _ = cluster
@@ -260,7 +261,7 @@ def update_hierarchy_relevance(hierarchy_root, relevant_feature_map, features):
     for node in anytree.PostOrderIter(hierarchy_root):
         node.description = constants.IRRELEVANT
         if node.is_leaf:
-            idx = int(node.idx)
+            idx = node.idx[0]
             node.poly_coeff = 0.0
             node.bin_prob = probs[idx]
             coeff = relevant_feature_map.get(frozenset([idx]))

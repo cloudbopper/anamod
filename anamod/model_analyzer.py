@@ -1,6 +1,5 @@
 """Python API to analyze temporal models"""
 from abc import ABC
-import csv
 import importlib
 import os
 import sys
@@ -9,6 +8,7 @@ import anytree
 import h5py
 
 from anamod import master, constants, model_loader
+from anamod.feature import Feature
 
 
 class ModelAnalyzer(ABC):  # pylint: disable = too-many-instance-attributes
@@ -135,7 +135,7 @@ class ModelAnalyzer(ABC):  # pylint: disable = too-many-instance-attributes
         self.model_filename = self.gen_model_file(model)
         self.data_filename = self.gen_data_file(data, targets)
         self.analysis_type = constants.HIERARCHICAL if self.feature_hierarchy else constants.TEMPORAL
-        self.hierarchy_filename = self.gen_hierarchy_file(data)
+        self.gen_hierarchy(data)
 
     def process_keyword_arg(self, argname, default_value):
         """Process keyword argument along with simple type validation"""
@@ -184,37 +184,53 @@ class ModelAnalyzer(ABC):  # pylint: disable = too-many-instance-attributes
         root.close()
         return data_filename
 
-    def gen_hierarchy_file(self, data):
+    def gen_hierarchy(self, data):
         """
-        Generate hierarchy CSV file (hierarchical feature importance analysis only)
-
-        Columns:
-                *name*:             feature name, must be unique across features
-                *parent_name*:      name of parent if it exists, else '' (root node)
-                *description*:      node description
-                *idx*:              [only required for leaf nodes] list of tab-separated indices corresponding to the indices
-                                    of these features in the data
+        Create a new feature hierarchy:
+        (i) from input hierarchy if available, and
+        (ii) from feature set if not
         """
-        # Tag nodes to indicate whether they should be perturbed
+        num_features = data.shape[1]
         if self.feature_hierarchy is None:
             # Create hierarchy if not available
             if self.feature_names is None:
                 # Generate feature names if not available
-                num_features = data.shape[1]
                 self.feature_names = [f"{idx}" for idx in range(num_features)]
-            root = anytree.Node("ROOT", perturbable=False, description="ROOT")
+            root = Feature(constants.DUMMY_ROOT, description=constants.DUMMY_ROOT, perturbable=False)  # Dummy node, shouldn't be perturbed
             for idx, feature_name in enumerate(self.feature_names):
-                node = anytree.Node(feature_name, parent=root, perturbable=True, description=f"Feature {idx}", idx=idx)
+                Feature(feature_name, parent=root, idx=[idx])
             self.feature_hierarchy = root
-        # TODO: Get rid of this file
-        # Just use hierarchy object
-        hierarchy_filename = f"{self.output_dir}/hierarchy.csv"
-        with open(hierarchy_filename, "w", newline="") as hierarchy_file:
-            writer = csv.writer(hierarchy_file, delimiter=",")
-            writer.writerow([constants.NODE_NAME, constants.PARENT_NAME,
-                             constants.DESCRIPTION, constants.INDICES])
-            for node in anytree.PreOrderIter(self.feature_hierarchy):
-                idx = node.idx if node.is_leaf else ""
-                parent_name = node.parent.name if node.parent else ""
-                writer.writerow([node.name, parent_name, node.description, idx])
-        return hierarchy_filename
+        else:
+            # TODO: Document real hierarchy with examples
+            # Input hierarchy needs a list of indices assigned to all base features
+            # Create hierarchy over features from input hierarchy
+            feature_nodes = {}
+            all_idx = set()
+            # Parse and validate input hierarchy
+            for node in anytree.PostOrderIter(self.feature_hierarchy):
+                idx = []
+                if node.is_leaf:
+                    valid = (hasattr(node, "idx") and
+                             isinstance(node.idx, list) and
+                             len(node.idx) >= 1 and
+                             all([isinstance(node.idx[i], int) for i in range(len(node.idx))]))
+                    assert valid, f"Leaf node {node.name} must contain a non-empty list of integer indices under attribute 'idx'"
+                    assert not all_idx.intersection(node.idx), f"Leaf node {node.name} has index overlap with other leaf nodes"
+                    idx = node.idx
+                    all_idx.update(idx)
+                else:
+                    # Ensure internal nodes have empty initial indices
+                    valid = not hasattr(node, "idx") or not node.idx
+                    assert valid, f"Internal node {node.name} must have empty initial indices under attribute 'idx'"
+                feature_nodes[node.name] = Feature(node.name, description=node.description, idx=idx)
+            # Update feature group (internal node) indices and tree connections
+            assert min(all_idx) >= 0 and max(all_idx) < num_features, "Feature indices in hierarchy must be in range [0, num_features - 1]"
+            feature_node = None
+            for node in anytree.PostOrderIter(self.feature_hierarchy):
+                feature_node = feature_nodes[node.name]
+                parent = node.parent
+                if parent:
+                    feature_node.parent = feature_nodes[parent.name]
+                for child in node.children:
+                    feature_node.idx += feature_nodes[child.name].idx
+            self.feature_hierarchy = feature_node  # root

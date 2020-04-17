@@ -16,7 +16,6 @@ import numpy as np
 
 from anamod import constants, utils
 from anamod.fdr import hierarchical_fdr_control
-from anamod.feature import Feature
 from anamod.interactions import analyze_interactions
 from anamod.pipelines import CondorPipeline, SerialPipeline
 
@@ -34,10 +33,7 @@ def main(args):
 def pipeline(args):
     """Master pipeline"""
     args.logger.info("Begin anamod master pipeline with args: %s" % args)
-    hierarchy_root = load_hierarchy(args.hierarchy_filename)
-    features = list(anytree.PreOrderIter(hierarchy_root))  # flatten hierarchy
-    if args.analysis_type == constants.TEMPORAL:
-        features = features[1:]  # Remove dummy root node; TODO: get rid of hierarchy file altogether to avoid this
+    features = list(filter(lambda node: node.perturbable, anytree.PreOrderIter(args.feature_hierarchy)))  # flatten hierarchy
     # Prepare features for perturbation
     prepare_features(args, features)
     # Perturb features
@@ -50,54 +46,6 @@ def pipeline(args):
         analyze_interactions(args, features, predictions)
     args.logger.info("End anamod master pipeline")
     return features  # FIXME: some outputs returned via return value (temporal analysis), other via output file (hierarchical analysis)
-
-
-def load_hierarchy(hierarchy_filename):
-    """
-    Load hierarchy from CSV.
-
-    Args:
-        hierarchy_filename: CSV specifying hierarchy in required format (see anamod/spec.md)
-
-    Returns:
-        anytree node representing root of hierarchy
-
-    """
-    root = None
-    nodes = {}
-    # Construct nodes
-    with open(hierarchy_filename) as hierarchy_file:
-        reader = csv.DictReader(hierarchy_file)
-        for row in reader:
-            node = Feature(row[constants.NODE_NAME],
-                           parent_name=row[constants.PARENT_NAME], description=row[constants.DESCRIPTION],
-                           idx=Feature.unpack_indices(row[constants.INDICES]))
-            assert node.name not in nodes, "Node name must be unique across all features: %s" % node.name
-            nodes[node.name] = node
-    # Construct tree
-    for node in nodes.values():
-        if not node.parent_name:
-            assert not root, "Invalid tree structure: %s and %s both have no parent" % (root.node_name, node.node_name)
-            root = node
-        else:
-            assert node.parent_name in nodes, "Invalid tree structure: no parent named %s" % node.parent_name
-            node.parent = nodes[node.parent_name]
-    assert root, "Invalid tree structure: root node missing (every node has a parent)"
-    # Checks
-    all_idx = set()
-    for node in anytree.PostOrderIter(root):
-        if node.is_leaf:
-            assert node.idx, "Leaf node %s must have at least one index" % node.name
-            assert not all_idx.intersection(node.idx), "Leaf node %s has index overlap with other leaf nodes" % node.name
-            all_idx.update(node.idx)
-        else:
-            # Ensure non-leaf nodes have empty initial indices
-            assert not node.idx, "Non-leaf node %s has non-empty initial indices" % node.name
-    # Populate data structures
-    for node in anytree.PostOrderIter(root):
-        for child in node.children:
-            node.idx += child.idx
-    return root
 
 
 def prepare_features(args, features):
@@ -150,12 +98,10 @@ def validate_args(args):
     """Validate arguments"""
     if args.analyze_interactions and args.perturbation == constants.SHUFFLING:
         raise ValueError("Interaction analysis is not supported with shuffling perturbations")
-    if args.analysis_type == constants.HIERARCHICAL:
-        assert args.hierarchy_filename, "Hierarchy filename required for hierarchical feature importance analysis"
     if args.condor:
         try:
             importlib.import_module("htcondor")
         except ModuleNotFoundError:
             raise ModuleNotFoundError("htcondor module not found. "
                                       "Use 'pip install htcondor' to install htcondor on a compatible platform, or "
-                                      "disable condor by passing command-line argument -condor 0'")
+                                      "disable condor")
