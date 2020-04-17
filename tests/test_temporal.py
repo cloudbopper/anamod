@@ -5,7 +5,7 @@ import sys
 from unittest.mock import patch
 
 from anamod import model_loader
-from anamod.simulation import simulation
+from anamod.simulation import simulation, run_trials
 from tests.utils import pre_test, write_logfile
 
 
@@ -39,5 +39,19 @@ def test_simulation_classifier1(data_regression, tmpdir, caplog, shared_fs):
     pass_args = cmd.split()[2:]
     with patch.object(sys, 'argv', pass_args):
         results = simulation.main()
+    write_logfile(caplog, output_dir)
+    data_regression.check(str(results))
+
+
+def test_trial_regressor1(data_regression, tmpdir, caplog, shared_fs):
+    """Test trial with regression model over temporal data"""
+    func_name = sys._getframe().f_code.co_name
+    output_dir = pre_test(func_name, tmpdir, caplog)
+    cmd = ("python -m anamod.run_trials"
+           " -start_seed 1000 -num_trials 2"
+           " -type test -wait_period 0 -trial_wait_period 0"
+           f" -shared_filesystem {shared_fs} -output_dir {output_dir}")
+    strargs = " ".join(cmd.split()[3:])
+    results = run_trials.main(strargs)
     write_logfile(caplog, output_dir)
     data_regression.check(str(results))

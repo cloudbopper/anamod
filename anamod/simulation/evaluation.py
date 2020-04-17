@@ -131,8 +131,9 @@ def evaluate_temporal(args, model, features):
             left, right = feature.temporal_window
             inferred_windows[idx][left: right + 1] = 1
     # Get scores
-    imp_precision, imp_recall, _, _ = precision_recall_fscore_support(important, inferred_important, average="binary")
-    timp_precision, timp_recall, _, _ = precision_recall_fscore_support(temporally_important, inferred_temporally_important, average="binary")
+    imp_precision, imp_recall, _, _ = precision_recall_fscore_support(important, inferred_important, average="binary", zero_division=0)
+    timp_precision, timp_recall, _, _ = precision_recall_fscore_support(temporally_important, inferred_temporally_important,
+                                                                        average="binary", zero_division=0)
     window_results = {}
     for idx, _ in enumerate(features):
         if not inferred_temporally_important[idx]:
@@ -140,8 +141,8 @@ def evaluate_temporal(args, model, features):
         window_precision, window_recall, _, _ = precision_recall_fscore_support(windows[idx], inferred_windows[idx], average="binary")
         window_overlap = balanced_accuracy_score(windows[idx], inferred_windows[idx])
         window_results[idx] = {"precision": window_precision, "recall": window_recall, "overlap": window_overlap}
-    avg_window_precision = np.mean([result["precision"] for result in window_results.values()])
-    avg_window_recall = np.mean([result["recall"] for result in window_results.values()])
+    avg_window_precision = np.mean([result["precision"] for result in window_results.values()]) if window_results else 0.
+    avg_window_recall = np.mean([result["recall"] for result in window_results.values()]) if window_results else 0.
     window_overlaps = {idx: result["overlap"] for idx, result in window_results.items()}
     return Results(TEMPORAL, {FDR: 1 - imp_precision, POWER: imp_recall,
                               TEMPORAL_FDR: 1 - timp_precision, TEMPORAL_POWER: timp_recall,

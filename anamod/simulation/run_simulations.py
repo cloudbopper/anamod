@@ -12,7 +12,7 @@ import subprocess
 
 from anamod import constants, utils
 from anamod.constants import DEFAULT, INSTANCE_COUNTS, NOISE_LEVELS, FEATURE_COUNTS, SHUFFLING_COUNTS, ALL_SIMULATION_RESULTS
-from anamod.constants import SEQUENCE_LENGTHS, WINDOW_SEQUENCE_DEPENDENCE, MODEL_TYPES
+from anamod.constants import SEQUENCE_LENGTHS, WINDOW_SEQUENCE_DEPENDENCE, MODEL_TYPES, TEST
 
 OUTPUTS = "%s/%s_%s"
 TestParam = namedtuple("TestParameter", ["key", "values"])
@@ -37,7 +37,7 @@ def main():
     parser.add_argument("-summarize_only", type=strtobool, default=False,
                         help="attempt to summarize results assuming they're already generated")
     parser.add_argument("-type", choices=[DEFAULT, INSTANCE_COUNTS, FEATURE_COUNTS, NOISE_LEVELS, SHUFFLING_COUNTS,
-                                          SEQUENCE_LENGTHS, WINDOW_SEQUENCE_DEPENDENCE, MODEL_TYPES],
+                                          SEQUENCE_LENGTHS, WINDOW_SEQUENCE_DEPENDENCE, MODEL_TYPES, TEST],
                         default=DEFAULT)
     parser.add_argument("-analysis_type", default=constants.TEMPORAL, choices=[constants.TEMPORAL, constants.HIERARCHICAL])
     parser.add_argument("-output_dir", required=True)

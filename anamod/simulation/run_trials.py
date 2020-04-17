@@ -12,7 +12,7 @@ import time
 import numpy as np
 from anamod import constants, utils
 from anamod.constants import DEFAULT, INSTANCE_COUNTS, NOISE_LEVELS, FEATURE_COUNTS, SHUFFLING_COUNTS
-from anamod.constants import SEQUENCE_LENGTHS, WINDOW_SEQUENCE_DEPENDENCE, MODEL_TYPES
+from anamod.constants import SEQUENCE_LENGTHS, WINDOW_SEQUENCE_DEPENDENCE, MODEL_TYPES, TEST
 
 TRIAL = "trial"
 SUMMARY_FILENAME = "all_trials_summary"
@@ -47,7 +47,7 @@ def parse_arguments(strargs):
     parser.add_argument("-start_seed", type=int, default=100000, help="randomization seed for first trial, incremented for"
                         " every subsequent trial.")
     parser.add_argument("-type", choices=[DEFAULT, INSTANCE_COUNTS, FEATURE_COUNTS, NOISE_LEVELS, SHUFFLING_COUNTS,
-                                          SEQUENCE_LENGTHS, WINDOW_SEQUENCE_DEPENDENCE, MODEL_TYPES],
+                                          SEQUENCE_LENGTHS, WINDOW_SEQUENCE_DEPENDENCE, MODEL_TYPES, TEST],
                         default=DEFAULT, help="type of parameter to vary across simulations")
     parser.add_argument("-analysis_type", default=constants.TEMPORAL, choices=[constants.TEMPORAL, constants.HIERARCHICAL],
                         help="type of analysis to perform")
@@ -129,8 +129,9 @@ def summarize_trials(args, trials):
                         data[key] = OrderedDict()
                     if param not in data[key]:
                         data[key][param] = np.zeros(args.num_trials)
+                    # FIXME: Want to plot window accuracy by overlap (instead of average window overlap)
                     if key == constants.WINDOW_OVERLAP:
-                        value = np.mean(list(value.values()))  # FIXME: Want to plot window accuracy by overlap (instead of average window overlap)
+                        value = np.mean(list(value.values())) if value else 0.
                     data[key][param][tidx] = value
     return data
 

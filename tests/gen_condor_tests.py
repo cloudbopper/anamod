@@ -12,8 +12,13 @@ GOLDS = {HIERARCHICAL: "test_hierarchical", TEMPORAL: "test_temporal"}
 CONDOR_TEST_DIRECTORY = "condor_tests"
 TEST_SIMULATION = "test_simulation"
 TEST_CONDOR_SIMULATION = "test_condor_simulation"
+TEST_TRIAL = "test_trial"
+TEST_CONDOR_TRIAL = "test_condor_trial"
+CONDOR_ARGS = "-condor 1 -memory_requirement 1 -disk_requirement 1"
 SUBSTITUTIONS = {TEST_SIMULATION: TEST_CONDOR_SIMULATION,
-                 "python -m anamod.simulation": "python -m anamod.simulation -condor 1 -memory_requirement 1 -disk_requirement 1"}
+                 "python -m anamod.simulation": f"python -m anamod.simulation {CONDOR_ARGS}",
+                 TEST_TRIAL: TEST_CONDOR_TRIAL,
+                 "python -m anamod.run_trials": f"python -m anamod.run_trials {CONDOR_ARGS}"}
 
 
 def main():
@@ -45,7 +50,10 @@ def main():
         os.makedirs(condor_gold_dir)
     gold_dir_abs = os.path.join(test_dir, gold_dir)
     for gold_filename in os.listdir(gold_dir_abs):
-        condor_gold_filename = os.path.join(condor_gold_dir, re.sub(TEST_SIMULATION, TEST_CONDOR_SIMULATION, gold_filename))
+        if TEST_TRIAL in gold_filename:
+            condor_gold_filename = os.path.join(condor_gold_dir, re.sub(TEST_TRIAL, TEST_CONDOR_TRIAL, gold_filename))
+        else:
+            condor_gold_filename = os.path.join(condor_gold_dir, re.sub(TEST_SIMULATION, TEST_CONDOR_SIMULATION, gold_filename))
         if not os.path.exists(condor_gold_filename) or args.overwrite_golds:
             shutil.copyfile(os.path.join(gold_dir_abs, gold_filename), condor_gold_filename)
 
