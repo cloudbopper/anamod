@@ -106,6 +106,10 @@ ACROSS_INSTANCES = "across"
 WITHIN_INSTANCE = "within"
 PVALUE_THRESHOLD = 0.05
 
+# Default values
+DEFAULT_OUTPUT_DIR = "anamod_outputs"
+DEFAULT_NUM_PERMUTATIONS = 50
+
 # Miscellaneous
 BASELINE = u"baseline"
 SEED = 13997

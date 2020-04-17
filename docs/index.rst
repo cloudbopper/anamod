@@ -10,3 +10,9 @@ Welcome to anamod's documentation!
    contributing
    authors
    changelog
+
+Indices and tables
+==================
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`

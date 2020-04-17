@@ -4,7 +4,6 @@ import csv
 import importlib
 import os
 import sys
-import tempfile
 
 import anytree
 import h5py
@@ -12,39 +11,162 @@ import h5py
 from anamod import master, constants, model_loader
 
 
-class ModelAnalyzer(ABC):
-    """Analyzes properties of learned models"""
-    def __init__(self, model, data, targets, **kwargs):
-        """
-        Model:   must provide required interface
-        Data:    feature matrix/tensor
-        Targets: vector of targets/labels
-        """
-        # FIXME: Temporary directory may not be in shared location on shared FS
-        self.output_dir = kwargs.pop("output_dir") if "output_dir" in kwargs else tempfile.mkdtemp()
-        self.model_filename = self.gen_model_file(model, kwargs.get("model_loader_filename", os.path.abspath(model_loader.__file__)))
-        self.data_filename = self.gen_data_file(data, targets)
-        # TODO: Add optional feature names
-        # TODO: Add -condor 1 -shared_filesystem 0 iff htcondor available
-        self.cmd = f"python -m anamod -model_filename {self.model_filename} -data_filename {self.data_filename} -output_dir {self.output_dir}"
-        self.add_options(**kwargs)
+class ModelAnalyzer(ABC):  # pylint: disable = too-many-instance-attributes
+    """Analyze properties of learned models."""
+    __doc__ += (
+        f"""
 
-    def add_options(self, **kwargs):
-        """Add options to model analysis"""
-        for key, value in kwargs.items():
-            self.cmd += f" -{key} {value}"
+        **Required parameters:**
+
+            model: object
+                A model object that provides the required interface (TODO: add/cite interface documentation).
+
+                This may be a simple wrapper around, say, a scikit-learn or Tensorflow model (TODO: example).
+
+            data: 2D/3D numpy array
+                The matrix or tensor containing test data.
+
+                For static models, this must be a matrix of instances **x** features.
+
+                For temporal models, this must be a tensor of instances **x** features **x** sequences.
+
+            targets: 1D numpy array
+                A vector containing the targets/labels for instances contained in the data.
+
+        **Common optional parameters:**
+
+            output_dir: str, default: '{constants.DEFAULT_OUTPUT_DIR}'
+                Directory to write logs, intermediate files, and outputs to.
+
+            perturbation: str, choices: {{'{constants.SHUFFLING}', '{constants.ZEROING}'}}, default: '{constants.SHUFFLING}'
+                Type of perturbation to perform to analyze model.
+
+            num_shuffling_trials: int, default: {constants.DEFAULT_NUM_PERMUTATIONS}
+                Number of permutations to average over when using shuffling perturbations.
+
+            feature_names: list of strings, default: None
+                List of names to be used assigned to features.
+
+                If `None`, features will be identified using their indices as names.
+
+                If :attr:`feature_hierarchy` is provided, names from that will be used instead.
+
+            seed: int, default: {constants.SEED}
+                Seed for random number generator (used to order features to be analyzed).
+
+            compile_results_only: bool, default: False
+                Flag to attempt to compile results only (assuming they already exist), skipping actually launching jobs.
+
+        **Hierarchical feature analysis parameters:**
+
+            feature_hierarchy: object, default: None
+                Hierarchy over features, defined as an anytree_ node.
+                anytree_ allows importing trees from multiple formats (Python dict, JSON)
+
+                If no hierarchy is provided, a flat hierarchy will be auto-generated over base features.
+
+                Supersedes :attr:`feature_names` for source of feature names.
+
+                .. _anytree: https://anytree.readthedocs.io/en/2.8.0/
+
+            analyze_interactions: bool, default: False
+                Flag to enable testing of interaction significance. By default,
+                only pairwise interactions between leaf features identified as important by hierarchical FDR.
+                are tested. To enable testing of all pairwise interactions, also use -analyze_all_pairwise_interactions.
+
+            analyze_all_pairwise_interactions: bool, default: False
+                Analyze all pairwise interactions between leaf features,
+                instead of just pairwise interactions of leaf features identified by hierarchical FDR.
+
+        **HTCondor parameters:**
+            condor: bool, default: False
+                Flag to enable parallelization using HTCondor.
+                Requires package htcondor to be installed (TODO: ref).
+
+            shared_filesystem: bool, default: False
+                Flag to indicate a shared filesystem, making
+                file/software transfer unnecessary for running condor.
+
+            cleanup: bool, default: True
+                Remove intermediate condor files upon completion (typically for debugging).
+                Enabled by default to reduced space usage and clutter."
+
+            features_per_worker: int, default: 10
+                Number of features to test per condor job. Fewer features per job reduces job
+                load at the cost of more jobs.
+
+            memory_requirement: int, default: 8
+                Memory requirement in GB
+
+            disk_requirement: int, default: 8
+                Disk requirement in GB
+
+            model_loader_filename: str, default: None
+                Python script that provides functions to load/save model.
+                Required for condor since each job runs in its own environment.
+                If none is provided, cloudpickle will be used - see model_loader_ for a template (TODO: fix ref)
+
+                .. _model_loader: py:mod:anamod.model_loader
+        """)
+
+    def __init__(self, model, data, targets, **kwargs):
+        self.kwargs = kwargs
+        # Common optional parameters
+        self.output_dir = self.process_keyword_arg("output_dir", constants.DEFAULT_OUTPUT_DIR)
+        self.perturbation = self.process_keyword_arg("perturbation", constants.SHUFFLING)
+        self.num_shuffling_trials = self.process_keyword_arg("num_shuffling_trials", constants.DEFAULT_NUM_PERMUTATIONS)
+        self.feature_names = self.process_keyword_arg("feature_names", None)
+        self.seed = self.process_keyword_arg("seed", constants.SEED)
+        self.compile_results_only = self.process_keyword_arg("compile_results_only", False)
+        # Hierarchical feature analysis parameters
+        self.feature_hierarchy = self.process_keyword_arg("feature_hierarchy", None)
+        self.analyze_interactions = self.process_keyword_arg("analyze_interactions", False)
+        # pylint: disable = invalid-name
+        self.analyze_all_pairwise_interactions = self.process_keyword_arg("analyze_all_pairwise_interactions", False)
+        # HTCondor parameters
+        self.condor = self.process_keyword_arg("condor", False)
+        self.shared_filesystem = self.process_keyword_arg("shared_filesystem", False)
+        self.cleanup = self.process_keyword_arg("cleanup", True)
+        self.features_per_worker = self.process_keyword_arg("features_per_worker", 10)
+        self.memory_requirement = self.process_keyword_arg("memory_requirement", 8)
+        self.disk_requirement = self.process_keyword_arg("disk_requirement", 8)
+        self.model_loader_filename = self.process_keyword_arg("model_loader_filename", None)
+        # Required parameters
+        self.model_filename = self.gen_model_file(model)
+        self.data_filename = self.gen_data_file(data, targets)
+        self.analysis_type = constants.HIERARCHICAL if self.feature_hierarchy else constants.TEMPORAL
+        self.hierarchy_filename = self.gen_hierarchy_file(data)
+
+    def process_keyword_arg(self, argname, default_value):
+        """Process keyword argument along with simple type validation"""
+        value = self.kwargs.get(argname, default_value)
+        dtype = type(default_value)
+        try:
+            value = bool(value) if dtype == bool else value
+            assert default_value is None or isinstance(value, dtype)
+        except Exception:
+            raise ValueError(f"Invalid argument for keyword {argname}: {value}; default: {default_value}, type {dtype}")
+        return value
 
     def analyze(self):
-        """Analyze model"""
-        strargs = " ".join(self.cmd.split()[3:])
-        features = master.main(strargs)
+        """
+        Analyze model and return analyzed features.
+
+        Returns
+        -------
+        features: list <feature object>
+            List of feature objects with importance analysis information. TODO: Describe feature objects
+        """
+        features = master.main(self)
         return features
 
-    def gen_model_file(self, model, model_loader_filename):
+    def gen_model_file(self, model):
         """Generate model file"""
+        if self.model_loader_filename is None:
+            self.model_loader_filename = os.path.abspath(model_loader.__file__)
         model_filename = f"{self.output_dir}/{constants.MODEL_FILENAME}"
-        assert os.path.exists(model_loader_filename), f"Model loader file {model_loader_filename} does not exist"
-        dirname, filename = os.path.split(os.path.abspath(model_loader_filename))
+        assert os.path.exists(self.model_loader_filename), f"Model loader file {self.model_loader_filename} does not exist"
+        dirname, filename = os.path.split(os.path.abspath(self.model_loader_filename))
         sys.path.insert(1, dirname)
         loader = importlib.import_module(os.path.splitext(filename)[0])
         loader.save_model(model, model_filename)
@@ -62,24 +184,7 @@ class ModelAnalyzer(ABC):
         root.close()
         return data_filename
 
-
-class TemporalModelAnalyzer(ModelAnalyzer):
-    """Analyzes properties of temporal model"""
-    def __init__(self, model, data, targets, **kwargs):
-        kwargs["analysis_type"] = constants.TEMPORAL
-        super().__init__(model, data, targets, **kwargs)
-
-
-class HierarchicalModelAnalyzer(ModelAnalyzer):
-    """Analyzes hierarchical feature importance"""
-    def __init__(self, model, data, targets, hierarchy, **kwargs):
-        """Hierarchy in the form of an anytree root node"""
-        kwargs["analysis_type"] = constants.HIERARCHICAL
-        super().__init__(model, data, targets, **kwargs)
-        self.hierarchy_filename = self.gen_hierarchy_file(hierarchy)
-        self.cmd += f" -hierarchy_filename {self.hierarchy_filename}"
-
-    def gen_hierarchy_file(self, hierarchy):
+    def gen_hierarchy_file(self, data):
         """
         Generate hierarchy CSV file (hierarchical feature importance analysis only)
 
@@ -90,12 +195,25 @@ class HierarchicalModelAnalyzer(ModelAnalyzer):
                 *idx*:              [only required for leaf nodes] list of tab-separated indices corresponding to the indices
                                     of these features in the data
         """
+        # Tag nodes to indicate whether they should be perturbed
+        if self.feature_hierarchy is None:
+            # Create hierarchy if not available
+            if self.feature_names is None:
+                # Generate feature names if not available
+                num_features = data.shape[1]
+                self.feature_names = [f"{idx}" for idx in range(num_features)]
+            root = anytree.Node("ROOT", perturbable=False, description="ROOT")
+            for idx, feature_name in enumerate(self.feature_names):
+                node = anytree.Node(feature_name, parent=root, perturbable=True, description=f"Feature {idx}", idx=idx)
+            self.feature_hierarchy = root
+        # TODO: Get rid of this file
+        # Just use hierarchy object
         hierarchy_filename = f"{self.output_dir}/hierarchy.csv"
         with open(hierarchy_filename, "w", newline="") as hierarchy_file:
             writer = csv.writer(hierarchy_file, delimiter=",")
             writer.writerow([constants.NODE_NAME, constants.PARENT_NAME,
                              constants.DESCRIPTION, constants.INDICES])
-            for node in anytree.PreOrderIter(hierarchy):
+            for node in anytree.PreOrderIter(self.feature_hierarchy):
                 idx = node.idx if node.is_leaf else ""
                 parent_name = node.parent.name if node.parent else ""
                 writer.writerow([node.name, parent_name, node.description, idx])

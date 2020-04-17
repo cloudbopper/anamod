@@ -25,11 +25,6 @@ setup(
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
     description="Feature Importance Analysis of Models",
-    entry_points={
-        "console_scripts": [
-            "anamod=anamod.master:main",
-        ],
-    },
     include_package_data=True,
     install_requires=[
         "anytree",

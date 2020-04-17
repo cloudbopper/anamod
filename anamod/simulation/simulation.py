@@ -4,6 +4,7 @@ import argparse
 import copy
 from distutils.util import strtobool
 import os
+import pprint
 import shutil
 
 import anytree
@@ -13,8 +14,7 @@ from scipy.cluster.hierarchy import linkage
 import synmod.master
 from synmod.constants import CLASSIFIER, REGRESSOR, FEATURES_FILENAME, MODEL_FILENAME, INSTANCES_FILENAME
 
-from anamod import constants, utils
-from anamod import TemporalModelAnalyzer, HierarchicalModelAnalyzer
+from anamod import constants, utils, ModelAnalyzer
 from anamod.simulation.model_wrapper import ModelWrapper
 from anamod.simulation import evaluation
 from anamod.utils import CondorJobWrapper
@@ -280,15 +280,12 @@ def update_hierarchy_relevance(hierarchy_root, relevant_feature_map, features):
 def run_anamod(args, pass_args, model, data, targets, hierarchy=None):  # pylint: disable = too-many-arguments
     """Run analysis algorithms"""
     args.logger.info("Begin running anamod")
-    # Create analyzer
-    if args.analysis_type == constants.TEMPORAL:
-        analyzer = TemporalModelAnalyzer(model, data, targets, output_dir=args.output_dir)
-    else:
-        analyzer = HierarchicalModelAnalyzer(model, data, targets, hierarchy, output_dir=args.output_dir)
     # Add options
     options = {}
+    options["feature_hierarchy"] = hierarchy
+    options["output_dir"] = args.output_dir
     options["seed"] = args.seed
-    options["memory_requirement"] = 1 + (os.stat(analyzer.data_filename).st_size // (2 ** 30))
+    options["memory_requirement"] = 1 + (data.nbytes // (2 ** 30))
     options["disk_requirement"] = 3 + options["memory_requirement"]
     options["analysis_type"] = args.analysis_type
     options["condor"] = args.condor
@@ -301,9 +298,10 @@ def run_anamod(args, pass_args, model, data, targets, hierarchy=None):  # pylint
     args.logger.info("Passing the following arguments to anamod.master without parsing: %s" % pass_args)
     pass_args = process_pass_args(pass_args)
     options = {**pass_args, **options}  # Merge dictionaries
-    analyzer.add_options(**options)
+    # Create analyzer
+    analyzer = ModelAnalyzer(model, data, targets, **options)
     # Run analyzer
-    args.logger.info("Running cmd: %s" % analyzer.cmd)
+    args.logger.info(f"Analyzing model with options: {pprint.pformat(options)}")
     features = analyzer.analyze()
     cleanup(args, analyzer.data_filename, analyzer.model_filename)
     args.logger.info("End running anamod")

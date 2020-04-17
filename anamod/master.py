@@ -5,72 +5,24 @@ computes the effect on the model's output loss after perturbing the features/fea
 in the hierarchy.
 """
 
-import argparse
 import csv
-from distutils.util import strtobool
 import importlib
 import os
 import sys
 from unittest.mock import patch
 
 import anytree
-import h5py
 import numpy as np
 
-from anamod import constants, utils, model_loader
+from anamod import constants, utils
 from anamod.fdr import hierarchical_fdr_control
 from anamod.feature import Feature
 from anamod.interactions import analyze_interactions
 from anamod.pipelines import CondorPipeline, SerialPipeline
 
 
-def main(strargs=None):
+def main(args):
     """Parse arguments from command-line"""
-    parser = argparse.ArgumentParser("python anamod", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    # Required arguments
-    required = parser.add_argument_group("Required parameters")
-    required.add_argument("-output_dir", help="Output directory", required=True)
-    required.add_argument("-data_filename", help="Test data in HDF5 format", required=True)
-    required.add_argument("-model_filename", help="File containing model, pickled using cloudpickle", required=True)
-    # Optional common arguments
-    common = parser.add_argument_group("Common optional parameters")
-    common.add_argument("-seed", help="Seed for random number generator (used to order features to be analyzed)",
-                        type=int, default=constants.SEED)
-    common.add_argument("-model_loader_filename", help="Python script that provides functions to load/save model. "
-                        "If none is provided, cloudpickle will be used - see anamod/model_loader.py for a template",
-                        default=os.path.abspath(model_loader.__file__))
-    common.add_argument("-analysis_type", help="Type of model analysis to perform",
-                        default=constants.HIERARCHICAL, choices=[constants.TEMPORAL, constants.HIERARCHICAL])
-    common.add_argument("-perturbation", default=constants.SHUFFLING, choices=[constants.ZEROING, constants.SHUFFLING],
-                        help="type of perturbation to perform (default %s)" % constants.SHUFFLING)
-    common.add_argument("-num_shuffling_trials", type=int, default=50, help="Number of shuffling trials to average over, "
-                        "when shuffling perturbations are selected")
-    common.add_argument("-compile_results_only", help="only compile results (assuming they already exist), "
-                        "skipping actually launching jobs", type=strtobool, default=False)
-    # Hierarchical feature importance analysis arguments
-    hierarchical = parser.add_argument_group("Hierarchical feature analysis arguments")
-    hierarchical.add_argument("-hierarchy_filename", help="Feature hierarchy in CSV format", default="")
-    hierarchical.add_argument("-analyze_interactions", help="flag to enable testing of interaction significance. By default,"
-                              " only pairwise interactions between leaf features identified as important by hierarchical FDR"
-                              " are tested. To enable testing of all pairwise interactions, also use -analyze_all_pairwise_interactions",
-                              type=strtobool, default=False)
-    hierarchical.add_argument("-analyze_all_pairwise_interactions", help="analyze all pairwise interactions between leaf features,"
-                              " instead of just pairwise interactions of leaf features identified by hierarchical FDR",
-                              type=strtobool, default=False)
-    # Condor arguments
-    condor = parser.add_argument_group("Condor parameters")
-    condor.add_argument("-condor", help="Use condor for parallelization", type=strtobool, default=False)
-    condor.add_argument("-cleanup", type=strtobool, default=True, help="remove intermediate condor files"
-                        " after completion (typically for debugging). Enabled by default to remove"
-                        " space and clutter, and to avoid condor file issues")
-    condor.add_argument("-features_per_worker", type=int, default=10, help="worker load")
-    condor.add_argument("-memory_requirement", type=int, default=8, help="memory requirement in GB, minimum 1, default 8")
-    condor.add_argument("-disk_requirement", type=int, default=8, help="disk requirement in GB, default 8")
-    condor.add_argument("-shared_filesystem", type=strtobool, default=False, help="Flag to indicate a shared filesystem, making "
-                        "file/software transfer unnecessary for running condor (default disabled).")
-
-    args = parser.parse_args(strargs.split(" ")) if strargs else parser.parse_args()
-
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     args.rng = np.random.default_rng(args.seed)
@@ -82,17 +34,10 @@ def main(strargs=None):
 def pipeline(args):
     """Master pipeline"""
     args.logger.info("Begin anamod master pipeline with args: %s" % args)
-    if args.analysis_type == constants.HIERARCHICAL:
-        # Load hierarchy from file
-        hierarchy_root = load_hierarchy(args.hierarchy_filename)
-        # Prepare features
-        features = list(anytree.PreOrderIter(hierarchy_root))  # flatten hierarchy
-    else:
-        # TODO: get number of features more efficiently
-        data_root = h5py.File(args.data_filename, "r")
-        data = data_root[constants.DATA]
-        num_features = data.shape[1]  # data is instances X features X timesteps
-        features = [Feature(str(idx), idx=[idx]) for idx in range(num_features)]
+    hierarchy_root = load_hierarchy(args.hierarchy_filename)
+    features = list(anytree.PreOrderIter(hierarchy_root))  # flatten hierarchy
+    if args.analysis_type == constants.TEMPORAL:
+        features = features[1:]  # Remove dummy root node; TODO: get rid of hierarchy file altogether to avoid this
     # Prepare features for perturbation
     prepare_features(args, features)
     # Perturb features
@@ -214,7 +159,3 @@ def validate_args(args):
             raise ModuleNotFoundError("htcondor module not found. "
                                       "Use 'pip install htcondor' to install htcondor on a compatible platform, or "
                                       "disable condor by passing command-line argument -condor 0'")
-
-
-if __name__ == "__main__":
-    main()
