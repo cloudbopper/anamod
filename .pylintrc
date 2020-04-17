@@ -220,6 +220,9 @@ single-line-if-stmt=no
 # function parameter format
 logging-modules=logging
 
+# Format style used to check logging format string. `old` means using %
+# formatting, `new` is for `{}` formatting,and `fstr` is for f-strings.
+logging-format-style=fstr
 
 [MISCELLANEOUS]
 

@@ -3,6 +3,7 @@ import logging
 from collections import namedtuple, OrderedDict
 import contextlib
 import os
+import random
 import sys
 import time
 
@@ -183,16 +184,20 @@ class CondorJobWrapper():
             # Poll-based tracking
             CondorJobWrapper.monitor_polling(jobs, cleanup)
         if jobs and jobs[0].shared_filesystem:
-            time.sleep(30)  # Time to allow file changes to reflect in shared filesystem
+            time.sleep(10)  # Time to allow file changes to reflect in shared filesystem
 
     @staticmethod
     def monitor_event_logs(jobs, cleanup):
         """Monitor jobs using event logs"""
+        # pylint: disable = too-many-branches
         running_jobs_set = OrderedDict.fromkeys(jobs)
         while running_jobs_set:  # pylint: disable = too-many-nested-blocks
             running_jobs = list(running_jobs_set.keys())
             for job in running_jobs:
-                events = htcondor.JobEventLog(job.filenames.log_filename).events(0)
+                try:
+                    events = htcondor.JobEventLog(job.filenames.log_filename).events(0)
+                except OSError:
+                    continue  # Fails if trying to open too many logs at the same time
                 for event in events:
                     event_type = event.type
                     # Reference: https://htcondor.readthedocs.io/en/latest/apis/python-bindings/api/htcondor.html#reading-job-events
@@ -213,7 +218,7 @@ class CondorJobWrapper():
                         if hold_reason_code != 1:
                             CondorJobWrapper.process_failure(job, event["HoldReason"], jobs, retry=hold_reason_code in CONDOR_HOLD_RETRY_CODES)
                 CondorJobWrapper.process_timeout(job, jobs)
-            time.sleep(60)
+            time.sleep(60 * random.uniform(0.9, 1.1))  # inject a little randomness to avoid synchronized waking up of parallel processes
 
     @staticmethod
     def monitor_polling(jobs, cleanup):
