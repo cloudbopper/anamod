@@ -1,5 +1,7 @@
 """Constant definitions"""
 
+# TODO: Remove redundant constants
+
 # Arguments
 HIERARCHICAL = "hierarchical"
 
@@ -7,32 +9,22 @@ HIERARCHICAL = "hierarchical"
 NODE_NAME = "name"
 PARENT_NAME = "parent_name"
 DESCRIPTION = "description"
-INDICES = "idx"
 CLUSTER_FROM_DATA = "cluster_from_data"
 RANDOM = "random"
 
 # Condor
-SUBMIT_FILENAME = "SUBMIT_FILENAME"
-ARGS_FILENAME = "ARGS_FILENAME"
-LOG_FILENAME = "LOG_FILENAME"
-OUTPUT_FILENAME = "OUTPUT_FILENAME"
-ERROR_FILENAME = "ERROR_FILENAME"
-CMD = "cmd"
-ATTEMPT = "attempt"
-MAX_ATTEMPTS = 50
-JOB_COMPLETE = "job_complete"
-JOB_HELD = "Job was held."
-JOB_TERMINATED = "Job terminated."
-NORMAL_TERMINATION_SUCCESS = "Normal termination (return value 0)"
-NORMAL_TERMINATION_FAILURE = "Normal termination (return value 1)"
-ABNORMAL_TERMINATION = "Abnormal termination"
-CLUSTER = "cluster"
-JOB_START_TIME = "job_start_time"
+POLL_BASED_TRACKING = "poll_based_tracking"
+EVENT_LOG_TRACKING = "event_log_tracking"
+
+# Master I/O
+MODEL_FILENAME = "model.cpkl"
+DATA_FILENAME = "data.hdf5"
+
+# Worker I/O
+INPUT_FEATURES_FILENAME = "{}/input_features_worker_{}.cpkl"
+OUTPUT_FEATURES_FILENAME = "{}/output_features_worker_{}.cpkl"
+RESULTS_FILENAME = "{}/results_worker_{}.hdf5"
 VIRTUAL_ENV = "VIRTUAL_ENV"
-MEMORY_REQUIREMENT = "MEMORY_REQUIREMENT"
-SCRIPT_DIR = "SCRIPT_DIR"
-NORMAL_FAILURE_COUNT = "Normal failure count"
-MAX_NORMAL_FAILURE_COUNT = 5
 
 # Evaluation
 EFFECT_SIZE = "effect_size"
@@ -62,7 +54,6 @@ DATA = "data"
 # Simulation
 RELEVANT = "relevant"
 IRRELEVANT = "irrelevant"
-MODEL_FILENAME = "model.cpkl"
 ADDITIVE_GAUSSIAN = "additive_gaussian"
 EPSILON_IRRELEVANT = "epsilon_irrelevant"
 NO_NOISE = "none"
@@ -91,6 +82,7 @@ SHUFFLING_COUNTS = "shuffling_counts"
 SEQUENCE_LENGTHS = "sequence_lengths"
 WINDOW_SEQUENCE_DEPENDENCE = "window_sequence_dependence"
 MODEL_TYPES = "model_types"
+TEST = "test"
 ALL_SIMULATION_RESULTS = "all_simulation_results"
 CONFIG_HIERARCHICAL = "config_run_simulations_hierarchical.ini"
 CONFIG_TEMPORAL = "config_run_simulations_temporal.ini"
@@ -116,9 +108,10 @@ ACROSS_INSTANCES = "across"
 WITHIN_INSTANCE = "within"
 PVALUE_THRESHOLD = 0.05
 
+# Default values
+DEFAULT_OUTPUT_DIR = "anamod_outputs"
+DEFAULT_NUM_PERMUTATIONS = 50
+
 # Miscellaneous
 BASELINE = u"baseline"
 SEED = 13997
-BINARY_CLASSIFIER = "binary_classifier"
-CLASSIFIER = "classifier"
-REGRESSION = "regression"

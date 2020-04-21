@@ -20,7 +20,7 @@ from anamod.fdr.fdr_algorithms import hierarchical_fdr_control
 
 def main():
     """Main"""
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-output_dir", help="name of output directory")
     parser.add_argument("-dependence_assumption", help="choice of dependence assumption used by Lynch and Guo (2016) procedure",
                         choices=[constants.POSITIVE, constants.ARBITRARY], default=constants.POSITIVE)
@@ -108,7 +108,7 @@ def render_tree(args, tree):
         DotExporter(tree, options=graph_options, nodeattrfunc=lambda node: nodeattrfunc(args, node)
                     ).to_picture("{0}/{1}.png".format(args.output_dir, constants.TREE))
     except FileNotFoundError:
-        raise FileNotFoundError("Error during tree rendering - is Graphviz installed on your system?\n")
+        args.logger.warning("Error during tree rendering - is Graphviz installed on your system?\n")
 
 
 def prune_tree_on_effect_size(args, tree):

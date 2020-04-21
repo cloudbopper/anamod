@@ -5,7 +5,6 @@ python:
   - 3.8
   - 3.7
   - 3.6
-  - 3.5
 
 before_install:
  - sudo apt-get install -y graphviz

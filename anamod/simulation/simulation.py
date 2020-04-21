@@ -2,29 +2,29 @@
 
 import argparse
 import copy
-import csv
 from distutils.util import strtobool
 import os
-import sys
-from unittest.mock import patch
+import pprint
+import shutil
 
 import anytree
 import cloudpickle
-import h5py
 import numpy as np
 from scipy.cluster.hierarchy import linkage
 import synmod.master
+from synmod.constants import CLASSIFIER, REGRESSOR, FEATURES_FILENAME, MODEL_FILENAME, INSTANCES_FILENAME
 
-from anamod import constants, master, utils
+from anamod import constants, utils, ModelAnalyzer
 from anamod.simulation.model_wrapper import ModelWrapper
 from anamod.simulation import evaluation
+from anamod.utils import CondorJobWrapper
 
 # TODO maybe: write arguments to separate readme.txt for documenting runs
 
 
 def main():
     """Main"""
-    parser = argparse.ArgumentParser("python anamod.simulation")
+    parser = argparse.ArgumentParser("python anamod.simulation", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     # Required arguments
     required = parser.add_argument_group("Required parameters")
     required.add_argument("-output_dir", help="Name of output directory")
@@ -39,6 +39,8 @@ def main():
     common.add_argument("-num_interactions", type=int, default=0, help="number of interaction pairs in model")
     common.add_argument("-include_interaction_only_features", help="include interaction-only features in model"
                         " in addition to linear + interaction features (default enabled)", type=strtobool, default=True)
+    common.add_argument("-condor", help="Use condor for parallelization", type=strtobool, default=False)
+    common.add_argument("-shared_filesystem", type=strtobool, default=False)
     common.add_argument("-cleanup", type=strtobool, default=True, help="Clean data and model files after completing simulation")
     # Hierarchical feature importance analysis arguments
     hierarchical = parser.add_argument_group("Hierarchical feature analysis arguments")
@@ -57,12 +59,11 @@ def main():
     # Temporal model analysis arguments
     temporal = parser.add_argument_group("Temporal model analysis arguments")
     temporal.add_argument("-sequence_length", help="sequence length for temporal models", type=int, default=20)
-    temporal.add_argument("-model_type", default=constants.REGRESSION)
+    temporal.add_argument("-model_type", default=REGRESSOR, choices=[CLASSIFIER, REGRESSOR])
     temporal.add_argument("-sequences_independent_of_windows", type=strtobool, dest="window_independent")
     temporal.set_defaults(window_independent=False)
 
     args, pass_args = parser.parse_known_args()
-    pass_args = " ".join(pass_args)
     if not args.output_dir:
         args.output_dir = ("sim_outputs_inst_%d_feat_%d_noise_%.3f_relfraction_%.3f_pert_%s_shufftrials_%d" %
                            (args.num_instances, args.num_features, args.noise_multiplier,
@@ -80,18 +81,16 @@ def pipeline(args, pass_args):
     """Simulation pipeline"""
     args.logger.info("Begin anamod simulation with args: %s" % args)
     features, data, model = run_synmod(args)
-    targets = model.predict(data, labels=True) if args.model_type == constants.CLASSIFIER else model.predict(data)
-    data_filename = write_data(args, data, targets)
-    model_filename = write_model(args, model)
+    targets = model.predict(data, labels=True) if args.model_type == CLASSIFIER else model.predict(data)
+    # Create wrapper around ground-truth model
+    model_wrapper = ModelWrapper(model, args.num_features, args.noise_type, args.noise_multiplier)
     if args.analysis_type == constants.HIERARCHICAL:
         # Generate hierarchy using clustering (test data also used for clustering)
         hierarchy_root, feature_id_map = gen_hierarchy(args, data)
         # Update hierarchy descriptions for future visualization
         update_hierarchy_relevance(hierarchy_root, model.relevant_feature_map, features)
-        # Write hierarchy to file
-        hierarchy_filename = write_hierarchy(args, hierarchy_root)
         # Invoke feature importance algorithm
-        run_anamod(args, pass_args, data_filename, model_filename, hierarchy_filename)
+        run_anamod(args, pass_args, model_wrapper, data, targets, hierarchy_root)
         # Compare anamod outputs with ground truth outputs
         evaluation.compare_with_ground_truth(args, hierarchy_root)
         # Evaluate anamod outputs - power/FDR for all nodes/outer nodes/base features
@@ -99,23 +98,56 @@ def pipeline(args, pass_args):
     else:
         # Temporal model analysis
         # FIXME: should have similar mode of parsing outputs for both analyses
-        analyzed_features = run_anamod(args, pass_args, data_filename, model_filename)
+        analyzed_features = run_anamod(args, pass_args, model_wrapper, data, targets)
         results = evaluation.evaluate_temporal(args, model, analyzed_features)
     args.logger.info("Results:\n%s" % str(results))
     results.write(args.output_dir)
-    cleanup(args, data_filename, model_filename)
     args.logger.info("End anamod simulation")
     return results
 
 
 def run_synmod(args):
     """Synthesize data and model"""
-    pass_args = copy.copy(args)
+    args.logger.info("Begin running synmod")
+    args = copy.copy(args)
     if args.analysis_type == constants.HIERARCHICAL:
-        pass_args.synthesis_type = constants.STATIC
+        args.synthesis_type = constants.STATIC
     else:
-        pass_args.synthesis_type = constants.TEMPORAL
-    return synmod.master.pipeline(pass_args)
+        args.synthesis_type = constants.TEMPORAL
+    if not args.condor:
+        args.write_outputs = False
+        return synmod.master.pipeline(args)
+    # Spawn condor job to synthesize data
+    # Compute size requirements
+    data_size = args.num_instances * args.num_features * args.sequence_length // (8 * (2 ** 30))  # Data size in GB
+    memory_requirement = "%dGB" % (1 + data_size)
+    disk_requirement = "%dGB" % (4 + data_size)
+    # Set up command-line arguments
+    args.write_outputs = True
+    args.sequences_independent_of_windows = args.window_independent
+    cmd = "python3 -m synmod"
+    job_dir = f"{args.output_dir}/synthesis"
+    args.output_dir = os.path.abspath(job_dir) if args.shared_filesystem else os.path.basename(job_dir)
+    for arg in ["output_dir", "num_features", "num_instances", "synthesis_type",
+                "fraction_relevant_features", "num_interactions", "include_interaction_only_features", "seed", "write_outputs",
+                "sequence_length", "sequences_independent_of_windows", "model_type"]:
+        cmd += f" -{arg} {args.__getattribute__(arg)}"
+    args.logger.info(f"Running cmd: {cmd}")
+    # Launch and monitor job
+    job = CondorJobWrapper(cmd, [], job_dir, shared_filesystem=args.shared_filesystem, memory=memory_requirement, disk=disk_requirement)
+    job.run()
+    CondorJobWrapper.monitor([job], cleanup=args.cleanup)
+    # Extract data
+    features, instances, model = [None] * 3
+    with open(f"{job_dir}/{FEATURES_FILENAME}", "rb") as data_file:
+        features = cloudpickle.load(data_file)
+    instances = np.load(f"{job_dir}/{INSTANCES_FILENAME}")
+    with open(f"{job_dir}/{MODEL_FILENAME}", "rb") as model_file:
+        model = cloudpickle.load(model_file)
+    if args.cleanup:
+        shutil.rmtree(job_dir)
+    args.logger.info("End running synmod")
+    return features, instances, model
 
 
 def gen_hierarchy(args, clustering_data):
@@ -130,6 +162,7 @@ def gen_hierarchy(args, clustering_data):
     Returns:
         hierarchy_root: root fo resulting hierarchy over features
     """
+    # TODO: Get rid of possibly redundant hierarchy attributes e.g. vidx
     # Generate hierarchy
     hierarchy_root = None
     if args.hierarchy_type == constants.CLUSTER_FROM_DATA:
@@ -149,7 +182,7 @@ def gen_hierarchy(args, clustering_data):
                 node.max_child_vidx = idx
                 node.num_base_features = 1
                 node.name = str(idx)
-                feature_id_map[idx] = int(node.idx)
+                feature_id_map[idx] = node.idx[0]
             else:
                 node.min_child_vidx = min([child.min_child_vidx for child in node.children])
                 node.max_child_vidx = max([child.vidx for child in node.children])
@@ -161,7 +194,7 @@ def gen_hierarchy(args, clustering_data):
 def gen_random_hierarchy(args):
     """Generates balanced random hierarchy"""
     args.logger.info("Begin generating hierarchy")
-    nodes = [anytree.Node(str(idx), idx=str(idx)) for idx in range(args.num_features)]
+    nodes = [anytree.Node(str(idx), idx=[idx]) for idx in range(args.num_features)]
     args.rng.shuffle(nodes)
     node_count = len(nodes)
     while len(nodes) > 1:
@@ -201,7 +234,7 @@ def gen_hierarchy_from_clusters(args, clusters):
         hierarchy_root: root of resulting hierarchy over features
     """
     # Generate hierarchy from clusters
-    nodes = [anytree.Node(str(idx), idx=str(idx)) for idx in range(args.num_features)]
+    nodes = [anytree.Node(str(idx), idx=[idx]) for idx in range(args.num_features)]
     for idx, cluster in enumerate(clusters):
         cluster_idx = idx + args.num_features
         left_idx, right_idx, _, _ = cluster
@@ -228,7 +261,7 @@ def update_hierarchy_relevance(hierarchy_root, relevant_feature_map, features):
     for node in anytree.PostOrderIter(hierarchy_root):
         node.description = constants.IRRELEVANT
         if node.is_leaf:
-            idx = int(node.idx)
+            idx = node.idx[0]
             node.poly_coeff = 0.0
             node.bin_prob = probs[idx]
             coeff = relevant_feature_map.get(frozenset([idx]))
@@ -245,86 +278,52 @@ def update_hierarchy_relevance(hierarchy_root, relevant_feature_map, features):
                     node.description = constants.RELEVANT
 
 
-def write_data(args, data, targets):
-    """Write data in HDF5 format"""
-    data_filename = "%s/%s" % (args.output_dir, "data.hdf5")
-    root = h5py.File(data_filename, "w")
-    record_ids = [str(idx).encode("utf8") for idx in range(args.num_instances)]
-    root.create_dataset(constants.RECORD_IDS, data=record_ids)
-    root.create_dataset(constants.TARGETS, data=targets)
-    root.create_dataset(constants.DATA, data=data)
-    root.close()
-    return data_filename
-
-
-def write_hierarchy(args, hierarchy_root):
-    """
-    Write hierarchy in CSV format.
-
-    Columns:    *name*:             feature name, must be unique across features
-                *parent_name*:      name of parent if it exists, else '' (root node)
-                *description*:      node description
-                *idx*:              [only required for leaf nodes] list of tab-separated indices corresponding to the indices
-                                    of these features in the data
-    """
-    hierarchy_filename = "%s/%s" % (args.output_dir, "hierarchy.csv")
-    with open(hierarchy_filename, "w", newline="") as hierarchy_file:
-        writer = csv.writer(hierarchy_file, delimiter=",")
-        writer.writerow([constants.NODE_NAME, constants.PARENT_NAME,
-                         constants.DESCRIPTION, constants.INDICES])
-        for node in anytree.PreOrderIter(hierarchy_root):
-            idx = node.idx if node.is_leaf else ""
-            parent_name = node.parent.name if node.parent else ""
-            writer.writerow([node.name, parent_name, node.description, idx])
-    return hierarchy_filename
-
-
-def write_model(args, model):
-    """
-    Pickle and write model to file in output directory.
-    """
-    # Create wrapper around ground-truth model
-    model_wrapper = ModelWrapper(model, args.num_features, args.noise_type, args.noise_multiplier)
-    # Pickle and write to file
-    model_filename = "%s/%s" % (args.output_dir, constants.MODEL_FILENAME)
-    with open(model_filename, "wb") as model_file:
-        cloudpickle.dump(model_wrapper, model_file)
-    return model_filename
-
-
-def run_anamod(args, pass_args, data_filename, model_filename, hierarchy_filename=""):
+def run_anamod(args, pass_args, model, data, targets, hierarchy=None):  # pylint: disable = too-many-arguments
     """Run analysis algorithms"""
     args.logger.info("Begin running anamod")
-    hierarchical_analysis_options = ("-hierarchy_filename {0} -perturbation {1} -analyze_interactions {2}".format
-                                     (hierarchy_filename, args.perturbation, args.analyze_interactions))
-    temporal_analysis_options = ""
-    analysis_options = hierarchical_analysis_options if args.analysis_type == constants.HIERARCHICAL else temporal_analysis_options
+    # Add options
+    options = {}
+    options["feature_hierarchy"] = hierarchy
+    options["output_dir"] = args.output_dir
+    options["seed"] = args.seed
+    options["memory_requirement"] = 1 + (data.nbytes // (2 ** 30))
+    options["disk_requirement"] = 3 + options["memory_requirement"]
+    options["analysis_type"] = args.analysis_type
+    options["condor"] = args.condor
+    options["shared_filesystem"] = args.shared_filesystem
+    options["num_shuffling_trials"] = args.num_shuffling_trials
+    options["cleanup"] = args.cleanup
+    if args.analysis_type == constants.HIERARCHICAL:
+        options["perturbation"] = args.perturbation
+        options["analyze_interactions"] = args.analyze_interactions
     args.logger.info("Passing the following arguments to anamod.master without parsing: %s" % pass_args)
-    memory_requirement = 1 + (os.stat(data_filename).st_size // (2 ** 30))  # Compute approximate memory requirement in GB
-    cmd = ("python -m anamod.master -analysis_type {0} -output_dir {1} -num_shuffling_trials {2} -data_filename {3} "
-           "-model_filename {4} -memory_requirement {5} {6} {7}"
-           .format(args.analysis_type,
-                   args.output_dir,
-                   args.num_shuffling_trials,
-                   data_filename,
-                   model_filename,
-                   memory_requirement,
-                   analysis_options,
-                   pass_args))
-    args.logger.info("Running cmd: %s" % cmd)
-    nargs = cmd.split()[2:]
-    with patch.object(sys, 'argv', nargs):
-        features = master.main()
+    pass_args = process_pass_args(pass_args)
+    options = {**pass_args, **options}  # Merge dictionaries
+    # Create analyzer
+    analyzer = ModelAnalyzer(model, data, targets, **options)
+    # Run analyzer
+    args.logger.info(f"Analyzing model with options: {pprint.pformat(options)}")
+    features = analyzer.analyze()
+    cleanup(args, analyzer.data_filename, analyzer.model_filename)
     args.logger.info("End running anamod")
     return features
 
 
+def process_pass_args(pass_args):
+    """Process list of unrecognized arguments, to pass to anamod.master"""
+    assert len(pass_args) % 2 == 0, f"Odd argument count in pass_args: {pass_args} ; is a value missing?"
+    pass_args = {pass_args[idx].strip("-"): pass_args[idx + 1] for idx in range(0, len(pass_args), 2)}  # Make dict
+    return pass_args
+
+
 def cleanup(args, data_filename, model_filename):
     """Clean data and model files after completing simulation"""
+    # TODO: clean up hierarchy file
     if not args.cleanup:
         return
-    os.remove(data_filename)
-    os.remove(model_filename)
+    for filename in [data_filename, model_filename]:
+        if filename is not None and os.path.exists(filename):
+            os.remove(filename)
 
 
 if __name__ == "__main__":

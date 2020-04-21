@@ -57,12 +57,24 @@ clean-test: ## remove test and coverage artifacts
 	rm -fr prof/
 
 lint: ## check style with pylint/flake8
-	pylint anamod tests
 	flake8 anamod tests
+	pylint anamod tests
 	doc8 docs README.rst
 
 test: ## run tests quickly with the default Python
-	pytest tests
+	pytest -rA tests
+
+test-update-golds: ## run tests and update gold files (two passes required for hierarchical analysis tests)
+	pytest -rA tests --force-regen
+	pytest -rA tests --force-regen
+	python -m tests.gen_condor_tests -type hierarchical -overwrite_golds 1
+	python -m tests.gen_condor_tests -type temporal -overwrite_golds 1
+
+test-condor: ## run tests in parallel over condor with non-shared filesystem
+	pytest -rA tests/condor_tests/ -n 20
+
+test-condor-sharedfs: ## run tests in parallel over condor with shared filesystem; need to specify shared working directory
+	pytest -rA tests/condor_tests/ -n 20 --shared-fs --basetemp=condor_test_runs
 
 test-all: ## run tests on every Python version with tox
 	tox

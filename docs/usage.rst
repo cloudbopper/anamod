@@ -4,6 +4,9 @@
 Usage
 =====
 
+.. autoclass:: anamod.model_analyzer.ModelAnalyzer
+   :members: analyze
+
 ``anamod`` is invoked as follows::
 
     python -m anamod -data_filename <data_filename.hdf5>

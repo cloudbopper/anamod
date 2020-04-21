@@ -8,9 +8,11 @@ sphinx-rtd-theme
 twine
 pylint
 coverage
-pytest
+# Upgrade pytest after fix released: https://github.com/pytest-dev/pytest/pull/6992
+pytest == 5.3.5
 pytest-runner
 pytest-regressions
 pytest-profiling
 pytest-cov
+pytest-xdist
 codecov

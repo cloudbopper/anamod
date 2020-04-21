@@ -89,10 +89,8 @@ def perturb_interactions(args, interaction_groups):
     # Need to recompute baseline since it's not one of the features and so not included in worker results
     interaction_nodes.append(Feature(constants.BASELINE, description="No perturbation"))
 
-    worker_pipeline = SerialPipeline(args, interaction_nodes)
-    if args.condor:
-        worker_pipeline = CondorPipeline(args, interaction_nodes)
-    _, _, _, interaction_predictions = worker_pipeline.run()
+    worker_pipeline = CondorPipeline(args, interaction_nodes) if args.condor else SerialPipeline(args, interaction_nodes)
+    _, interaction_predictions = worker_pipeline.run()
     args.logger.info("End perturbing interactions")
     return interaction_predictions
 
@@ -100,10 +98,11 @@ def perturb_interactions(args, interaction_groups):
 def get_interaction_groups(args, potential_interactions):
     """Transform into nodes for testing"""
     interaction_groups = []
-    for left, right in potential_interactions:
+    for interaction in potential_interactions:
+        left, right = sorted(interaction, key=lambda node: node.name)  # Order alphabetically for consistent outputs
         name = left.name + " + " + right.name
         parent_node = Feature(name, idx=left.idx + right.idx)
-        if Feature.size(left) >= Feature.size(right):
+        if left.size >= right.size:
             cached_node = left
             redo_node = right
         else:
