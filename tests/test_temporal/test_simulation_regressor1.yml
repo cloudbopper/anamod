@@ -1,3 +1,2 @@
-"{'Average_Window_FDR': 0.0,\n 'Average_Window_Power': 1.0,\n 'FDR': 0.0,\n 'Power':\
-  \ 0.6,\n 'Temporal_FDR': 0.0,\n 'Temporal_Power': 0.6,\n 'Window_Overlap': {1: 1.0,\
-  \ 5: 1.0, 8: 1.0}}"
+'{''FDR'': 0.0, ''Power'': 0.6, ''Temporal_FDR'': 0.0, ''Temporal_Power'': 0.6, ''Average_Window_FDR'':
+  0.0, ''Average_Window_Power'': 1.0, ''Window_Overlap'': {1: 1.0, 5: 1.0, 8: 1.0}}'

@@ -1,4 +1,4 @@
-"""Run multiple trials of multiple simulations"""
+"""Run multiple trials of multiple simulations and aggregate results"""
 
 import argparse
 from collections import namedtuple, OrderedDict
@@ -15,9 +15,6 @@ from anamod import constants, utils
 from anamod.constants import DEFAULT, INSTANCE_COUNTS, NOISE_LEVELS, FEATURE_COUNTS, SHUFFLING_COUNTS
 from anamod.constants import SEQUENCE_LENGTHS, WINDOW_SEQUENCE_DEPENDENCE, MODEL_TYPES, TEST
 
-TRIAL = "trial"
-SUMMARY_FILENAME = "all_trials_summary"
-OUTPUTS = "%s/%s_%s"
 TestParam = namedtuple("TestParameter", ["key", "values"])
 
 
@@ -56,8 +53,8 @@ class Trial():  # pylint: disable = too-many-instance-attributes
         self.logger = utils.get_logger(__name__, "%s/run_simulations.log" % self.output_dir)
         self.config_filename = constants.CONFIG_HIERARCHICAL if self.analysis_type == constants.HIERARCHICAL else constants.CONFIG_TEMPORAL
         self.logger.info(f"Trial for seed {self.seed}: Begin running/analyzing simulations")
-        self.config, test_param = self.load_config()
-        self.simulations = self.parametrize_simulations(test_param)
+        self.config, self.test_param = self.load_config()
+        self.simulations = self.parametrize_simulations()
         self.error = False  # Flag to indicate if any simulation failed
         self.running_sims = set()  # Set of simulations running concurrently
 
@@ -78,14 +75,15 @@ class Trial():  # pylint: disable = too-many-instance-attributes
             sconfig += "%s " % value
         return sconfig, test_param
 
-    def parametrize_simulations(self, test_param):
+    def parametrize_simulations(self):
         """Parametrize simulations"""
         sims = []
+        test_param = self.test_param
         if test_param is None:
             test_param = TestParam("", [constants.DEFAULT])
         key, values = test_param
         for value in values:
-            output_dir = OUTPUTS % (self.output_dir, self.type, value)
+            output_dir = f"{self.output_dir}/{self.type}_{value}"
             test_param_str = "-%s %s" % (key, value) if key else ""
             cmd = ("python -m anamod.simulation.simulation %s %s -seed %d -output_dir %s %s" %
                    (test_param_str, self.config, self.seed, output_dir, self.pass_args))
@@ -122,7 +120,7 @@ class Trial():  # pylint: disable = too-many-instance-attributes
         with open(results_filename, "w") as results_file:
             root = OrderedDict()
             for sim in self.simulations:
-                sim_results_filename = "%s/%s" % (sim.output_dir, constants.SIMULATION_RESULTS_FILENAME)
+                sim_results_filename = f"{sim.output_dir}/{constants.SIMULATION_RESULTS_FILENAME}"
                 with open(sim_results_filename, "r") as sim_results_file:
                     data = json.load(sim_results_file)
                     root[sim.param] = data
@@ -216,22 +214,37 @@ def run_trials(args, trials):
 
 
 def summarize_trials(args, trials):
-    """Summarize outputs from trials"""
-    data = {}
+    """
+    Summarize outputs from trials.
+
+    Returns dict containing
+    (i) trials configuration, and
+    (ii) for every simulation output variable (e.g. FDR), a mapping from test parameter values (e.g. instance counts)
+         to a list of values that the variable took in the outputs of simulations with that test configuration
+    and writes this dict as a JSON file
+    """
+    if not trials:
+        return None
+    some_trial = next(iter(trials))
+    data = dict(config=dict(num_trials=args.num_trials, type=args.type, test_values=some_trial.test_param.values,
+                            analysis_type=args.analysis_type, start_seed=args.start_seed, simulation_cmdline=some_trial.config))
     for tidx, trial in enumerate(trials):
-        trial_results_filename = "%s/%s_%s.json" % (trial.output_dir, constants.ALL_SIMULATION_RESULTS, args.type)
+        trial_results_filename = f"{trial.output_dir}/{constants.ALL_SIMULATION_RESULTS}_{args.type}.json"
         with open(trial_results_filename, "r") as trial_results_file:
             sim_data = json.load(trial_results_file, object_pairs_hook=OrderedDict)
             for param, results in sim_data.items():
-                for key, value in results.items():
+                for key, value in results[constants.RESULTS].items():  # Mapping from parameter values to corresponding simulation results
                     if key not in data:
                         data[key] = OrderedDict()
                     if param not in data[key]:
-                        data[key][param] = np.zeros(args.num_trials)
+                        data[key][param] = [None] * args.num_trials
                     # FIXME: Want to plot window accuracy by overlap (instead of average window overlap)
                     if key == constants.WINDOW_OVERLAP:
                         value = np.mean(list(value.values())) if value else 0.
                     data[key][param][tidx] = value
+    data_filename = f"{args.output_dir}/{constants.ALL_TRIAL_RESULTS_FILENAME}"
+    with open(data_filename, "w") as data_file:
+        json.dump(data, data_file)
     return data
 
 

@@ -86,6 +86,10 @@ TEST = "test"
 ALL_SIMULATION_RESULTS = "all_simulation_results"
 CONFIG_HIERARCHICAL = "config_run_simulations_hierarchical.ini"
 CONFIG_TEMPORAL = "config_run_simulations_temporal.ini"
+RESULT_VARS = {FDR, POWER, BASE_FEATURES_FDR, BASE_FEATURES_POWER, INTERACTIONS_FDR, INTERACTIONS_POWER,
+               TEMPORAL_FDR, TEMPORAL_POWER, AVERAGE_WINDOW_FDR, AVERAGE_WINDOW_POWER, WINDOW_OVERLAP}
+ALL_TRIAL_RESULTS_FILENAME = "all_trial_results.json"
+CONFIG, RESULTS = ("config", "results")  # simulation output JSON categories
 
 # Hierarchical FDR
 HIERARCHICAL_FDR_DIR = "hierarchical_fdr_results"

@@ -3,6 +3,7 @@
 import argparse
 import copy
 from distutils.util import strtobool
+import json
 import os
 import pprint
 import shutil
@@ -18,8 +19,6 @@ from anamod import constants, utils, ModelAnalyzer
 from anamod.simulation.model_wrapper import ModelWrapper
 from anamod.simulation import evaluation
 from anamod.utils import CondorJobWrapper
-
-# TODO maybe: write arguments to separate readme.txt for documenting runs
 
 
 def main():
@@ -100,8 +99,7 @@ def pipeline(args, pass_args):
         # FIXME: should have similar mode of parsing outputs for both analyses
         analyzed_features = run_anamod(args, pass_args, model_wrapper, data, targets)
         results = evaluation.evaluate_temporal(args, model, analyzed_features)
-    args.logger.info("Results:\n%s" % str(results))
-    results.write(args.output_dir)
+    write_results(args, model, results)
     args.logger.info("End anamod simulation")
     return results
 
@@ -324,6 +322,22 @@ def cleanup(args, data_filename, model_filename):
     for filename in [data_filename, model_filename]:
         if filename is not None and os.path.exists(filename):
             os.remove(filename)
+
+
+def write_results(args, model, results):
+    """Write simulation config and results"""
+    config = dict(analysis_type=args.analysis_type,
+                  num_instances=args.num_instances,
+                  num_features=args.num_features,
+                  sequence_length=args.sequence_length,
+                  model_type=model.__class__.__name__,
+                  num_shuffling_trials=args.num_shuffling_trials,
+                  sequences_independent_of_windows=args.window_independent)
+    results = {constants.CONFIG: config, constants.RESULTS: results}
+    results_filename = f"{args.output_dir}/{constants.SIMULATION_RESULTS_FILENAME}"
+    args.logger.info(f"Writing results to {results_filename}")
+    with open(results_filename, "w") as results_file:
+        json.dump(results, results_file)
 
 
 if __name__ == "__main__":
