@@ -136,7 +136,7 @@ def run_synmod(args):
     # Launch and monitor job
     job = CondorJobWrapper(cmd, [], job_dir, shared_filesystem=args.shared_filesystem, memory=memory_requirement, disk=disk_requirement)
     job.run()
-    CondorJobWrapper.monitor([job], cleanup=args.condor_cleanup)
+    CondorJobWrapper.monitor([job], cleanup=args.condor_cleanup, logger=args.logger)
     # Extract data
     features, instances, model = [None] * 3
     with open(f"{job_dir}/{FEATURES_FILENAME}", "rb") as data_file:
