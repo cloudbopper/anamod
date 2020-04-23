@@ -1,5 +1,6 @@
 """Tests for temporal model analysis"""
 
+import json
 import os
 import sys
 from unittest.mock import patch
@@ -10,7 +11,7 @@ from tests.utils import pre_test, write_logfile
 
 
 # pylint: disable = protected-access, invalid-name
-def test_condor_simulation_regressor1(data_regression, tmpdir, caplog, shared_fs):
+def test_condor_simulation_regressor1(file_regression, tmpdir, caplog, shared_fs):
     """Test simulation with regression model over temporal data"""
     func_name = sys._getframe().f_code.co_name
     output_dir = pre_test(func_name, tmpdir, caplog)
@@ -21,12 +22,12 @@ def test_condor_simulation_regressor1(data_regression, tmpdir, caplog, shared_fs
            f" -shared_filesystem {shared_fs} -output_dir {output_dir}")
     pass_args = cmd.split()[2:]
     with patch.object(sys, 'argv', pass_args):
-        results = simulation.main()
+        summary = simulation.main()
     write_logfile(caplog, output_dir)
-    data_regression.check(str(results))
+    file_regression.check(json.dumps(summary, indent=2), extension=".json")
 
 
-def test_condor_simulation_classifier1(data_regression, tmpdir, caplog, shared_fs):
+def test_condor_simulation_classifier1(file_regression, tmpdir, caplog, shared_fs):
     """Test simulation with classification model over temporal data"""
     func_name = sys._getframe().f_code.co_name
     output_dir = pre_test(func_name, tmpdir, caplog)
@@ -38,12 +39,12 @@ def test_condor_simulation_classifier1(data_regression, tmpdir, caplog, shared_f
            f" -shared_filesystem {shared_fs} -output_dir {output_dir}")
     pass_args = cmd.split()[2:]
     with patch.object(sys, 'argv', pass_args):
-        results = simulation.main()
+        summary = simulation.main()
     write_logfile(caplog, output_dir)
-    data_regression.check(str(results))
+    file_regression.check(json.dumps(summary, indent=2), extension=".json")
 
 
-def test_condor_trial_regressor1(data_regression, tmpdir, caplog, shared_fs):
+def test_condor_trial_regressor1(file_regression, tmpdir, caplog, shared_fs):
     """Test trial with regression model over temporal data"""
     func_name = sys._getframe().f_code.co_name
     output_dir = pre_test(func_name, tmpdir, caplog)
@@ -52,6 +53,6 @@ def test_condor_trial_regressor1(data_regression, tmpdir, caplog, shared_fs):
            " -type test -wait_period 0 -trial_wait_period 0"
            f" -shared_filesystem {shared_fs} -output_dir {output_dir}")
     strargs = " ".join(cmd.split()[3:])
-    results = run_trials.main(strargs)
+    summary = run_trials.main(strargs)
     write_logfile(caplog, output_dir)
-    data_regression.check(str(results))
+    file_regression.check(json.dumps(summary, indent=2), extension=".json")

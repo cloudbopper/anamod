@@ -41,6 +41,7 @@ def main():
     common.add_argument("-condor", help="Use condor for parallelization", type=strtobool, default=False)
     common.add_argument("-shared_filesystem", type=strtobool, default=False)
     common.add_argument("-cleanup", type=strtobool, default=True, help="Clean data and model files after completing simulation")
+    common.add_argument("-condor_cleanup", type=strtobool, default=True, help="Clean condor cmd/out/err/log files after completing simulation")
     # Hierarchical feature importance analysis arguments
     hierarchical = parser.add_argument_group("Hierarchical feature analysis arguments")
     hierarchical.add_argument("-noise_multiplier", type=float, default=.05,
@@ -79,7 +80,7 @@ def main():
 def pipeline(args, pass_args):
     """Simulation pipeline"""
     args.logger.info("Begin anamod simulation with args: %s" % args)
-    features, data, model = run_synmod(args)
+    synthesized_features, data, model = run_synmod(args)
     targets = model.predict(data, labels=True) if args.model_type == CLASSIFIER else model.predict(data)
     # Create wrapper around ground-truth model
     model_wrapper = ModelWrapper(model, args.num_features, args.noise_type, args.noise_multiplier)
@@ -87,9 +88,9 @@ def pipeline(args, pass_args):
         # Generate hierarchy using clustering (test data also used for clustering)
         hierarchy_root, feature_id_map = gen_hierarchy(args, data)
         # Update hierarchy descriptions for future visualization
-        update_hierarchy_relevance(hierarchy_root, model.relevant_feature_map, features)
+        update_hierarchy_relevance(hierarchy_root, model.relevant_feature_map, synthesized_features)
         # Invoke feature importance algorithm
-        run_anamod(args, pass_args, model_wrapper, data, targets, hierarchy_root)
+        analyzed_features = run_anamod(args, pass_args, model_wrapper, data, targets, hierarchy_root)
         # Compare anamod outputs with ground truth outputs
         evaluation.compare_with_ground_truth(args, hierarchy_root)
         # Evaluate anamod outputs - power/FDR for all nodes/outer nodes/base features
@@ -99,9 +100,10 @@ def pipeline(args, pass_args):
         # FIXME: should have similar mode of parsing outputs for both analyses
         analyzed_features = run_anamod(args, pass_args, model_wrapper, data, targets)
         results = evaluation.evaluate_temporal(args, model, analyzed_features)
-    write_results(args, model, results)
+    summary = write_summary(args, model, results)
+    write_features(args, synthesized_features, analyzed_features)
     args.logger.info("End anamod simulation")
-    return results
+    return summary
 
 
 def run_synmod(args):
@@ -134,7 +136,7 @@ def run_synmod(args):
     # Launch and monitor job
     job = CondorJobWrapper(cmd, [], job_dir, shared_filesystem=args.shared_filesystem, memory=memory_requirement, disk=disk_requirement)
     job.run()
-    CondorJobWrapper.monitor([job], cleanup=args.cleanup)
+    CondorJobWrapper.monitor([job], cleanup=args.condor_cleanup)
     # Extract data
     features, instances, model = [None] * 3
     with open(f"{job_dir}/{FEATURES_FILENAME}", "rb") as data_file:
@@ -324,8 +326,8 @@ def cleanup(args, data_filename, model_filename):
             os.remove(filename)
 
 
-def write_results(args, model, results):
-    """Write simulation config and results"""
+def write_summary(args, model, results):
+    """Write simulation summary"""
     config = dict(analysis_type=args.analysis_type,
                   num_instances=args.num_instances,
                   num_features=args.num_features,
@@ -333,11 +335,23 @@ def write_results(args, model, results):
                   model_type=model.__class__.__name__,
                   num_shuffling_trials=args.num_shuffling_trials,
                   sequences_independent_of_windows=args.window_independent)
-    results = {constants.CONFIG: config, constants.RESULTS: results}
-    results_filename = f"{args.output_dir}/{constants.SIMULATION_RESULTS_FILENAME}"
-    args.logger.info(f"Writing results to {results_filename}")
-    with open(results_filename, "w") as results_file:
-        json.dump(results, results_file)
+    # pylint: disable = protected-access
+    model_summary = dict(operation=model._operation.__class__.__name__,
+                         polynomial=model.sym_polynomial_fn.__repr__())
+    summary = {constants.CONFIG: config, constants.MODEL: model_summary, constants.RESULTS: results}
+    summary_filename = f"{args.output_dir}/{constants.SIMULATION_SUMMARY_FILENAME}"
+    args.logger.info(f"Writing summary to {summary_filename}")
+    with open(summary_filename, "w") as summary_file:
+        json.dump(summary, summary_file, indent=2)
+    return summary
+
+
+def write_features(args, synthesized_features, analyzed_features):
+    """Write synthesized and analyzed features to file"""
+    with open(f"{args.output_dir}/{constants.SYNTHESIZED_FEATURES_FILENAME}", "wb") as synthesized_features_file:
+        cloudpickle.dump(synthesized_features, synthesized_features_file)
+    with open(f"{args.output_dir}/{constants.ANALYZED_FEATURES_FILENAME}", "wb") as analyzed_features_file:
+        cloudpickle.dump(analyzed_features, analyzed_features_file)
 
 
 if __name__ == "__main__":

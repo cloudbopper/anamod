@@ -1,0 +1,189 @@
+{
+  "run_trials_config": {
+    "num_trials": 2,
+    "type": "test",
+    "test_values": [
+      "50",
+      "100"
+    ],
+    "analysis_type": "temporal",
+    "start_seed": 1000,
+    "simulation_cmdline": "-analysis_type temporal -model_type regressor -sequence_length 10 -sequences_independent_of_windows 0 -perturbation shuffling -noise_type none -num_features 2 -fraction_relevant_features 0.5 -num_shuffling_trials 5 -num_interactions 0 "
+  },
+  "config": {
+    "analysis_type": {
+      "50": [
+        "temporal",
+        "temporal"
+      ],
+      "100": [
+        "temporal",
+        "temporal"
+      ]
+    },
+    "num_instances": {
+      "50": [
+        50,
+        50
+      ],
+      "100": [
+        100,
+        100
+      ]
+    },
+    "num_features": {
+      "50": [
+        2,
+        2
+      ],
+      "100": [
+        2,
+        2
+      ]
+    },
+    "sequence_length": {
+      "50": [
+        10,
+        10
+      ],
+      "100": [
+        10,
+        10
+      ]
+    },
+    "model_type": {
+      "50": [
+        "Regressor",
+        "Regressor"
+      ],
+      "100": [
+        "Regressor",
+        "Regressor"
+      ]
+    },
+    "num_shuffling_trials": {
+      "50": [
+        5,
+        5
+      ],
+      "100": [
+        5,
+        5
+      ]
+    },
+    "sequences_independent_of_windows": {
+      "50": [
+        0,
+        0
+      ],
+      "100": [
+        0,
+        0
+      ]
+    },
+    "output_dir": {
+      "50": [
+        "trial_test_1000/test_50",
+        "trial_test_1001/test_50"
+      ],
+      "100": [
+        "trial_test_1000/test_100",
+        "trial_test_1001/test_100"
+      ]
+    }
+  },
+  "model": {
+    "operation": {
+      "50": [
+        "Max",
+        "Max"
+      ],
+      "100": [
+        "Max",
+        "Max"
+      ]
+    },
+    "polynomial": {
+      "50": [
+        "0.60384184700633*x0",
+        "0.0157004678203315*x1"
+      ],
+      "100": [
+        "0.60384184700633*x0",
+        "0.0157004678203315*x1"
+      ]
+    }
+  },
+  "results": {
+    "FDR": {
+      "50": [
+        0.0,
+        1.0
+      ],
+      "100": [
+        0.0,
+        1.0
+      ]
+    },
+    "Power": {
+      "50": [
+        1.0,
+        0.0
+      ],
+      "100": [
+        1.0,
+        0.0
+      ]
+    },
+    "Temporal_FDR": {
+      "50": [
+        0.0,
+        1.0
+      ],
+      "100": [
+        0.0,
+        1.0
+      ]
+    },
+    "Temporal_Power": {
+      "50": [
+        1.0,
+        0.0
+      ],
+      "100": [
+        1.0,
+        0.0
+      ]
+    },
+    "Average_Window_FDR": {
+      "50": [
+        0.0,
+        1.0
+      ],
+      "100": [
+        0.0,
+        1.0
+      ]
+    },
+    "Average_Window_Power": {
+      "50": [
+        1.0,
+        0.0
+      ],
+      "100": [
+        1.0,
+        0.0
+      ]
+    },
+    "Window_Overlap": {
+      "50": [
+        1.0,
+        0.0
+      ],
+      "100": [
+        1.0,
+        0.0
+      ]
+    }
+  }
+}

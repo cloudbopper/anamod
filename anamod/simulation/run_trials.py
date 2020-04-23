@@ -116,15 +116,16 @@ class Trial():  # pylint: disable = too-many-instance-attributes
 
     def analyze_simulations(self):
         """Collate and analyze simulation results"""
-        results_filename = "%s/%s_%s.json" % (self.output_dir, constants.ALL_SIMULATION_RESULTS, self.type)
+        results_filename = f"{self.output_dir}/{constants.ALL_SIMULATIONS_SUMMARY}_{self.type}.json"
         with open(results_filename, "w") as results_file:
             root = OrderedDict()
             for sim in self.simulations:
-                sim_results_filename = f"{sim.output_dir}/{constants.SIMULATION_RESULTS_FILENAME}"
+                sim_results_filename = f"{sim.output_dir}/{constants.SIMULATION_SUMMARY_FILENAME}"
                 with open(sim_results_filename, "r") as sim_results_file:
                     data = json.load(sim_results_file)
+                    data[constants.CONFIG]["output_dir"] = f"{os.path.basename(self.output_dir)}/{os.path.basename(sim.output_dir)}"
                     root[sim.param] = data
-            json.dump(root, results_file)
+            json.dump(root, results_file, indent=2)
         self.logger.info("Trial for seed {self.seed}: End running/analyzing simulations")
 
 
@@ -223,28 +224,32 @@ def summarize_trials(args, trials):
          to a list of values that the variable took in the outputs of simulations with that test configuration
     and writes this dict as a JSON file
     """
+    # pylint: disable = too-many-locals
     if not trials:
         return None
     some_trial = next(iter(trials))
-    data = dict(config=dict(num_trials=args.num_trials, type=args.type, test_values=some_trial.test_param.values,
-                            analysis_type=args.analysis_type, start_seed=args.start_seed, simulation_cmdline=some_trial.config))
+    data = dict(run_trials_config=dict(num_trials=args.num_trials, type=args.type, test_values=some_trial.test_param.values,
+                                       analysis_type=args.analysis_type, start_seed=args.start_seed, simulation_cmdline=some_trial.config))
     for tidx, trial in enumerate(trials):
-        trial_results_filename = f"{trial.output_dir}/{constants.ALL_SIMULATION_RESULTS}_{args.type}.json"
+        trial_results_filename = f"{trial.output_dir}/{constants.ALL_SIMULATIONS_SUMMARY}_{args.type}.json"
         with open(trial_results_filename, "r") as trial_results_file:
             sim_data = json.load(trial_results_file, object_pairs_hook=OrderedDict)
-            for param, results in sim_data.items():
-                for key, value in results[constants.RESULTS].items():  # Mapping from parameter values to corresponding simulation results
-                    if key not in data:
-                        data[key] = OrderedDict()
-                    if param not in data[key]:
-                        data[key][param] = [None] * args.num_trials
-                    # FIXME: Want to plot window accuracy by overlap (instead of average window overlap)
-                    if key == constants.WINDOW_OVERLAP:
-                        value = np.mean(list(value.values())) if value else 0.
-                    data[key][param][tidx] = value
-    data_filename = f"{args.output_dir}/{constants.ALL_TRIAL_RESULTS_FILENAME}"
+            for param, sim in sim_data.items():  # Mapping from parameter values to corresponding simulation outputs
+                for category, category_data in sim.items():  # Mapping from simulation output category (config/model/results) to its data
+                    if category not in data:
+                        data[category] = OrderedDict()
+                    for key, value in category_data.items():  # Mapping from category-specific variable names to values
+                        if key not in data[category]:
+                            data[category][key] = OrderedDict()
+                        if param not in data[category][key]:
+                            data[category][key][param] = [None] * args.num_trials
+                        # FIXME: Want to plot window accuracy by overlap (instead of average window overlap)
+                        if key == constants.WINDOW_OVERLAP:
+                            value = np.mean(list(value.values())) if value else 0.
+                        data[category][key][param][tidx] = value
+    data_filename = f"{args.output_dir}/{constants.ALL_TRIALS_SUMMARY_FILENAME}"
     with open(data_filename, "w") as data_file:
-        json.dump(data, data_file)
+        json.dump(data, data_file, indent=2)
     return data
 
 
