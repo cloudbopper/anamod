@@ -91,7 +91,7 @@ class ModelAnalyzer(ABC):  # pylint: disable = too-many-instance-attributes
                 Remove intermediate condor files upon completion (typically for debugging).
                 Enabled by default to reduced space usage and clutter."
 
-            features_per_worker: int, default: 10
+            features_per_worker: int, default: 1
                 Number of features to test per condor job. Fewer features per job reduces job
                 load at the cost of more jobs.
 
@@ -127,7 +127,7 @@ class ModelAnalyzer(ABC):  # pylint: disable = too-many-instance-attributes
         self.condor = self.process_keyword_arg("condor", False)
         self.shared_filesystem = self.process_keyword_arg("shared_filesystem", False)
         self.cleanup = self.process_keyword_arg("cleanup", True)
-        self.features_per_worker = self.process_keyword_arg("features_per_worker", 10)
+        self.features_per_worker = self.process_keyword_arg("features_per_worker", 1)
         self.memory_requirement = self.process_keyword_arg("memory_requirement", 8)
         self.disk_requirement = self.process_keyword_arg("disk_requirement", 8)
         self.model_loader_filename = self.process_keyword_arg("model_loader_filename", None)

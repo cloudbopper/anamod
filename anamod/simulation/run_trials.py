@@ -10,6 +10,9 @@ import os
 import subprocess
 import time
 
+# Avoids this error: https://stackoverflow.com/questions/51256738/multiple-instances-of-python-running-simultaneously-limited-to-35
+os.environ['OPENBLAS_NUM_THREADS'] = '1'  # noqa: E402 pylint: disable = wrong-import-position
+
 import numpy as np
 from anamod import constants, utils
 from anamod.constants import DEFAULT, INSTANCE_COUNTS, NOISE_LEVELS, FEATURE_COUNTS, SHUFFLING_COUNTS
