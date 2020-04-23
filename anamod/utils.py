@@ -24,7 +24,7 @@ CONDOR_MAX_RETRIES = 5
 CONDOR_HOLD_RETRY_CODES = set([6, 7, 8, 9, 10, 11, 12, 13, 14])
 # List of hosts to avoid (if causing issues):
 CONDOR_AVOID_HOSTS = ["mastodon-5.biostat.wisc.edu",  # jobs freeze indefinitely
-                      "mammoth-1.biostat.wisc.edu"]   # doesn't seem to be on shared filesystem
+                      "chief.biostat.wisc.edu", "mammoth-1.biostat.wisc.edu"]   # don't seem to be on shared filesystem
 CONDOR_MAX_ERROR_COUNT = 100
 
 
