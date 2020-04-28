@@ -22,10 +22,13 @@ CONDOR_MAX_WAIT_TIME = 600  # Time to wait for job to start running before retry
 CONDOR_MAX_RETRIES = 5
 # Reference: https://htcondor.readthedocs.io/en/latest/classad-attributes/job-classad-attributes.html
 CONDOR_HOLD_RETRY_CODES = set([6, 7, 8, 9, 10, 11, 12, 13, 14])
-CONDOR_AVOID_HOSTS = ["mastodon-5.biostat.wisc.edu"]  # List of hosts to avoid (if causing issues)
+# List of hosts to avoid (if causing issues):
+CONDOR_AVOID_HOSTS = ["mastodon-5.biostat.wisc.edu",  # jobs freeze indefinitely
+                      "chief.biostat.wisc.edu", "mammoth-1.biostat.wisc.edu"]   # don't seem to be on shared filesystem
+CONDOR_MAX_ERROR_COUNT = 100
 
 
-def get_logger(name, filename, level=logging.INFO):
+def get_logger(name, filename=None, level=logging.INFO):
     """Return logger configure to write to filename"""
     formatting = "%(asctime)s: %(levelname)s: %(name)s: %(message)s"
     logging.basicConfig(level=level, filename=filename, format=formatting)  # if not already configured
@@ -100,6 +103,7 @@ class CondorJobWrapper():
         self.running = False
         self.submit_time = -1
         self.execute_time = -1
+        self.error_count = 0
 
     def create_job(self, memory, disk, package):
         """Create job"""
@@ -165,7 +169,7 @@ class CondorJobWrapper():
                 os.remove(filename)
 
     @staticmethod
-    def monitor(jobs, cleanup=False, tracking=EVENT_LOG_TRACKING):
+    def monitor(jobs, cleanup=False, tracking=EVENT_LOG_TRACKING, logger=None):
         """
         Monitor running jobs until completion
         Reference: https://htcondor.readthedocs.io/en/latest/apis/python-bindings/advanced/Scalable-Job-Tracking.html
@@ -176,18 +180,20 @@ class CondorJobWrapper():
             * Completed jobs need to query condor history, from which job may leak out of if not queried soon enough
             * HTCondor staff discourages using this to reduce server load
         """
+        if logger is None:
+            logger = get_logger("CondorJobMonitor")
         for job in jobs:
             assert job.cluster_id != -1  # Job needs to be running
         if tracking == EVENT_LOG_TRACKING:
-            CondorJobWrapper.monitor_event_logs(jobs, cleanup)
+            CondorJobWrapper.monitor_event_logs(jobs, cleanup, logger)
         else:
             # Poll-based tracking
-            CondorJobWrapper.monitor_polling(jobs, cleanup)
+            CondorJobWrapper.monitor_polling(jobs, cleanup, logger)
         if jobs and jobs[0].shared_filesystem:
             time.sleep(10)  # Time to allow file changes to reflect in shared filesystem
 
     @staticmethod
-    def monitor_event_logs(jobs, cleanup):
+    def monitor_event_logs(jobs, cleanup, logger):
         """Monitor jobs using event logs"""
         # pylint: disable = too-many-branches
         running_jobs_set = OrderedDict.fromkeys(jobs)
@@ -195,11 +201,19 @@ class CondorJobWrapper():
             running_jobs = list(running_jobs_set.keys())
             for job in running_jobs:
                 try:
-                    events = htcondor.JobEventLog(job.filenames.log_filename).events(0)
-                except OSError:
-                    continue  # Fails if trying to open too many logs at the same time
+                    event_log = htcondor.JobEventLog(job.filenames.log_filename)
+                    events = event_log.events(0)
+                except OSError as error:
+                    # Fails if trying to open too many logs at the same time
+                    if job.error_count < CONDOR_MAX_ERROR_COUNT:
+                        logger.warning(f"{job.name}: attempt {job.error_count}: failed to open log {job.filenames.log_filename}, "
+                                       f"retrying after pause; error: {error}")
+                        job.error_count += 1
+                        continue
+                    raise OSError(f"Failed {CONDOR_MAX_ERROR_COUNT} times: {error}")
                 for event in events:
                     event_type = event.type
+                    logger.debug(f"{job.name}: processing event type {event_type}")
                     # Reference: https://htcondor.readthedocs.io/en/latest/apis/python-bindings/api/htcondor.html#reading-job-events
                     if event_type == JobEventType.EXECUTE:
                         if not job.running:
@@ -217,24 +231,31 @@ class CondorJobWrapper():
                         hold_reason_code = event["HoldReasonCode"]
                         if hold_reason_code != 1:
                             CondorJobWrapper.process_failure(job, event["HoldReason"], jobs, retry=hold_reason_code in CONDOR_HOLD_RETRY_CODES)
+                event_log.close()
                 CondorJobWrapper.process_timeout(job, jobs)
             time.sleep(60 * random.uniform(0.9, 1.1))  # inject a little randomness to avoid synchronized waking up of parallel processes
 
     @staticmethod
-    def monitor_polling(jobs, cleanup):
+    def monitor_polling(jobs, cleanup, logger):
         """Monitor jobs by polling condor_schedd"""
+        # pylint: disable = too-many-locals
         schedd = htcondor.Schedd()
         running_jobs_set = OrderedDict.fromkeys(jobs)
+        error_count = 0
         while running_jobs_set:
             running_jobs = list(running_jobs_set.keys())
             try:
                 query_responses = list(schedd.xquery("true", ["ClusterId", "JobStatus", "ExitCode", "HoldReason", "HoldReasonCode"]))
                 # This will fail if job leaks out of returned truncated history:
                 history_responses = list(schedd.history("true", ["ClusterId", "JobStatus", "ExitCode", "HoldReason", "HoldReasonCode"]))
-            except RuntimeError:
+            except RuntimeError as error:
                 # Timeout when waiting for remote host
-                time.sleep(60)
-                continue
+                if error_count < CONDOR_MAX_ERROR_COUNT:
+                    logger.warning(f"Attempt {error_count}: timeout waiting for remote host, retrying after pause; error: {error}")
+                    error_count += 1
+                    time.sleep(60)
+                    continue
+                raise RuntimeError(f"Failed {CONDOR_MAX_ERROR_COUNT} times: {error}")
             query_classads = {classad["ClusterId"]: classad for classad in query_responses}
             history_classads = {classad["ClusterId"]: classad for classad in history_responses}
             for job in running_jobs:
@@ -243,6 +264,7 @@ class CondorJobWrapper():
                     classad = history_classads.get(job.cluster_id)
                 assert classad
                 job_status = classad["JobStatus"]
+                logger.debug(f"{job.name}: observed job status {job_status}")
                 # Reference: https://htcondor.readthedocs.io/en/latest/classad-attributes/job-classad-attributes.html
                 if job_status == 2:  # Job running
                     if not job.running:
@@ -258,7 +280,7 @@ class CondorJobWrapper():
                     if hold_reason_code != 1:
                         CondorJobWrapper.process_failure(job, classad["HoldReason"], jobs, retry=hold_reason_code in CONDOR_HOLD_RETRY_CODES)
                 CondorJobWrapper.process_timeout(job, jobs)
-            time.sleep(60)
+            time.sleep(60 * random.uniform(0.9, 1.1))  # inject a little randomness to avoid synchronized waking up of parallel processes
 
     @staticmethod
     def process_success(job, running_jobs_set, cleanup):

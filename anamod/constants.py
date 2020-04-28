@@ -71,7 +71,9 @@ AVERAGE_WINDOW_FDR = "Average_Window_FDR"
 AVERAGE_WINDOW_POWER = "Average_Window_Power"
 WINDOW_OVERLAP = "Window_Overlap"
 SIMULATION_RESULTS = "simulation_results"
-SIMULATION_RESULTS_FILENAME = "simulation_results.json"
+SIMULATION_SUMMARY_FILENAME = "simulation_summary.json"
+SYNTHESIZED_FEATURES_FILENAME = "synthesized_features.cpkl"
+ANALYZED_FEATURES_FILENAME = "analyzed_features.cpkl"
 
 # Trial (multiple simulations)
 DEFAULT = "DEFAULT"
@@ -83,9 +85,11 @@ SEQUENCE_LENGTHS = "sequence_lengths"
 WINDOW_SEQUENCE_DEPENDENCE = "window_sequence_dependence"
 MODEL_TYPES = "model_types"
 TEST = "test"
-ALL_SIMULATION_RESULTS = "all_simulation_results"
+ALL_SIMULATIONS_SUMMARY = "all_simulations_summary"
 CONFIG_HIERARCHICAL = "config_run_simulations_hierarchical.ini"
 CONFIG_TEMPORAL = "config_run_simulations_temporal.ini"
+ALL_TRIALS_SUMMARY_FILENAME = "all_trials_summary.json"
+CONFIG, MODEL, RESULTS = ("config", "model", "results")  # simulation output JSON categories
 
 # Hierarchical FDR
 HIERARCHICAL_FDR_DIR = "hierarchical_fdr_results"

@@ -1,7 +1,0 @@
-'{''FDR'': OrderedDict([(''50'', array([0., 1.])), (''100'', array([0., 1.]))]), ''Power'':
-  OrderedDict([(''50'', array([1., 0.])), (''100'', array([1., 0.]))]), ''Temporal_FDR'':
-  OrderedDict([(''50'', array([0., 1.])), (''100'', array([0., 1.]))]), ''Temporal_Power'':
-  OrderedDict([(''50'', array([1., 0.])), (''100'', array([1., 0.]))]), ''Average_Window_FDR'':
-  OrderedDict([(''50'', array([0., 1.])), (''100'', array([0., 1.]))]), ''Average_Window_Power'':
-  OrderedDict([(''50'', array([1., 0.])), (''100'', array([1., 0.]))]), ''Window_Overlap'':
-  OrderedDict([(''50'', array([1., 0.])), (''100'', array([1., 0.]))])}'
