@@ -7,11 +7,9 @@ import configparser
 from distutils.util import strtobool
 import json
 import os
+import resource
 import subprocess
 import time
-
-# Avoids this error: https://stackoverflow.com/questions/51256738/multiple-instances-of-python-running-simultaneously-limited-to-35
-os.environ['OPENBLAS_NUM_THREADS'] = '1'  # noqa: E402 pylint: disable = wrong-import-position
 
 import numpy as np
 from anamod import constants, utils
@@ -129,7 +127,7 @@ class Trial():  # pylint: disable = too-many-instance-attributes
                     data[constants.CONFIG]["output_dir"] = f"{os.path.basename(self.output_dir)}/{os.path.basename(sim.output_dir)}"
                     root[sim.param] = data
             json.dump(root, results_file, indent=2)
-        self.logger.info("Trial for seed {self.seed}: End running/analyzing simulations")
+        self.logger.info(f"Trial for seed {self.seed}: End running/analyzing simulations")
 
 
 def main(strargs=""):
@@ -167,9 +165,23 @@ def parse_arguments(strargs):
 def pipeline(args):
     """Pipeline"""
     args.logger.info(f"Begin running trials with config: {args}")
+    setup(args)
     trials = gen_trials(args)
     run_trials(args, trials)
     return summarize_trials(args, trials)
+
+
+def setup(args):
+    """
+    Setup: limit the number of threads used to load numpy libraries, since each subprocess will load its own
+    Avoids this error: https://stackoverflow.com/questions/51256738/multiple-instances-of-python-running-simultaneously-limited-to-35
+    """
+    process_limit, _ = resource.getrlimit(resource.RLIMIT_NPROC)
+    process_limit -= (args.max_concurrent_simulations + 100)  # buffer
+    assert args.max_concurrent_simulations < process_limit
+    num_threads = process_limit // args.max_concurrent_simulations
+    num_threads = min(max(1, num_threads), os.cpu_count())
+    os.environ['OPENBLAS_NUM_THREADS'] = f"{num_threads}"
 
 
 def gen_trials(args):
