@@ -101,7 +101,7 @@ def pipeline(args, pass_args):
         analyzed_features = run_anamod(args, pass_args, model_wrapper, data, targets)
         results = evaluation.evaluate_temporal(args, model, analyzed_features)
     summary = write_summary(args, model, results)
-    write_features(args, synthesized_features, analyzed_features)
+    write_io(args, model, synthesized_features, analyzed_features)
     args.logger.info("End anamod simulation")
     return summary
 
@@ -346,8 +346,10 @@ def write_summary(args, model, results):
     return summary
 
 
-def write_features(args, synthesized_features, analyzed_features):
-    """Write synthesized and analyzed features to file"""
+def write_io(args, model, synthesized_features, analyzed_features, ):
+    """Write simulation inputs and outputs (model and features)"""
+    with open(f"{args.output_dir}/{constants.MODEL_FILENAME}", "wb") as model_file:
+        cloudpickle.dump(model, model_file)
     with open(f"{args.output_dir}/{constants.SYNTHESIZED_FEATURES_FILENAME}", "wb") as synthesized_features_file:
         cloudpickle.dump(synthesized_features, synthesized_features_file)
     with open(f"{args.output_dir}/{constants.ANALYZED_FEATURES_FILENAME}", "wb") as analyzed_features_file:
