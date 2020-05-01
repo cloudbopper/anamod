@@ -83,7 +83,7 @@ def pipeline(args, pass_args):
     synthesized_features, data, model = run_synmod(args)
     targets = model.predict(data, labels=True) if args.model_type == CLASSIFIER else model.predict(data)
     # Create wrapper around ground-truth model
-    model_wrapper = ModelWrapper(model, args.num_features, args.noise_type, args.noise_multiplier)
+    model_wrapper = ModelWrapper(model, args.num_features, args.noise_type, args.noise_multiplier, args.seed)
     if args.analysis_type == constants.HIERARCHICAL:
         # Generate hierarchy using clustering (test data also used for clustering)
         hierarchy_root, feature_id_map = gen_hierarchy(args, data)
