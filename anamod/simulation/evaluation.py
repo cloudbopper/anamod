@@ -101,7 +101,7 @@ def evaluate_temporal(args, model, features):
         # Ground truth values
         if model.relevant_feature_map.get(frozenset({idx})):
             important[idx] = True
-            left, right = model._operation._windows[idx]
+            left, right = model._aggregator._windows[idx]
             if right - left + 1 < args.sequence_length:
                 temporally_important[idx] = True
                 windows[idx][left: right + 1] = 1  # algorithm doesn't test for window unless feature is identified as temporally important

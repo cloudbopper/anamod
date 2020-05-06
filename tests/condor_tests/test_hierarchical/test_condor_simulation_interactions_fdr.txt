@@ -2,13 +2,21 @@
 
 1 + 7,dummy_root,1.0,0,1.0
 
+1 + 8,dummy_root,1.0,0,1.0
+
 1 + 9,dummy_root,1.0,0,1.0
 
 5 + 7,dummy_root,1.0,0,1.0
 
+5 + 8,dummy_root,1.0,0,1.0
+
 5 + 9,dummy_root,1.0,0,1.0
 
-7 + 9,dummy_root,4.07e-08,1,2.442e-07
+7 + 8,dummy_root,1.36256e-05,1,4.54187e-05
+
+7 + 9,dummy_root,0.0,1,0.0
+
+8 + 9,dummy_root,4.5186e-06,1,2.2593e-05
 
 dummy_root,,0.0,1,0.0
 

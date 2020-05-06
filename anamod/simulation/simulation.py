@@ -336,7 +336,7 @@ def write_summary(args, model, results):
                   num_shuffling_trials=args.num_shuffling_trials,
                   sequences_independent_of_windows=args.window_independent)
     # pylint: disable = protected-access
-    model_summary = dict(operation=model._operation.__class__.__name__,
+    model_summary = dict(operation=model._aggregator.__class__.__name__,
                          polynomial=model.sym_polynomial_fn.__repr__())
     summary = {constants.CONFIG: config, constants.MODEL: model_summary, constants.RESULTS: results}
     summary_filename = f"{args.output_dir}/{constants.SIMULATION_SUMMARY_FILENAME}"
