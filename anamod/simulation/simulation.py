@@ -5,6 +5,7 @@ import copy
 from distutils.util import strtobool
 import json
 import os
+import pickle
 import pprint
 import shutil
 
@@ -349,11 +350,11 @@ def write_summary(args, model, results):
 def write_io(args, model, synthesized_features, analyzed_features, ):
     """Write simulation inputs and outputs (model and features)"""
     with open(f"{args.output_dir}/{constants.MODEL_FILENAME}", "wb") as model_file:
-        cloudpickle.dump(model, model_file)
+        cloudpickle.dump(model, model_file, protocol=pickle.DEFAULT_PROTOCOL)
     with open(f"{args.output_dir}/{constants.SYNTHESIZED_FEATURES_FILENAME}", "wb") as synthesized_features_file:
-        cloudpickle.dump(synthesized_features, synthesized_features_file)
+        cloudpickle.dump(synthesized_features, synthesized_features_file, protocol=pickle.DEFAULT_PROTOCOL)
     with open(f"{args.output_dir}/{constants.ANALYZED_FEATURES_FILENAME}", "wb") as analyzed_features_file:
-        cloudpickle.dump(analyzed_features, analyzed_features_file)
+        cloudpickle.dump(analyzed_features, analyzed_features_file, protocol=pickle.DEFAULT_PROTOCOL)
 
 
 if __name__ == "__main__":

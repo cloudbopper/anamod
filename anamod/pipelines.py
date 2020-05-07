@@ -4,6 +4,7 @@ import copy
 import glob
 import math
 import os
+import pickle
 import shutil
 
 import cloudpickle
@@ -27,7 +28,7 @@ class SerialPipeline():
             job_features = self.features[idx * num_features_per_file: (idx + 1) * num_features_per_file]
             features_filename = constants.INPUT_FEATURES_FILENAME.format(self.args.output_dir, idx)
             with open(features_filename, "wb") as features_file:
-                cloudpickle.dump(job_features, features_file)
+                cloudpickle.dump(job_features, features_file, protocol=pickle.DEFAULT_PROTOCOL)
 
     def compile_results(self, output_dirs):
         """Compile results"""

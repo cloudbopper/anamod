@@ -8,6 +8,7 @@ import argparse
 from collections import namedtuple
 import importlib
 import os
+import pickle
 import sys
 
 import cloudpickle
@@ -220,7 +221,7 @@ def write_outputs(args, features, predictions):
     # Write features
     features_filename = constants.OUTPUT_FEATURES_FILENAME.format(args.output_dir, args.worker_idx)
     with open(features_filename, "wb") as features_file:
-        cloudpickle.dump(features, features_file)
+        cloudpickle.dump(features, features_file, protocol=pickle.DEFAULT_PROTOCOL)
     # TODO: Decide if all these are still necessary (only features and predictions used by callers)
     results_filename = constants.RESULTS_FILENAME.format(args.output_dir, args.worker_idx)
     root = h5py.File(results_filename, "w")
