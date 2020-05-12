@@ -37,9 +37,8 @@ class ModelWrapper():
     # pylint: disable = invalid-name
     def predict(self, X):
         """Perform prediction on input X (comprising one or more instances)"""
-        prediction = self.ground_truth_model.predict(X)
         if not self.noisy:
-            return prediction
+            return self.ground_truth_model.predict(X)
         noise = np.zeros(len(X))
         for idx, instance in enumerate(X):
             # The amount of noise is randomly chosen based on the instance
@@ -53,7 +52,7 @@ class ModelWrapper():
             else:
                 # Add noise - additive Gaussian, sampled for every instance/perturbed instance
                 noise[idx] = self.noise[noise_idx]
-        return prediction + noise
+        return self.ground_truth_model.predict(X, noise=noise)
 
     def loss(self, targets, predictions):
         """Compute loss for prediction-target pair (comprising one or more instances)"""

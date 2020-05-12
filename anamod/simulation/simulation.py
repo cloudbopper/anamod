@@ -48,7 +48,7 @@ def main():
     hierarchical.add_argument("-noise_multiplier", type=float, default=.05,
                               help="Multiplicative factor for noise added to polynomial computation for irrelevant features")
     hierarchical.add_argument("-noise_type", choices=[constants.ADDITIVE_GAUSSIAN, constants.EPSILON_IRRELEVANT, constants.NO_NOISE],
-                              default=constants.EPSILON_IRRELEVANT)
+                              default=constants.NO_NOISE)
     hierarchical.add_argument("-hierarchy_type", help="Choice of hierarchy to generate", default=constants.CLUSTER_FROM_DATA,
                               choices=[constants.CLUSTER_FROM_DATA, constants.RANDOM])
     hierarchical.add_argument("-contiguous_node_names", type=strtobool, default=False, help="enable to change node names in hierarchy "
@@ -73,8 +73,6 @@ def main():
         os.makedirs(args.output_dir)
     args.rng = np.random.default_rng(args.seed)
     args.logger = utils.get_logger(__name__, "%s/simulation.log" % args.output_dir)
-    if args.analysis_type == constants.TEMPORAL:
-        args.noise_type = constants.NO_NOISE
     return pipeline(args, pass_args)
 
 
@@ -303,7 +301,7 @@ def run_anamod(args, pass_args, model, data, targets, hierarchy=None):  # pylint
     # Create analyzer
     analyzer = ModelAnalyzer(model, data, targets, **options)
     # Run analyzer
-    args.logger.info(f"Analyzing model with options: {pprint.pformat(options)}")
+    args.logger.info(f"Analyzing model with options:\n{pprint.pformat(options)}")
     features = analyzer.analyze()
     cleanup(args, analyzer.data_filename, analyzer.model_filename)
     args.logger.info("End running anamod")

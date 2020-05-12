@@ -119,7 +119,8 @@ def evaluate_temporal(args, model, features):
     for idx, _ in enumerate(features):
         if not inferred_temporally_important[idx]:
             continue  # Don't include features unless identified as temporally relevant
-        window_precision, window_recall, _, _ = precision_recall_fscore_support(windows[idx], inferred_windows[idx], average="binary")
+        window_precision, window_recall, _, _ = precision_recall_fscore_support(windows[idx], inferred_windows[idx],
+                                                                                average="binary", zero_division=0)
         window_overlap = balanced_accuracy_score(windows[idx], inferred_windows[idx])
         window_results[idx] = {"precision": window_precision, "recall": window_recall, "overlap": window_overlap}
     avg_window_precision = np.mean([result["precision"] for result in window_results.values()]) if window_results else 0.
