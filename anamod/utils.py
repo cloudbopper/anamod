@@ -24,8 +24,9 @@ CONDOR_MAX_RETRIES = 5
 CONDOR_HOLD_RETRY_CODES = set([6, 7, 8, 9, 10, 11, 12, 13, 14])
 # List of hosts to avoid (if causing issues):
 CONDOR_AVOID_HOSTS = ["mastodon-5.biostat.wisc.edu",  # jobs freeze indefinitely
-                      "chief.biostat.wisc.edu", "mammoth-1.biostat.wisc.edu"]   # don't seem to be on shared filesystem
-CONDOR_MAX_ERROR_COUNT = 100
+                      "chief.biostat.wisc.edu", "mammoth-1.biostat.wisc.edu", "nebula-7.biostat.wisc.edu"]   # don't seem to be on shared filesystem
+CONDOR_MAX_ERROR_COUNT = 100  # Maximum number of condor errors to tolerate before aborting (for a variety of possible reasons)
+QUEUE, REMOVE, QUERY, HISTORY = ("queue", "remove", "query", "history")  # Condor scheduler actions
 
 
 def get_logger(name, filename=None, level=logging.INFO):
@@ -51,7 +52,7 @@ class CondorJobFailure(RuntimeError):
 class CondorJobWrapper():
     """Schedule jobs using condor"""
     # pylint: disable = too-many-instance-attributes
-    idx = 0
+    idx = 0  # Unique ID per job
 
     def __init__(self, cmd, input_files, job_dir, **kwargs):
         """
@@ -154,8 +155,7 @@ class CondorJobWrapper():
             os.replace(self.filenames.log_filename, f"{self.filenames.log_filename}.{self.tries}")
         # Run job
         schedd = htcondor.Schedd()
-        with schedd.transaction() as txn:
-            self.cluster_id = self.job.queue(txn)
+        self.cluster_id = CondorJobWrapper.condor_schedd_interact(schedd, QUEUE, job=self.job)
         self.tries += 1
         self.running = False
         self.submit_time = time.time()
@@ -245,9 +245,9 @@ class CondorJobWrapper():
         while running_jobs_set:
             running_jobs = list(running_jobs_set.keys())
             try:
-                query_responses = list(schedd.xquery("true", ["ClusterId", "JobStatus", "ExitCode", "HoldReason", "HoldReasonCode"]))
+                query_responses = CondorJobWrapper.condor_schedd_interact(schedd, QUERY, logger=logger)
                 # This will fail if job leaks out of returned truncated history:
-                history_responses = list(schedd.history("true", ["ClusterId", "JobStatus", "ExitCode", "HoldReason", "HoldReasonCode"]))
+                history_responses = CondorJobWrapper.condor_schedd_interact(schedd, HISTORY, logger=logger)
             except RuntimeError as error:
                 # Timeout when waiting for remote host
                 if error_count < CONDOR_MAX_ERROR_COUNT:
@@ -321,4 +321,35 @@ class CondorJobWrapper():
         """Remove jobs from condor queue"""
         schedd = htcondor.Schedd()
         for job in jobs:
-            schedd.act(JobAction.Remove, f"ClusterId=={job.cluster_id}", reason=reason)
+            CondorJobWrapper.condor_schedd_interact(schedd, REMOVE, job_spec=f"ClusterId=={job.cluster_id}", reason=reason)
+
+    @staticmethod
+    def condor_schedd_interact(schedd, action, job=None, job_spec=None, reason=None, logger=None):
+        """Wrapper around condor scheduler interactions to catch/deal with potential errors"""
+        # pylint: disable = too-many-arguments
+        if logger is None:
+            logger = get_logger("CondorJobWrapper")
+        output = None
+        error_count = 0
+        while error_count < CONDOR_MAX_ERROR_COUNT:
+            try:
+                if action == QUEUE:
+                    assert job is not None
+                    with schedd.transaction() as txn:
+                        output = job.queue(txn)  # cluster ID
+                elif action == REMOVE:
+                    assert job_spec is not None
+                    schedd.act(JobAction.Remove, job_spec, reason=reason)
+                elif action == QUERY:
+                    output = list(schedd.xquery("true", ["ClusterId", "JobStatus", "ExitCode", "HoldReason", "HoldReasonCode"]))
+                elif action == HISTORY:
+                    output = list(schedd.history("true", ["ClusterId", "JobStatus", "ExitCode", "HoldReason", "HoldReasonCode"]))
+                else:
+                    raise ValueError(f"Condor scheduler action {action} not understood")
+                break
+            except RuntimeError as error:
+                logger.warning(f"Retrying condor scheduler action '{action}' after a pause after encountering error no. {error_count}"
+                               f" (max {CONDOR_MAX_ERROR_COUNT}): {error}")
+                error_count += 1
+                time.sleep(30)
+        return output
