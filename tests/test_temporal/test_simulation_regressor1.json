@@ -18,10 +18,10 @@
     "Temporal_FDR": 0.0,
     "Temporal_Power": 1.0,
     "Average_Window_FDR": 0.0,
-    "Average_Window_Power": 1.0,
+    "Average_Window_Power": 0.9800000000000001,
     "Window_Overlap": {
       "1": 1.0,
-      "3": 1.0,
+      "3": 0.95,
       "5": 1.0,
       "6": 1.0,
       "8": 1.0

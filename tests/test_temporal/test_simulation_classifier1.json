@@ -14,13 +14,11 @@
   },
   "results": {
     "FDR": 0.0,
-    "Power": 0.4,
-    "Temporal_FDR": 0.0,
-    "Temporal_Power": 0.2,
-    "Average_Window_FDR": 0.0,
-    "Average_Window_Power": 0.2,
-    "Window_Overlap": {
-      "6": 0.6
-    }
+    "Power": 0.2,
+    "Temporal_FDR": 1.0,
+    "Temporal_Power": 0.0,
+    "Average_Window_FDR": 1.0,
+    "Average_Window_Power": 0.0,
+    "Window_Overlap": {}
   }
 }

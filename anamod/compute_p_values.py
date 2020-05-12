@@ -7,8 +7,9 @@ from scipy.stats import find_repeats, rankdata, norm, ttest_rel
 from anamod import constants, utils
 
 
-def compute_p_value(baseline, perturbed, test=constants.WILCOXON_TEST, alternative=constants.LESS):
+def compute_p_value(baseline, perturbed, test=constants.PAIRED_TTEST, alternative=constants.TWOSIDED):
     """Compute p-value using paired difference test on input numpy arrays"""
+    # TODO: Implement one-sided t-tests
     baseline = utils.round_value(baseline)
     perturbed = utils.round_value(perturbed)
     # Perform statistical test
@@ -16,7 +17,11 @@ def compute_p_value(baseline, perturbed, test=constants.WILCOXON_TEST, alternati
     assert test in valid_tests, "Invalid test name %s" % test
     if test == constants.PAIRED_TTEST:
         # Two-tailed paired t-test
-        return ttest_rel(baseline, perturbed)[1]
+        pvalue = ttest_rel(baseline, perturbed).pvalue
+        if np.isnan(pvalue):
+            # Identical vectors
+            pvalue = 1.0
+        return pvalue
     # One-tailed Wilcoxon signed-rank test
     return wilcoxon_test(baseline, perturbed, alternative=alternative)
 

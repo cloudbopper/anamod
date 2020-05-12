@@ -1,0 +1,23 @@
+{
+  "config": {
+    "analysis_type": "hierarchical",
+    "num_instances": 100,
+    "num_features": 30,
+    "sequence_length": 20,
+    "model_type": "Regressor",
+    "num_shuffling_trials": 100,
+    "sequences_independent_of_windows": false
+  },
+  "model": {
+    "operation": "Identity",
+    "polynomial": "0.608851616844548*x0 + 0.493619833956115*x10 + 0.500226189348746*x12 + 0.958582286109247*x13 + 0.349937399822255*x19 + 0.704864745564743*x2 + 0.223771146778216*x20 + 0.522087002211448*x24 + 0.641170923965028*x25 + 0.939107053424009*x26 + 0.582015800647046*x29 + 0.942803679129167*x3 + 0.665657416965753*x4 + 0.133395755451693*x5 + 0.497867598785374*x9"
+  },
+  "results": {
+    "FDR": 0.0,
+    "Power": 0.9230769230769231,
+    "Base_Features_FDR": 0.0,
+    "Base_Features_Power": 0.8666666666666667,
+    "Interactions_FDR": 1.0,
+    "Interactions_Power": 0.0
+  }
+}
