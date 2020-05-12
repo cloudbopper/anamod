@@ -13,8 +13,6 @@ import time
 
 import numpy as np
 from anamod import constants, utils
-from anamod.constants import DEFAULT, INSTANCE_COUNTS, NOISE_LEVELS, FEATURE_COUNTS, SHUFFLING_COUNTS
-from anamod.constants import SEQUENCE_LENGTHS, WINDOW_SEQUENCE_DEPENDENCE, MODEL_TYPES, TEST
 
 TestParam = namedtuple("TestParameter", ["key", "values"])
 
@@ -65,6 +63,7 @@ class Trial():  # pylint: disable = too-many-instance-attributes
         assert os.path.exists(config_filename)
         config = configparser.ConfigParser()
         config.read(config_filename)
+        assert self.type in config, f"Type not understood; choose one of {list(config.keys())}"
         dconfig = config[self.type]
         sconfig = ""
         test_param = None
@@ -96,6 +95,7 @@ class Trial():  # pylint: disable = too-many-instance-attributes
         if self.summarize_only:
             return
         for sim in self.simulations:
+            # TODO: Write this in a log file inside the trial directory instead of global log
             self.logger.info(f"Running simulation: '{sim.cmd}'")
             sim.popen = subprocess.Popen(sim.cmd, shell=True)
             self.running_sims.add(sim)
@@ -145,9 +145,7 @@ def parse_arguments(strargs):
     parser.add_argument("-trial_wait_period", type=int, default=60, help="time in seconds to wait before checking trial status")
     parser.add_argument("-start_seed", type=int, default=100000, help="randomization seed for first trial, incremented for"
                         " every subsequent trial.")
-    parser.add_argument("-type", choices=[DEFAULT, INSTANCE_COUNTS, FEATURE_COUNTS, NOISE_LEVELS, SHUFFLING_COUNTS,
-                                          SEQUENCE_LENGTHS, WINDOW_SEQUENCE_DEPENDENCE, MODEL_TYPES, TEST],
-                        default=DEFAULT, help="type of parameter to vary across simulations")
+    parser.add_argument("-type", default=constants.DEFAULT, help="type of parameter to vary across simulations")
     parser.add_argument("-analysis_type", default=constants.TEMPORAL, choices=[constants.TEMPORAL, constants.HIERARCHICAL],
                         help="type of analysis to perform")
     parser.add_argument("-summarize_only", type=strtobool, default=False,
