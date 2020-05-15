@@ -135,7 +135,7 @@
         1.0
       ]
     },
-    "Temporal_FDR": {
+    "Ordering_All_Important_FDR": {
       "50": [
         0.0,
         1.0
@@ -145,7 +145,27 @@
         0.0
       ]
     },
-    "Temporal_Power": {
+    "Ordering_All_Important_Power": {
+      "50": [
+        1.0,
+        0.0
+      ],
+      "100": [
+        1.0,
+        1.0
+      ]
+    },
+    "Ordering_Identified_Important_FDR": {
+      "50": [
+        0.0,
+        1.0
+      ],
+      "100": [
+        0.0,
+        0.0
+      ]
+    },
+    "Ordering_Identified_Important_Power": {
       "50": [
         1.0,
         0.0

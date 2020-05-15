@@ -15,8 +15,10 @@
   "results": {
     "FDR": 0.0,
     "Power": 0.2,
-    "Temporal_FDR": 1.0,
-    "Temporal_Power": 0.0,
+    "Ordering_All_Important_FDR": 1.0,
+    "Ordering_All_Important_Power": 0.0,
+    "Ordering_Identified_Important_FDR": 1.0,
+    "Ordering_Identified_Important_Power": 0.0,
     "Average_Window_FDR": 1.0,
     "Average_Window_Power": 0.0,
     "Window_Overlap": {}

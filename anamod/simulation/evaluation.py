@@ -11,7 +11,9 @@ from sklearn.metrics import balanced_accuracy_score, precision_recall_fscore_sup
 
 from anamod import constants
 from anamod.constants import FDR, POWER, BASE_FEATURES_FDR, BASE_FEATURES_POWER, INTERACTIONS_FDR, INTERACTIONS_POWER
-from anamod.constants import TEMPORAL_FDR, TEMPORAL_POWER, AVERAGE_WINDOW_FDR, AVERAGE_WINDOW_POWER, WINDOW_OVERLAP
+from anamod.constants import ORDERING_ALL_IMPORTANT_FDR, ORDERING_ALL_IMPORTANT_POWER
+from anamod.constants import ORDERING_IDENTIFIED_IMPORTANT_FDR, ORDERING_IDENTIFIED_IMPORTANT_POWER
+from anamod.constants import AVERAGE_WINDOW_FDR, AVERAGE_WINDOW_POWER, WINDOW_OVERLAP
 from anamod.fdr import hierarchical_fdr_control
 
 
@@ -115,6 +117,7 @@ def evaluate_temporal(args, model, features):
     imp_precision, imp_recall, _, _ = precision_recall_fscore_support(important, inferred_important, average="binary", zero_division=0)
     timp_precision, timp_recall, _, _ = precision_recall_fscore_support(temporally_important, inferred_temporally_important,
                                                                         average="binary", zero_division=0)
+    ordering_precision, ordering_recall = (timp_precision, timp_recall / imp_recall if imp_recall != 0 else 0)
     window_results = {}
     for idx, _ in enumerate(features):
         if not inferred_temporally_important[idx]:
@@ -126,8 +129,10 @@ def evaluate_temporal(args, model, features):
     avg_window_precision = np.mean([result["precision"] for result in window_results.values()]) if window_results else 0.
     avg_window_recall = np.mean([result["recall"] for result in window_results.values()]) if window_results else 0.
     window_overlaps = {idx: result["overlap"] for idx, result in window_results.items()}
+    # TODO: Replace 'temporally important' by 'ordering'
     return {FDR: 1 - imp_precision, POWER: imp_recall,
-            TEMPORAL_FDR: 1 - timp_precision, TEMPORAL_POWER: timp_recall,
+            ORDERING_ALL_IMPORTANT_FDR: 1 - timp_precision, ORDERING_ALL_IMPORTANT_POWER: timp_recall,
+            ORDERING_IDENTIFIED_IMPORTANT_FDR: 1 - ordering_precision, ORDERING_IDENTIFIED_IMPORTANT_POWER: ordering_recall,
             AVERAGE_WINDOW_FDR: 1 - avg_window_precision, AVERAGE_WINDOW_POWER: avg_window_recall,
             WINDOW_OVERLAP: window_overlaps}
 
