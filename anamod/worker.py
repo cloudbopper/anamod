@@ -203,16 +203,15 @@ def temporal_analysis(args, inputs, features, baseline_loss):
     perturbation_mechanism_within = get_perturbation_mechanism(args, perturbation_type=constants.WITHIN_INSTANCE)
     perturbation_mechanism_across = get_perturbation_mechanism(args, perturbation_type=constants.ACROSS_INSTANCES)
     for feature in features:
+        # Test importance of feature ordering
         _, loss = perturb_feature(args, inputs, feature, perturbation_mechanism_within)
         feature.temporally_important = compute_p_value(baseline_loss, loss) < constants.PVALUE_THRESHOLD
-        if feature.temporally_important:
-            args.logger.info("Feature %s identified as temporally important" % feature.name)
-            # TODO: figure out why within-instance perturbations to search window fail so haphazardly
-            left, right = search_window(args, inputs, feature, perturbation_mechanism_across, baseline_loss)
-            feature.temporal_window = (left, right)
-            args.logger.info("Found window for feature %s: (%d, %d)" % (feature.name, left, right))
-        else:
-            args.logger.info("Feature %s identified as temporally unimportant" % feature.name)
+        args.logger.info(f"Feature {feature.name}: ordering important: {feature.temporally_important}")
+        # Test feature localization
+        # TODO: figure out why within-instance perturbations to search window fail so haphazardly
+        left, right = search_window(args, inputs, feature, perturbation_mechanism_across, baseline_loss)
+        feature.temporal_window = (left, right)
+        args.logger.info(f"Found window for feature {feature.name}: ({left}, {right})")
 
 
 def write_outputs(args, features, predictions):
