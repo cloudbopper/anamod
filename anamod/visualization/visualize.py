@@ -25,6 +25,7 @@ def visualize_analysis(data, trial_type, analysis_type=TEMPORAL):
     """Visualize outputs"""
     # pylint: disable = invalid-name
     # TODO: Document a bit better
+    # TODO: First, write out a summary of the setup
     results = data[RESULTS]
     output_dirs = flatten(data[CONFIG]["output_dir"].values())
     models = flatten(data[MODEL]["operation"].values())
@@ -34,13 +35,10 @@ def visualize_analysis(data, trial_type, analysis_type=TEMPORAL):
         x, y = ([], [])
         for param, values in results[WINDOW_OVERLAP].items():  # len(values) = num_trials
             y.extend(values)
-            x.extend(["n = %s" % param] * len(values))
-        fig.add_trace(go.Violin(x=x, y=y, hovertext=hovertext,
-                                points="all", box_visible=True,
-                                meanline_visible=True, opacity=0.6))
-        fig.update_layout(title={"text": "Average Window Overlap", "xanchor": "center", "x": 0.5},
-                          xaxis_title=trial_type, yaxis_title="Average Overlap", template="none",
-                          violinmode="group")
+            param_name = f"n = {param}" if param.isdigit() else param
+            x.extend([param_name] * len(values))
+        fig.add_trace(go.Violin(x=x, y=y, hovertext=hovertext))
+        layout(fig, title="Average Window Overlap", xaxis_title=trial_type, yaxis_title="Average Overlap")
         fig.show()
     for name, group in GROUPS.items():  # Overall, Temporal, Window
         fig = go.Figure()
@@ -49,14 +47,20 @@ def visualize_analysis(data, trial_type, analysis_type=TEMPORAL):
             # Add all values to the same list y, and corresponding param names in x (used to split by param)
             for param, values in results[cat].items():
                 y.extend(values)
-                x.extend(["n = %s" % param] * len(values))
+                param_name = f"n = {param}" if param.isdigit() else param
+                x.extend([param_name] * len(values))
             fig.add_trace(go.Violin(x=x, y=y, hovertext=hovertext,
                                     legendgroup=cat, scalegroup=cat, name=cat))
-        fig.update_traces(box_visible=True, meanline_visible=True, opacity=0.6, points="all")
-        fig.update_layout(title={"text": name, "xanchor": "center", "x": 0.5},
-                          xaxis_title=trial_type, yaxis_title="Value",
-                          violinmode="group", template="none")
+        layout(fig, title=name, xaxis_title=trial_type, yaxis_title="Value")
         fig.show()
+
+
+def layout(fig, title="", xaxis_title="", yaxis_title=""):
+    """Perform common changes to violin plot layout"""
+    fig.update_traces(box_visible=True, meanline_visible=True, opacity=0.6, points="all")
+    fig.update_layout(title={"text": title, "xanchor": "center", "x": 0.5},
+                        xaxis_title=xaxis_title, yaxis_title=yaxis_title,
+                        violinmode="group", template="none")
 
 
 def visualize_simulation(sim_dir="."):
