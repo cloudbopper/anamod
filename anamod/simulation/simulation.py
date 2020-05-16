@@ -41,6 +41,7 @@ def main():
                         " in addition to linear + interaction features (default enabled)", type=strtobool, default=True)
     common.add_argument("-condor", help="Use condor for parallelization", type=strtobool, default=False)
     common.add_argument("-shared_filesystem", type=strtobool, default=False)
+    common.add_argument("-features_per_worker", type=int, default=10)
     common.add_argument("-cleanup", type=strtobool, default=True, help="Clean data and model files after completing simulation")
     common.add_argument("-condor_cleanup", type=strtobool, default=True, help="Clean condor cmd/out/err/log files after completing simulation")
     # Hierarchical feature importance analysis arguments
@@ -135,7 +136,7 @@ def run_synmod(args):
     # Launch and monitor job
     job = CondorJobWrapper(cmd, [], job_dir, shared_filesystem=args.shared_filesystem, memory=memory_requirement, disk=disk_requirement)
     job.run()
-    CondorJobWrapper.monitor([job], cleanup=args.condor_cleanup, logger=args.logger)
+    CondorJobWrapper.monitor([job], cleanup=args.condor_cleanup)
     # Extract data
     features, instances, model = [None] * 3
     with open(f"{job_dir}/{FEATURES_FILENAME}", "rb") as data_file:
@@ -290,6 +291,7 @@ def run_anamod(args, pass_args, model, data, targets, hierarchy=None):  # pylint
     options["analysis_type"] = args.analysis_type
     options["condor"] = args.condor
     options["shared_filesystem"] = args.shared_filesystem
+    options["features_per_worker"] = args.features_per_worker
     options["num_shuffling_trials"] = args.num_shuffling_trials
     options["cleanup"] = args.cleanup
     if args.analysis_type == constants.HIERARCHICAL:

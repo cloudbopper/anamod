@@ -122,7 +122,7 @@ class CondorPipeline(SerialPipeline):
         if not self.args.compile_results_only:
             for job in jobs:
                 job.run()
-            CondorJobWrapper.monitor(jobs, cleanup=self.args.cleanup, logger=self.args.logger)
+            CondorJobWrapper.monitor(jobs, cleanup=self.args.cleanup)
         job_dirs = [job.job_dir for job in jobs]
         results = self.compile_results(job_dirs)
         self.cleanup(job_dirs)

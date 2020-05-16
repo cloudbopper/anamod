@@ -9,6 +9,7 @@ from collections import namedtuple
 import importlib
 import os
 import pickle
+import socket
 import sys
 
 import cloudpickle
@@ -45,7 +46,7 @@ def main():
 
 def pipeline(args):
     """Worker pipeline"""
-    args.logger.info("Begin anamod worker pipeline")
+    args.logger.info(f"Begin anamod worker pipeline on host {socket.gethostname()}")
     # Load features to perturb from file
     features = load_features(args.features_filename)
     # Load data
