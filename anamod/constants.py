@@ -113,6 +113,11 @@ RNG_SEED = "rng_seed"
 ACROSS_INSTANCES = "across"
 WITHIN_INSTANCE = "within"
 PVALUE_THRESHOLD = 0.05
+ROOT_MEAN_SQUARED_ERROR = "root_mean_squared_error"
+BINARY_CROSS_ENTROPY = "binary_cross_entropy"
+ZERO_ONE_LOSS = "zero_one_loss"
+LABELS = "labels"
+BASELINE_PREDICTIONS = "baseline_predictions"
 
 # Default values
 DEFAULT_OUTPUT_DIR = "anamod_outputs"

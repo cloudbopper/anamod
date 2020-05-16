@@ -34,6 +34,7 @@ def test_condor_simulation_classifier1(file_regression, tmpdir, caplog, shared_f
     cmd = ("python -m anamod.simulation -condor 1 -memory_requirement 1 -disk_requirement 1"
            " -seed 100 -analysis_type temporal -num_instances 100 -num_features 10"
            " -model_type classifier -num_shuffling_trials 10"
+           " -loss_target_values baseline_predictions"
            f" -model_loader_filename {os.path.abspath(model_loader.__file__)}"
            " -fraction_relevant_features 0.5 -cleanup 0"
            f" -shared_filesystem {shared_fs} -output_dir {output_dir}")

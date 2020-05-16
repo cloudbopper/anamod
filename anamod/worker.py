@@ -17,6 +17,7 @@ import numpy as np
 
 from anamod import constants
 from anamod.compute_p_values import compute_p_value
+from anamod.losses import Loss
 from anamod.perturbations import PERTURBATION_FUNCTIONS, PERTURBATION_MECHANISMS
 from anamod.utils import get_logger, round_value
 
@@ -35,6 +36,8 @@ def main():
     parser.add_argument("-perturbation", required=True)
     parser.add_argument("-num_shuffling_trials", required=True, type=int)
     parser.add_argument("-worker_idx", required=True, type=int)
+    parser.add_argument("-loss_function", required=True, type=str)
+    parser.add_argument("-loss_target_values", required=True, type=str)
     args = parser.parse_args()
     args.logger = get_logger(__name__, "%s/worker_%d.log" % (args.output_dir, args.worker_idx))
     pipeline(args)
@@ -52,13 +55,13 @@ def pipeline(args):
     inputs = Inputs(data, targets, model)
     # Baseline predictions/losses
     # FIXME: baseline may be computed in master and provided to all workers
-    baseline_loss = compute_baseline(inputs)
+    _, baseline_loss, loss_fn = compute_baseline(args, inputs)
     # Perturb features
-    predictions, losses = perturb_features(args, inputs, features)
+    predictions, losses = perturb_features(args, inputs, features, loss_fn)
     compute_importances(features, losses, baseline_loss)
     # For important features, proceed with further analysis (temporal model analysis):
     if args.analysis_type == constants.TEMPORAL:
-        temporal_analysis(args, inputs, features, baseline_loss)
+        temporal_analysis(args, inputs, features, baseline_loss, loss_fn)
     # Write outputs
     write_outputs(args, features, predictions)
     args.logger.info("End anamod worker pipeline")
@@ -92,12 +95,15 @@ def load_model(args):
     return model
 
 
-def compute_baseline(inputs):
+def compute_baseline(args, inputs):
     """Compute baseline prediction/loss"""
     data, targets, model = inputs
     pred = model.predict(data)
-    baseline_loss = model.loss(targets, pred)
-    return baseline_loss
+    if args.loss_target_values == constants.BASELINE_PREDICTIONS:
+        targets = pred
+    loss_fn = Loss(args.loss_function, targets).loss_fn
+    baseline_loss = loss_fn(pred)
+    return pred, baseline_loss, loss_fn
 
 
 def get_perturbation_mechanism(args, perturbation_type=constants.ACROSS_INSTANCES):
@@ -107,7 +113,7 @@ def get_perturbation_mechanism(args, perturbation_type=constants.ACROSS_INSTANCE
     return perturbation_mechanism_class(perturbation_fn_class, perturbation_type)
 
 
-def perturb_features(args, inputs, features):
+def perturb_features(args, inputs, features, loss_fn):
     """Perturb features"""
     # TODO: Perturbation modules should be provided as input so custom modules may be used
     args.logger.info("Begin perturbing features")
@@ -116,15 +122,16 @@ def perturb_features(args, inputs, features):
     perturbation_mechanism = get_perturbation_mechanism(args)
     # Perturb each feature
     for feature in features:
-        prediction, loss = perturb_feature(args, inputs, feature, perturbation_mechanism)
+        prediction, loss = perturb_feature(args, inputs, feature, perturbation_mechanism, loss_fn)
         predictions[feature.name] = prediction
         losses[feature.name] = loss
     args.logger.info("End perturbing features")
     return predictions, losses
 
 
-def perturb_feature(args, inputs, feature, perturbation_mechanism, timesteps=...):
+def perturb_feature(args, inputs, feature, perturbation_mechanism, loss_fn, timesteps=...):
     """Perturb feature"""
+    # pylint: disable = too-many-arguments
     data, targets, model = inputs
     if args.perturbation == constants.SHUFFLING:
         prediction = np.zeros(len(targets))
@@ -133,18 +140,19 @@ def perturb_feature(args, inputs, feature, perturbation_mechanism, timesteps=...
             data_perturbed = perturbation_mechanism.perturb(data, feature, timesteps=timesteps)
             pred = model.predict(data_perturbed)
             prediction += pred
-            loss += model.loss(targets, pred)
+            loss += loss_fn(pred)
         prediction /= args.num_shuffling_trials
         loss /= args.num_shuffling_trials
     else:
         data_perturbed = perturbation_mechanism.perturb(data, feature, timesteps=timesteps)
         prediction = model.predict(data_perturbed)
-        loss = model.loss(targets, prediction)
+        loss = loss_fn(prediction)
     return prediction, loss
 
 
-def search_window(args, inputs, feature, perturbation_mechanism, baseline_loss):
+def search_window(args, inputs, feature, perturbation_mechanism, baseline_loss, loss_fn):
     """Search temporal window of importance for given feature"""
+    # pylint: disable = too-many-arguments
     args.logger.info("Begin searching for temporal window for feature %s" % feature.name)
     # TODO: verify this will work if window spans the whole sequence
     T = inputs.data.shape[2]  # pylint: disable = invalid-name
@@ -153,7 +161,7 @@ def search_window(args, inputs, feature, perturbation_mechanism, baseline_loss):
     while current < rbound:
         # Search for the largest 'negative' window anchored on the left that results in a non-important p-value
         # The right edge of the resulting window is the left edge of the window of interest
-        _, loss = perturb_feature(args, inputs, feature, perturbation_mechanism, range(0, current))
+        _, loss = perturb_feature(args, inputs, feature, perturbation_mechanism, loss_fn, range(0, current))
         important = compute_p_value(baseline_loss, loss) < constants.PVALUE_THRESHOLD
         if important:
             # Move pointer to the left, decrease negative window size
@@ -167,7 +175,7 @@ def search_window(args, inputs, feature, perturbation_mechanism, baseline_loss):
     # Search right edge
     lbound, current, rbound = (left, (left + T) // 2, T)
     while lbound < current:
-        _, loss = perturb_feature(args, inputs, feature, perturbation_mechanism, range(current, T))
+        _, loss = perturb_feature(args, inputs, feature, perturbation_mechanism, loss_fn, range(current, T))
         important = compute_p_value(baseline_loss, loss) < constants.PVALUE_THRESHOLD
         if important:
             # Move pointer to the right, decrease negative window size
@@ -195,7 +203,7 @@ def compute_importances(features, losses, baseline_loss):
         feature.important = feature.pvalue_loss < constants.PVALUE_THRESHOLD
 
 
-def temporal_analysis(args, inputs, features, baseline_loss):
+def temporal_analysis(args, inputs, features, baseline_loss, loss_fn):
     """Perform temporal analysis of important features"""
     # FIXME: hardcoded p-value threshold
     features = list(filter(lambda feature: feature.pvalue_loss < constants.PVALUE_THRESHOLD, features))  # select (overall) important features
@@ -204,12 +212,12 @@ def temporal_analysis(args, inputs, features, baseline_loss):
     perturbation_mechanism_across = get_perturbation_mechanism(args, perturbation_type=constants.ACROSS_INSTANCES)
     for feature in features:
         # Test importance of feature ordering
-        _, loss = perturb_feature(args, inputs, feature, perturbation_mechanism_within)
+        _, loss = perturb_feature(args, inputs, feature, perturbation_mechanism_within, loss_fn)
         feature.temporally_important = compute_p_value(baseline_loss, loss) < constants.PVALUE_THRESHOLD
         args.logger.info(f"Feature {feature.name}: ordering important: {feature.temporally_important}")
         # Test feature localization
         # TODO: figure out why within-instance perturbations to search window fail so haphazardly
-        left, right = search_window(args, inputs, feature, perturbation_mechanism_across, baseline_loss)
+        left, right = search_window(args, inputs, feature, perturbation_mechanism_across, baseline_loss, loss_fn)
         feature.temporal_window = (left, right)
         args.logger.info(f"Found window for feature {feature.name}: ({left}, {right})")
 

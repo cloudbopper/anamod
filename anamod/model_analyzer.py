@@ -11,8 +11,9 @@ from anamod import master, constants, model_loader
 from anamod.feature import Feature
 
 
-class ModelAnalyzer(ABC):  # pylint: disable = too-many-instance-attributes
+class ModelAnalyzer(ABC):
     """Analyze properties of learned models."""
+    # pylint: disable = too-many-instance-attributes, line-too-long
     __doc__ += (
         f"""
 
@@ -53,6 +54,12 @@ class ModelAnalyzer(ABC):  # pylint: disable = too-many-instance-attributes
 
             seed: int, default: {constants.SEED}
                 Seed for random number generator (used to order features to be analyzed).
+
+            loss_function: str, choices: {{'{constants.ROOT_MEAN_SQUARED_ERROR}', '{constants.BINARY_CROSS_ENTROPY}', '{constants.ZERO_ONE_LOSS}'}}, default: '{constants.ROOT_MEAN_SQUARED_ERROR}'
+                Loss function to apply to model outputs. TODO: Detailed description
+
+            loss_target_values: str, choices: {{'{constants.LABELS}', '{constants.BASELINE_PREDICTIONS}'}}, default: '{constants.LABELS}'
+                Target values to compare perturbed values to while computing losses. TODO: Detailed description; loss is a misnomer here, just a non-linearity
 
             compile_results_only: bool, default: False
                 Flag to attempt to compile results only (assuming they already exist), skipping actually launching jobs.
@@ -117,6 +124,8 @@ class ModelAnalyzer(ABC):  # pylint: disable = too-many-instance-attributes
         self.num_shuffling_trials = self.process_keyword_arg("num_shuffling_trials", constants.DEFAULT_NUM_PERMUTATIONS)
         self.feature_names = self.process_keyword_arg("feature_names", None)
         self.seed = self.process_keyword_arg("seed", constants.SEED)
+        self.loss_function = self.process_keyword_arg("loss_function", constants.ROOT_MEAN_SQUARED_ERROR)
+        self.loss_target_values = self.process_keyword_arg("loss_target_values", constants.LABELS)
         self.compile_results_only = self.process_keyword_arg("compile_results_only", False)
         # Hierarchical feature analysis parameters
         self.feature_hierarchy = self.process_keyword_arg("feature_hierarchy", None)
@@ -133,6 +142,7 @@ class ModelAnalyzer(ABC):  # pylint: disable = too-many-instance-attributes
         self.model_loader_filename = self.process_keyword_arg("model_loader_filename", None)
         # Required parameters
         self.model_filename = self.gen_model_file(model)
+        # TODO: targets are not needed when using baseline predictions to compute losses
         self.data_filename = self.gen_data_file(data, targets)
         self.analysis_type = constants.HIERARCHICAL if self.feature_hierarchy else constants.TEMPORAL
         self.gen_hierarchy(data)

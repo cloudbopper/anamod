@@ -94,7 +94,7 @@ class CondorPipeline(SerialPipeline):
 
     def setup_jobs(self):
         """Setup and run condor jobs"""
-        transfer_args = ["analysis_type", "perturbation", "num_shuffling_trials"]
+        transfer_args = ["analysis_type", "perturbation", "num_shuffling_trials", "loss_function", "loss_target_values"]
         jobs = [None] * self.num_jobs
         for idx in range(self.num_jobs):
             # Create and launch condor job
