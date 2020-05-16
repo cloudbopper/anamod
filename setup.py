@@ -28,7 +28,6 @@ setup(
     include_package_data=True,
     install_requires=[
         "anytree",
-        "cityhash",
         "cloudpickle",
         "h5py",
         "numpy>=1.17.0",
@@ -36,6 +35,7 @@ setup(
         "scipy",
         "sympy",
         "synmod @ git+https://github.com/cloudbopper/synmod",
+        "xxhash"
     ],
     keywords="anamod",
     license="MIT",

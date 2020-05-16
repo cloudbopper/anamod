@@ -8,7 +8,7 @@
     ],
     "analysis_type": "temporal",
     "start_seed": 1000,
-    "simulation_cmdline": "-analysis_type temporal -model_type regressor -sequence_length 10 -sequences_independent_of_windows 0 -perturbation shuffling -noise_type none -num_features 2 -fraction_relevant_features 0.5 -num_shuffling_trials 5 -num_interactions 0 "
+    "simulation_cmdline": "-analysis_type temporal -model_type regressor -sequence_length 10 -sequences_independent_of_windows 0 -perturbation shuffling -noise_type none -num_features 2 -fraction_relevant_features 0.5 -num_shuffling_trials 5 -num_interactions 0 -noise_multiplier 0.01 "
   },
   "config": {
     "analysis_type": {
@@ -95,11 +95,11 @@
   "model": {
     "operation": {
       "50": [
-        "Max",
+        "Average",
         "Max"
       ],
       "100": [
-        "Max",
+        "Average",
         "Max"
       ]
     },
@@ -118,41 +118,61 @@
     "FDR": {
       "50": [
         0.0,
-        1.0
+        0.0
       ],
       "100": [
         0.0,
-        1.0
+        0.0
       ]
     },
     "Power": {
       "50": [
         1.0,
-        0.0
+        1.0
       ],
       "100": [
         1.0,
-        0.0
+        1.0
       ]
     },
-    "Temporal_FDR": {
+    "Ordering_All_Important_FDR": {
       "50": [
         0.0,
         1.0
       ],
       "100": [
         0.0,
-        1.0
+        0.0
       ]
     },
-    "Temporal_Power": {
+    "Ordering_All_Important_Power": {
       "50": [
         1.0,
         0.0
       ],
       "100": [
         1.0,
+        1.0
+      ]
+    },
+    "Ordering_Identified_Important_FDR": {
+      "50": [
+        0.0,
+        1.0
+      ],
+      "100": [
+        0.0,
         0.0
+      ]
+    },
+    "Ordering_Identified_Important_Power": {
+      "50": [
+        1.0,
+        0.0
+      ],
+      "100": [
+        1.0,
+        1.0
       ]
     },
     "Average_Window_FDR": {
@@ -162,7 +182,7 @@
       ],
       "100": [
         0.0,
-        1.0
+        0.0
       ]
     },
     "Average_Window_Power": {
@@ -172,7 +192,7 @@
       ],
       "100": [
         1.0,
-        0.0
+        1.0
       ]
     },
     "Window_Overlap": {
@@ -182,7 +202,7 @@
       ],
       "100": [
         1.0,
-        0.0
+        1.0
       ]
     }
   }

@@ -31,15 +31,13 @@ def pre_test(func_name, tmpdir, caplog):
 def post_test(file_regression, caplog, output_dir, interactions=False):
     """Post-test verification"""
     write_logfile(caplog, output_dir)
-    pvalues_filename = "%s/%s" % (output_dir, constants.PVALUES_FILENAME)
-    if interactions:
-        pvalues_filename = "%s/%s" % (output_dir, constants.INTERACTIONS_PVALUES_FILENAME)
-    with open(pvalues_filename, "r") as pvalues_file:
-        pvalues = sorted(pvalues_file.readlines())
-    file_regression.check("\n".join(pvalues), extension="_pvalues.csv")
+    summary_filename = f"{output_dir}/{constants.SIMULATION_SUMMARY_FILENAME}"
+    with open(summary_filename, "r") as summary_file:
+        summary = "".join(summary_file.readlines())
+    file_regression.check(summary, extension="_summary.json")
     fdr_filename = "%s/%s/%s.csv" % (output_dir, constants.HIERARCHICAL_FDR_DIR, constants.HIERARCHICAL_FDR_OUTPUTS)
     if interactions:
         fdr_filename = "%s/%s/%s.csv" % (output_dir, constants.INTERACTIONS_FDR_DIR, constants.HIERARCHICAL_FDR_OUTPUTS)
     with open(fdr_filename, "r") as fdr_file:
-        fdr = sorted(fdr_file.readlines())
-    file_regression.check("\n".join(fdr), extension="_fdr.txt")
+        fdr = "".join(fdr_file.readlines())
+    file_regression.check(fdr, extension="_fdr.csv")

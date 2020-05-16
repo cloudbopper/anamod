@@ -4,6 +4,7 @@ import copy
 import glob
 import math
 import os
+import pickle
 import shutil
 
 import cloudpickle
@@ -27,7 +28,7 @@ class SerialPipeline():
             job_features = self.features[idx * num_features_per_file: (idx + 1) * num_features_per_file]
             features_filename = constants.INPUT_FEATURES_FILENAME.format(self.args.output_dir, idx)
             with open(features_filename, "wb") as features_file:
-                cloudpickle.dump(job_features, features_file)
+                cloudpickle.dump(job_features, features_file, protocol=pickle.DEFAULT_PROTOCOL)
 
     def compile_results(self, output_dirs):
         """Compile results"""
@@ -93,7 +94,7 @@ class CondorPipeline(SerialPipeline):
 
     def setup_jobs(self):
         """Setup and run condor jobs"""
-        transfer_args = ["analysis_type", "perturbation", "num_shuffling_trials"]
+        transfer_args = ["analysis_type", "perturbation", "num_shuffling_trials", "loss_function", "loss_target_values"]
         jobs = [None] * self.num_jobs
         for idx in range(self.num_jobs):
             # Create and launch condor job

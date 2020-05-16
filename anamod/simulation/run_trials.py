@@ -7,16 +7,12 @@ import configparser
 from distutils.util import strtobool
 import json
 import os
+import resource
 import subprocess
 import time
 
-# Avoids this error: https://stackoverflow.com/questions/51256738/multiple-instances-of-python-running-simultaneously-limited-to-35
-os.environ['OPENBLAS_NUM_THREADS'] = '1'  # noqa: E402 pylint: disable = wrong-import-position
-
 import numpy as np
 from anamod import constants, utils
-from anamod.constants import DEFAULT, INSTANCE_COUNTS, NOISE_LEVELS, FEATURE_COUNTS, SHUFFLING_COUNTS
-from anamod.constants import SEQUENCE_LENGTHS, WINDOW_SEQUENCE_DEPENDENCE, MODEL_TYPES, TEST
 
 TestParam = namedtuple("TestParameter", ["key", "values"])
 
@@ -67,6 +63,7 @@ class Trial():  # pylint: disable = too-many-instance-attributes
         assert os.path.exists(config_filename)
         config = configparser.ConfigParser()
         config.read(config_filename)
+        assert self.type in config, f"Type not understood; choose one of {list(config.keys())}"
         dconfig = config[self.type]
         sconfig = ""
         test_param = None
@@ -98,6 +95,7 @@ class Trial():  # pylint: disable = too-many-instance-attributes
         if self.summarize_only:
             return
         for sim in self.simulations:
+            # TODO: Write this in a log file inside the trial directory instead of global log
             self.logger.info(f"Running simulation: '{sim.cmd}'")
             sim.popen = subprocess.Popen(sim.cmd, shell=True)
             self.running_sims.add(sim)
@@ -129,7 +127,7 @@ class Trial():  # pylint: disable = too-many-instance-attributes
                     data[constants.CONFIG]["output_dir"] = f"{os.path.basename(self.output_dir)}/{os.path.basename(sim.output_dir)}"
                     root[sim.param] = data
             json.dump(root, results_file, indent=2)
-        self.logger.info("Trial for seed {self.seed}: End running/analyzing simulations")
+        self.logger.info(f"Trial for seed {self.seed}: End running/analyzing simulations")
 
 
 def main(strargs=""):
@@ -147,9 +145,7 @@ def parse_arguments(strargs):
     parser.add_argument("-trial_wait_period", type=int, default=60, help="time in seconds to wait before checking trial status")
     parser.add_argument("-start_seed", type=int, default=100000, help="randomization seed for first trial, incremented for"
                         " every subsequent trial.")
-    parser.add_argument("-type", choices=[DEFAULT, INSTANCE_COUNTS, FEATURE_COUNTS, NOISE_LEVELS, SHUFFLING_COUNTS,
-                                          SEQUENCE_LENGTHS, WINDOW_SEQUENCE_DEPENDENCE, MODEL_TYPES, TEST],
-                        default=DEFAULT, help="type of parameter to vary across simulations")
+    parser.add_argument("-type", default=constants.DEFAULT, help="type of parameter to vary across simulations")
     parser.add_argument("-analysis_type", default=constants.TEMPORAL, choices=[constants.TEMPORAL, constants.HIERARCHICAL],
                         help="type of analysis to perform")
     parser.add_argument("-summarize_only", type=strtobool, default=False,
@@ -167,9 +163,23 @@ def parse_arguments(strargs):
 def pipeline(args):
     """Pipeline"""
     args.logger.info(f"Begin running trials with config: {args}")
+    setup(args)
     trials = gen_trials(args)
     run_trials(args, trials)
     return summarize_trials(args, trials)
+
+
+def setup(args):
+    """
+    Setup: limit the number of threads used to load numpy libraries, since each subprocess will load its own
+    Avoids this error: https://stackoverflow.com/questions/51256738/multiple-instances-of-python-running-simultaneously-limited-to-35
+    """
+    process_limit, _ = resource.getrlimit(resource.RLIMIT_NPROC)
+    process_limit -= (args.max_concurrent_simulations + 100)  # buffer
+    assert args.max_concurrent_simulations < process_limit
+    num_threads = process_limit // args.max_concurrent_simulations
+    num_threads = min(max(1, num_threads), os.cpu_count())
+    os.environ['OPENBLAS_NUM_THREADS'] = f"{num_threads}"
 
 
 def gen_trials(args):

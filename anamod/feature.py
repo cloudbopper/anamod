@@ -1,7 +1,7 @@
 """Feature class"""
 import anytree
-import cityhash
 import numpy as np
+import xxhash
 
 from anamod import constants
 
@@ -15,8 +15,9 @@ class Feature(anytree.Node):
         self.description = kwargs.get(constants.DESCRIPTION, "")
         self.idx = kwargs.get("idx", [])
         self.perturbable = kwargs.get("perturbable", True)
-        self._rng_seed = cityhash.CityHash32(name)
-        self.rng = None
+        # TODO: (Verify) Could initialize the RNG right away, since cloudpickle should stick be able to pickle it
+        self._rng_seed = xxhash.xxh32_intdigest(name)
+        self.rng = None  # RNG used for shuffling this feature - see perturbations.py: 'feature.rng'
         # Importance attributes
         self.important = False
         self.temporally_important = False

@@ -5,6 +5,7 @@ import copy
 from distutils.util import strtobool
 import json
 import os
+import pickle
 import pprint
 import shutil
 
@@ -47,7 +48,7 @@ def main():
     hierarchical.add_argument("-noise_multiplier", type=float, default=.05,
                               help="Multiplicative factor for noise added to polynomial computation for irrelevant features")
     hierarchical.add_argument("-noise_type", choices=[constants.ADDITIVE_GAUSSIAN, constants.EPSILON_IRRELEVANT, constants.NO_NOISE],
-                              default=constants.EPSILON_IRRELEVANT)
+                              default=constants.NO_NOISE)
     hierarchical.add_argument("-hierarchy_type", help="Choice of hierarchy to generate", default=constants.CLUSTER_FROM_DATA,
                               choices=[constants.CLUSTER_FROM_DATA, constants.RANDOM])
     hierarchical.add_argument("-contiguous_node_names", type=strtobool, default=False, help="enable to change node names in hierarchy "
@@ -72,8 +73,6 @@ def main():
         os.makedirs(args.output_dir)
     args.rng = np.random.default_rng(args.seed)
     args.logger = utils.get_logger(__name__, "%s/simulation.log" % args.output_dir)
-    if args.analysis_type == constants.TEMPORAL:
-        args.noise_type = constants.NO_NOISE
     return pipeline(args, pass_args)
 
 
@@ -83,7 +82,7 @@ def pipeline(args, pass_args):
     synthesized_features, data, model = run_synmod(args)
     targets = model.predict(data, labels=True) if args.model_type == CLASSIFIER else model.predict(data)
     # Create wrapper around ground-truth model
-    model_wrapper = ModelWrapper(model, args.num_features, args.noise_type, args.noise_multiplier)
+    model_wrapper = ModelWrapper(model, args.num_features, args.noise_type, args.noise_multiplier, args.seed)
     if args.analysis_type == constants.HIERARCHICAL:
         # Generate hierarchy using clustering (test data also used for clustering)
         hierarchy_root, feature_id_map = gen_hierarchy(args, data)
@@ -101,7 +100,7 @@ def pipeline(args, pass_args):
         analyzed_features = run_anamod(args, pass_args, model_wrapper, data, targets)
         results = evaluation.evaluate_temporal(args, model, analyzed_features)
     summary = write_summary(args, model, results)
-    write_features(args, synthesized_features, analyzed_features)
+    write_io(args, model, synthesized_features, analyzed_features)
     args.logger.info("End anamod simulation")
     return summary
 
@@ -302,7 +301,7 @@ def run_anamod(args, pass_args, model, data, targets, hierarchy=None):  # pylint
     # Create analyzer
     analyzer = ModelAnalyzer(model, data, targets, **options)
     # Run analyzer
-    args.logger.info(f"Analyzing model with options: {pprint.pformat(options)}")
+    args.logger.info(f"Analyzing model with options:\n{pprint.pformat(options)}")
     features = analyzer.analyze()
     cleanup(args, analyzer.data_filename, analyzer.model_filename)
     args.logger.info("End running anamod")
@@ -336,7 +335,7 @@ def write_summary(args, model, results):
                   num_shuffling_trials=args.num_shuffling_trials,
                   sequences_independent_of_windows=args.window_independent)
     # pylint: disable = protected-access
-    model_summary = dict(operation=model._operation.__class__.__name__,
+    model_summary = dict(operation=model._aggregator.__class__.__name__,
                          polynomial=model.sym_polynomial_fn.__repr__())
     summary = {constants.CONFIG: config, constants.MODEL: model_summary, constants.RESULTS: results}
     summary_filename = f"{args.output_dir}/{constants.SIMULATION_SUMMARY_FILENAME}"
@@ -346,12 +345,14 @@ def write_summary(args, model, results):
     return summary
 
 
-def write_features(args, synthesized_features, analyzed_features):
-    """Write synthesized and analyzed features to file"""
+def write_io(args, model, synthesized_features, analyzed_features, ):
+    """Write simulation inputs and outputs (model and features)"""
+    with open(f"{args.output_dir}/{constants.MODEL_FILENAME}", "wb") as model_file:
+        cloudpickle.dump(model, model_file, protocol=pickle.DEFAULT_PROTOCOL)
     with open(f"{args.output_dir}/{constants.SYNTHESIZED_FEATURES_FILENAME}", "wb") as synthesized_features_file:
-        cloudpickle.dump(synthesized_features, synthesized_features_file)
+        cloudpickle.dump(synthesized_features, synthesized_features_file, protocol=pickle.DEFAULT_PROTOCOL)
     with open(f"{args.output_dir}/{constants.ANALYZED_FEATURES_FILENAME}", "wb") as analyzed_features_file:
-        cloudpickle.dump(analyzed_features, analyzed_features_file)
+        cloudpickle.dump(analyzed_features, analyzed_features_file, protocol=pickle.DEFAULT_PROTOCOL)
 
 
 if __name__ == "__main__":
