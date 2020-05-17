@@ -1,0 +1,34 @@
+{
+  "config": {
+    "analysis_type": "temporal",
+    "num_instances": 100,
+    "num_features": 10,
+    "sequence_length": 20,
+    "model_type": "Classifier",
+    "num_shuffling_trials": 10,
+    "sequences_independent_of_windows": false
+  },
+  "model": {
+    "operation": "Max",
+    "polynomial": "0.910339381295453*x1 - 0.688154447591745*x3 + 0.189991473387723*x5 - 0.981478980627266*x6 + 0.284740050017649*x8"
+  },
+  "results": {
+    "FDR": 0.375,
+    "Power": 1.0,
+    "Ordering_All_Important_FDR": 0.2857142857142857,
+    "Ordering_All_Important_Power": 1.0,
+    "Ordering_Identified_Important_FDR": 0.2857142857142857,
+    "Ordering_Identified_Important_Power": 1.0,
+    "Average_Window_FDR": 0.3184523809523808,
+    "Average_Window_Power": 0.6857142857142857,
+    "Window_Overlap": {
+      "1": 0.9,
+      "3": 1.0,
+      "4": 0.85,
+      "5": 1.0,
+      "6": 0.9666666666666667,
+      "8": 0.9,
+      "9": 0.8
+    }
+  }
+}

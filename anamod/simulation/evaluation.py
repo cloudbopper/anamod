@@ -3,6 +3,7 @@
 import csv
 import sys
 from unittest.mock import patch
+import warnings
 
 import anytree
 from anytree.importer import JsonImporter
@@ -124,7 +125,9 @@ def evaluate_temporal(args, model, features):
             continue  # Don't include features unless identified as temporally relevant
         window_precision, window_recall, _, _ = precision_recall_fscore_support(windows[idx], inferred_windows[idx],
                                                                                 average="binary", zero_division=0)
-        window_overlap = balanced_accuracy_score(windows[idx], inferred_windows[idx])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")  # Avoid warning if the two vectors have no common values
+            window_overlap = balanced_accuracy_score(windows[idx], inferred_windows[idx])
         window_results[idx] = {"precision": window_precision, "recall": window_recall, "overlap": window_overlap}
     avg_window_precision = np.mean([result["precision"] for result in window_results.values()]) if window_results else 0.
     avg_window_recall = np.mean([result["recall"] for result in window_results.values()]) if window_results else 0.

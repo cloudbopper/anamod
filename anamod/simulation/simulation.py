@@ -36,6 +36,11 @@ def main():
     common.add_argument("-num_instances", type=int, default=10000)
     common.add_argument("-num_features", type=int, default=100)
     common.add_argument("-fraction_relevant_features", type=float, default=.05)
+    common.add_argument("-loss_target_values", choices=[constants.LABELS, constants.BASELINE_PREDICTIONS], default=constants.LABELS,
+                        help=("Target values to compare perturbed values to while computing losses. "
+                              "Note: baseline predictions here refer to oracle's noise-free predictions. "
+                              "If noise is enabled, noise is added when computing baseline losses, else all baseline losses would be zero "
+                              "while all perturbed losses would be positive (for RMSE loss, default for non-label predictions)"))
     common.add_argument("-num_interactions", type=int, default=0, help="number of interaction pairs in model")
     common.add_argument("-include_interaction_only_features", help="include interaction-only features in model"
                         " in addition to linear + interaction features (default enabled)", type=strtobool, default=True)
@@ -81,7 +86,7 @@ def pipeline(args, pass_args):
     """Simulation pipeline"""
     args.logger.info("Begin anamod simulation with args: %s" % args)
     synthesized_features, data, model = run_synmod(args)
-    targets = model.predict(data, labels=True) if args.model_type == CLASSIFIER else model.predict(data)
+    targets = model.predict(data, labels=True) if args.loss_target_values == constants.LABELS else model.predict(data)
     # Create wrapper around ground-truth model
     model_wrapper = ModelWrapper(model, args.num_features, args.noise_type, args.noise_multiplier, args.seed)
     if args.analysis_type == constants.HIERARCHICAL:

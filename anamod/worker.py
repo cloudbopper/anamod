@@ -38,7 +38,6 @@ def main():
     parser.add_argument("-num_shuffling_trials", required=True, type=int)
     parser.add_argument("-worker_idx", required=True, type=int)
     parser.add_argument("-loss_function", required=True, type=str)
-    parser.add_argument("-loss_target_values", required=True, type=str)
     args = parser.parse_args()
     args.logger = get_logger(__name__, "%s/worker_%d.log" % (args.output_dir, args.worker_idx))
     pipeline(args)
@@ -100,8 +99,9 @@ def compute_baseline(args, inputs):
     """Compute baseline prediction/loss"""
     data, targets, model = inputs
     pred = model.predict(data)
-    if args.loss_target_values == constants.BASELINE_PREDICTIONS:
-        targets = pred
+    if args.loss_function in {None, str(None)}:
+        is_classifier = np.unique(targets).shape[0] <= 2
+        args.loss_function = constants.BINARY_CROSS_ENTROPY if is_classifier else constants.ROOT_MEAN_SQUARED_ERROR
     loss_fn = Loss(args.loss_function, targets).loss_fn
     baseline_loss = loss_fn(pred)
     return pred, baseline_loss, loss_fn

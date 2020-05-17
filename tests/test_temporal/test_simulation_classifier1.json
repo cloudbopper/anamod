@@ -14,19 +14,13 @@
   },
   "results": {
     "FDR": 0.0,
-    "Power": 1.0,
-    "Ordering_All_Important_FDR": 0.0,
-    "Ordering_All_Important_Power": 1.0,
-    "Ordering_Identified_Important_FDR": 0.0,
-    "Ordering_Identified_Important_Power": 1.0,
-    "Average_Window_FDR": 0.0,
-    "Average_Window_Power": 0.96,
-    "Window_Overlap": {
-      "1": 0.9,
-      "3": 1.0,
-      "5": 1.0,
-      "6": 1.0,
-      "8": 1.0
-    }
+    "Power": 0.2,
+    "Ordering_All_Important_FDR": 1.0,
+    "Ordering_All_Important_Power": 0.0,
+    "Ordering_Identified_Important_FDR": 1.0,
+    "Ordering_Identified_Important_Power": 0.0,
+    "Average_Window_FDR": 1.0,
+    "Average_Window_Power": 0.0,
+    "Window_Overlap": {}
   }
 }

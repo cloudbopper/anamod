@@ -22,6 +22,7 @@ class Feature(anytree.Node):
         self.important = False
         self.temporally_important = False
         self.temporal_window = None
+        self.window_important = False
 
     @property
     def rng_seed(self):
