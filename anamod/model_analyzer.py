@@ -55,9 +55,9 @@ class ModelAnalyzer(ABC):
             seed: int, default: {constants.SEED}
                 Seed for random number generator (used to order features to be analyzed).
 
-            loss_function: str, choices: {{'{constants.ROOT_MEAN_SQUARED_ERROR}', '{constants.BINARY_CROSS_ENTROPY}', '{constants.ZERO_ONE_LOSS}'}}, default: None
+            loss_function: str, choices: {{'{constants.QUADRATIC_LOSS}', '{constants.ABSOLUTE_DIFFERENCE_LOSS}', '{constants.BINARY_CROSS_ENTROPY}', '{constants.ZERO_ONE_LOSS}'}}, default: None
                 Loss function to apply to model outputs.
-                If no loss function is specified, then RMSE is chosen for continuous targets
+                If no loss function is specified, then quadratic loss is chosen for continuous targets
                 and binary cross-entropy is chosen for binary targets.
 
             compile_results_only: bool, default: False

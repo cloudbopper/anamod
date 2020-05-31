@@ -13,23 +13,20 @@
     "polynomial": "0.910339381295453*x1 - 0.688154447591745*x3 + 0.189991473387723*x5 - 0.981478980627266*x6 + 0.284740050017649*x8"
   },
   "results": {
-    "FDR": 0.375,
-    "Power": 1.0,
-    "Ordering_All_Important_FDR": 0.2857142857142857,
-    "Ordering_All_Important_Power": 1.0,
-    "Ordering_Identified_Important_FDR": 0.2857142857142857,
+    "FDR": 0.0,
+    "Power": 0.8,
+    "Ordering_All_Important_FDR": 0.0,
+    "Ordering_All_Important_Power": 0.8,
+    "Ordering_Identified_Important_FDR": 0.0,
     "Ordering_Identified_Important_Power": 1.0,
-    "Average_Window_FDR": 0.40364583333333326,
-    "Average_Window_Power": 0.6,
+    "Average_Window_FDR": 0.19999999999999996,
+    "Average_Window_Power": 0.62,
     "Window_Overlap": {
-      "1": 0.9,
-      "3": 1.0,
-      "4": 0.85,
+      "1": 0.5,
+      "3": 0.55,
       "5": 1.0,
-      "6": 0.9666666666666667,
-      "7": 0.85,
-      "8": 0.9,
-      "9": 0.8
+      "6": 1.0,
+      "8": 1.0
     }
   }
 }

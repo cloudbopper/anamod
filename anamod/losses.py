@@ -16,11 +16,15 @@ class LossFunction(ABC):
         """Return vector of losses given true and predicted model values over a list of instances"""
 
 
-class RootMeanSquaredError(LossFunction):
-    """RMSE loss (absolute value used, since the RMSE on each instance is independently computed)"""
-    # FIXME: it's hard to see why RMSE is being used since the 'population' consists of a single sample (single instance).
-    # Does it make more sense to use quadratic loss? It shouldn't make a difference to the p-values,
-    # but it will alter the degree of importance scale (and likely mean/variance)
+class QuadraticLoss(LossFunction):
+    """Quadratic loss function"""
+    @staticmethod
+    def loss(y_true, y_pred):
+        return (y_true - y_pred)**2
+
+
+class AbsoluteDifferenceLoss(LossFunction):
+    """Absolute difference loss function (like quadratic loss, but scales differently)"""
     @staticmethod
     def loss(y_true, y_pred):
         return np.abs(y_true - y_pred)
@@ -45,7 +49,8 @@ class BinaryCrossEntropy(LossFunction):
         return losses
 
 
-LOSS_FUNCTIONS = {constants.ROOT_MEAN_SQUARED_ERROR: RootMeanSquaredError,
+LOSS_FUNCTIONS = {constants.QUADRATIC_LOSS: QuadraticLoss,
+                  constants.ABSOLUTE_DIFFERENCE_LOSS: AbsoluteDifferenceLoss,
                   constants.BINARY_CROSS_ENTROPY: BinaryCrossEntropy,
                   constants.ZERO_ONE_LOSS: ZeroOneLoss}
 

@@ -50,7 +50,7 @@ def test_condor_simulation_classifier1(file_regression, tmpdir, caplog, shared_f
 
 
 def test_condor_simulation_classifier2(file_regression, tmpdir, caplog, shared_fs):
-    """Test simulation with classification model over temporal data and RMSE losses computed w.r.t. predictions"""
+    """Test simulation with classification model over temporal data and quadratic losses computed w.r.t. predictions"""
     func_name = sys._getframe().f_code.co_name
     output_dir = pre_test(func_name, tmpdir, caplog)
     cmd = ("python -m anamod.simulation -condor 1 -memory_requirement 1 -disk_requirement 1"

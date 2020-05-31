@@ -40,7 +40,7 @@ def main():
                         help=("Target values to compare perturbed values to while computing losses. "
                               "Note: baseline predictions here refer to oracle's noise-free predictions. "
                               "If noise is enabled, noise is added when computing baseline losses, else all baseline losses would be zero "
-                              "while all perturbed losses would be positive (for RMSE loss, default for non-label predictions)"))
+                              "while all perturbed losses would be positive (for quadratic loss, default for non-label predictions)"))
     common.add_argument("-num_interactions", type=int, default=0, help="number of interaction pairs in model")
     common.add_argument("-include_interaction_only_features", help="include interaction-only features in model"
                         " in addition to linear + interaction features (default enabled)", type=strtobool, default=True)

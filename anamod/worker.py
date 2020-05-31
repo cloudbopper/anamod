@@ -104,7 +104,7 @@ def compute_baseline(args, inputs):
     pred = model.predict(data)
     if args.loss_function in {None, str(None)}:
         is_classifier = np.unique(targets).shape[0] <= 2
-        args.loss_function = constants.BINARY_CROSS_ENTROPY if is_classifier else constants.ROOT_MEAN_SQUARED_ERROR
+        args.loss_function = constants.BINARY_CROSS_ENTROPY if is_classifier else constants.QUADRATIC_LOSS
     loss_fn = Loss(args.loss_function, targets).loss_fn
     baseline_loss = loss_fn(pred)
     return pred, baseline_loss, loss_fn
