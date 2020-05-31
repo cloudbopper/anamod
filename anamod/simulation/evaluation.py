@@ -128,8 +128,8 @@ def evaluate_temporal(args, model, features):
     ordering_precision, ordering_recall = (timp_precision, timp_recall / imp_recall if imp_recall != 0 else 0)
     window_results = {}
     for idx, feature in enumerate(features):
-        if model.relevant_feature_map.get(frozenset({idx})) is None and feature.temporal_window is None:
-            continue  # Ignore irrelevant features that weren't misclassified
+        if feature.temporal_window is None:
+            continue  # Ignore features that weren't tested for windows
         window_precision, window_recall, _, _ = precision_recall_fscore_support(windows[idx], inferred_windows[idx],
                                                                                 average="binary", zero_division=0)
         with warnings.catch_warnings():
