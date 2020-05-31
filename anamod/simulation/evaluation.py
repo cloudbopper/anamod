@@ -105,24 +105,31 @@ def evaluate_temporal(args, model, features):
         if model.relevant_feature_map.get(frozenset({idx})):
             important[idx] = True
             left, right = model._aggregator._windows[idx]
+            windows[idx][left: right + 1] = 1
             if right - left + 1 < args.sequence_length:
-                temporally_important[idx] = True
-                windows[idx][left: right + 1] = 1  # algorithm doesn't test for window unless feature is identified as temporally important
+                temporally_important[idx] = True  # FIXME: will fail for ordering-relevant functions e.g. slope, weighted avg
+            # TODO: Add flag for ordering relevance within window (asserted when aggregation function ordering-relevant )
         # Inferred values
         inferred_important[idx] = feature.important
         inferred_temporally_important[idx] = feature.temporally_important
-        if inferred_temporally_important[idx]:
+        if feature.temporal_window is not None:
             left, right = feature.temporal_window
             inferred_windows[idx][left: right + 1] = 1
     # Get scores
-    imp_precision, imp_recall, _, _ = precision_recall_fscore_support(important, inferred_important, average="binary", zero_division=0)
-    timp_precision, timp_recall, _, _ = precision_recall_fscore_support(temporally_important, inferred_temporally_important,
-                                                                        average="binary", zero_division=0)
+    if not any(important or inferred_important):
+        imp_precision, imp_recall = (1.0, 1.0)
+    else:
+        imp_precision, imp_recall, _, _ = precision_recall_fscore_support(important, inferred_important, average="binary", zero_division=0)
+    if not any(temporally_important or inferred_temporally_important):
+        timp_precision, timp_recall = (1.0, 1.0)
+    else:
+        timp_precision, timp_recall, _, _ = precision_recall_fscore_support(temporally_important, inferred_temporally_important,
+                                                                            average="binary", zero_division=0)
     ordering_precision, ordering_recall = (timp_precision, timp_recall / imp_recall if imp_recall != 0 else 0)
     window_results = {}
-    for idx, _ in enumerate(features):
-        if not inferred_temporally_important[idx]:
-            continue  # Don't include features unless identified as temporally relevant
+    for idx, feature in enumerate(features):
+        if model.relevant_feature_map.get(frozenset({idx})) is None and feature.temporal_window is None:
+            continue  # Ignore irrelevant features that weren't misclassified
         window_precision, window_recall, _, _ = precision_recall_fscore_support(windows[idx], inferred_windows[idx],
                                                                                 average="binary", zero_division=0)
         with warnings.catch_warnings():

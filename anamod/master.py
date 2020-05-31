@@ -33,6 +33,7 @@ def main(args):
 def pipeline(args):
     """Master pipeline"""
     # FIXME: some outputs returned via return value (temporal analysis), other via output file (hierarchical analysis)
+    # TODO: 'args' is now an object. Change to reflect that and figure out way to print object attributes
     args.logger.info("Begin anamod master pipeline with args: %s" % args)
     features = list(filter(lambda node: node.perturbable, anytree.PreOrderIter(args.feature_hierarchy)))  # flatten hierarchy
     # Perturb features

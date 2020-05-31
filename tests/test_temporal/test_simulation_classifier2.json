@@ -19,14 +19,15 @@
     "Ordering_All_Important_Power": 1.0,
     "Ordering_Identified_Important_FDR": 0.2857142857142857,
     "Ordering_Identified_Important_Power": 1.0,
-    "Average_Window_FDR": 0.3184523809523808,
-    "Average_Window_Power": 0.6857142857142857,
+    "Average_Window_FDR": 0.40364583333333326,
+    "Average_Window_Power": 0.6,
     "Window_Overlap": {
       "1": 0.9,
       "3": 1.0,
       "4": 0.85,
       "5": 1.0,
       "6": 0.9666666666666667,
+      "7": 0.85,
       "8": 0.9,
       "9": 0.8
     }
