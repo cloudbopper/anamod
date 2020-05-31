@@ -84,6 +84,17 @@ class ModelAnalyzer(ABC):
                 Analyze all pairwise interactions between leaf features,
                 instead of just pairwise interactions of leaf features identified by hierarchical FDR.
 
+        **Temporal model analysis parameters:**
+
+            importance_significance_level: float, default: 0.05
+                Significance level used to assess feature importance while testing for overall/window/ordering relevance
+
+            window_search_algorithm: str, choices: {{'{constants.EFFECT_SIZE}', '{constants.IMPORTANCE_TEST}'}}, default: '{constants.IMPORTANCE_TEST}'
+                Search algorithm to use to search for relevant window (TODO: document)
+
+            window_effect_size_threshold: float, default: 0.05
+                Fraction of total feature importance (effect size) permitted outside window while searching for relevant window
+
         **HTCondor parameters:**
             condor: bool, default: False
                 Flag to enable parallelization using HTCondor.
@@ -128,6 +139,10 @@ class ModelAnalyzer(ABC):
         # Hierarchical feature analysis parameters
         self.feature_hierarchy = self.process_keyword_arg("feature_hierarchy", None)
         self.analyze_interactions = self.process_keyword_arg("analyze_interactions", False)
+        # Temporal model analysis parameters
+        self.importance_significance_level = self.process_keyword_arg("importance_significance_level", 0.05)
+        self.window_search_algorithm = self.process_keyword_arg("window_search_algorithm", constants.IMPORTANCE_TEST)
+        self.window_effect_size_threshold = self.process_keyword_arg("window_effect_size_threshold", 0.05)
         # pylint: disable = invalid-name
         self.analyze_all_pairwise_interactions = self.process_keyword_arg("analyze_all_pairwise_interactions", False)
         # HTCondor parameters

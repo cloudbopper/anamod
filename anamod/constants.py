@@ -12,6 +12,10 @@ DESCRIPTION = "description"
 CLUSTER_FROM_DATA = "cluster_from_data"
 RANDOM = "random"
 
+# Temporal analysis
+EFFECT_SIZE = "effect_size"
+IMPORTANCE_TEST = "importance_test"
+
 # Condor
 POLL_BASED_TRACKING = "poll_based_tracking"
 EVENT_LOG_TRACKING = "event_log_tracking"
@@ -26,7 +30,6 @@ OUTPUT_FEATURES_FILENAME = "{}/output_features_worker_{}.cpkl"
 RESULTS_FILENAME = "{}/results_worker_{}.hdf5"
 
 # Evaluation
-EFFECT_SIZE = "effect_size"
 MEAN_LOSS = "mean_loss"
 PVALUE_LOSSES = "p-value-losses"
 PAIRED_TTEST = "paired-t-test"
