@@ -18,6 +18,7 @@ from anamod import constants, utils
 from anamod.fdr import hierarchical_fdr_control
 from anamod.interactions import analyze_interactions
 from anamod.pipelines import CondorPipeline, SerialPipeline
+from anamod.utils import round_value
 
 
 def main(args):
@@ -84,7 +85,8 @@ def hierarchical_fdr(args, features):
         for node in features:
             name = node.name
             parent_name = node.parent.name if node.parent else ""
-            writer.writerow([name, parent_name, node.description, node.effect_size, node.mean_loss, node.pvalue_loss])
+            writer.writerow([name, parent_name, node.description,
+                             round_value(node.effect_size), round_value(node.mean_loss), round_value(node.pvalue_loss)])
     # Run FDR control
     output_dir = "%s/%s" % (args.output_dir, constants.HIERARCHICAL_FDR_DIR)
     cmd = ("python -m anamod.fdr.hierarchical_fdr_control -output_dir %s -procedure yekutieli "

@@ -18,12 +18,25 @@ class Feature(anytree.Node):
         # TODO: (Verify) Could initialize the RNG right away, since cloudpickle should still be able to pickle it
         self._rng_seed = xxhash.xxh32_intdigest(name)
         self.rng = None  # RNG used for shuffling this feature - see perturbations.py: 'feature.rng'
+        # Legacy attributes - TODO: remove
+        self.mean_loss = 0.
+        self.pvalue_loss = 1.
+        self.effect_size = 0.
+        # p-value attributes
+        self.overall_pvalue = 1.
+        self.ordering_pvalue = 1.
+        self.window_pvalue = 1.
+        self.window_ordering_pvalue = 1.
+        # Effect size attributes
+        self.overall_effect_size = 0.
+        self.window_effect_size = 0.
         # Importance attributes
         self.important = False
         self.ordering_important = False
-        self.temporal_window = None
         self.window_important = False
         self.window_ordering_important = False
+        # Miscellaneous attributes
+        self.temporal_window = None
 
     @property
     def rng_seed(self):

@@ -20,7 +20,7 @@ from anamod import constants
 from anamod.compute_p_values import compute_p_value
 from anamod.losses import Loss
 from anamod.perturbations import PERTURBATION_FUNCTIONS, PERTURBATION_MECHANISMS
-from anamod.utils import get_logger, round_value
+from anamod.utils import get_logger
 
 Inputs = namedtuple("Inputs", ["data", "targets", "model"])
 
@@ -107,6 +107,7 @@ def compute_baseline(args, inputs):
         args.loss_function = constants.BINARY_CROSS_ENTROPY if is_classifier else constants.QUADRATIC_LOSS
     loss_fn = Loss(args.loss_function, targets).loss_fn
     baseline_loss = loss_fn(pred)
+    args.logger.info(f"Mean baseline loss: {np.mean(baseline_loss)}")
     return pred, baseline_loss, loss_fn
 
 
@@ -159,7 +160,7 @@ def search_window(args, inputs, feature, perturbation_mechanism, baseline_loss, 
     # pylint: disable = too-many-arguments, too-many-locals
     args.logger.info("Begin searching for temporal window for feature %s" % feature.name)
     mean_baseline_loss = np.mean(baseline_loss)
-    total_effect_size = np.abs(feature.mean_loss - mean_baseline_loss)
+    overall_effect_size_magnitude = np.abs(feature.overall_effect_size)
     T = inputs.data.shape[2]  # pylint: disable = invalid-name
     # Search left boundary of window by identifying the left inverted window
     lbound, current, rbound = (0, T // 2, T)
@@ -171,7 +172,7 @@ def search_window(args, inputs, feature, perturbation_mechanism, baseline_loss, 
             important = compute_p_value(baseline_loss, loss) < args.importance_significance_level
         else:
             # window_search_algorithm == constants.EFFECT_SIZE
-            important = np.abs(np.mean(loss) - mean_baseline_loss) > (args.window_effect_size_threshold / 2) * total_effect_size
+            important = np.abs(np.mean(loss) - mean_baseline_loss) > (args.window_effect_size_threshold / 2) * overall_effect_size_magnitude
         if important:
             # Move pointer to the left, decrease negative window size
             rbound = current
@@ -189,7 +190,7 @@ def search_window(args, inputs, feature, perturbation_mechanism, baseline_loss, 
             important = compute_p_value(baseline_loss, loss) < args.importance_significance_level
         else:
             # window_search_algorithm == constants.EFFECT_SIZE
-            important = np.abs(np.mean(loss) - mean_baseline_loss) > (args.window_effect_size_threshold / 2) * total_effect_size
+            important = np.abs(np.mean(loss) - mean_baseline_loss) > (args.window_effect_size_threshold / 2) * overall_effect_size_magnitude
         if important:
             # Move pointer to the right, decrease negative window size
             lbound = current
@@ -201,10 +202,13 @@ def search_window(args, inputs, feature, perturbation_mechanism, baseline_loss, 
     right = current
     # Report importance as per significance test
     _, loss = perturb_feature(args, inputs, feature, perturbation_mechanism, loss_fn, range(left, right + 1))
-    # FIXME: FDR control via Benjamini Hochberg for importance test algorithm
-    # FIXME: Report p-value, effect size
-    important = compute_p_value(baseline_loss, loss) < args.importance_significance_level
-    return left, right, important
+    # Set attributes on feature
+    # FIXME: FDR control via Benjamini Hochberg for importance_test algorithm
+    feature.window_pvalue = compute_p_value(baseline_loss, loss)
+    feature.window_important = feature.window_pvalue < args.importance_significance_level
+    feature.window_effect_size = np.mean(loss) - mean_baseline_loss
+    feature.temporal_window = (left, right)
+    return left, right
 
 
 def compute_importances(args, features, losses, baseline_loss):
@@ -213,34 +217,35 @@ def compute_importances(args, features, losses, baseline_loss):
     for feature in features:
         loss = losses[feature.name]
         mean_loss = np.mean(loss)
-        pvalue_loss = compute_p_value(baseline_loss, loss)
-        effect_size = mean_loss - mean_baseline_loss
-        feature.effect_size = round_value(effect_size)
-        feature.mean_loss = round_value(mean_loss)
-        feature.pvalue_loss = round_value(pvalue_loss)
-        feature.important = feature.pvalue_loss < args.importance_significance_level
+        feature.overall_pvalue = compute_p_value(baseline_loss, loss)
+        feature.overall_effect_size = mean_loss - mean_baseline_loss
+        feature.important = feature.overall_pvalue < args.importance_significance_level
+        # Legacy attributes; TODO: remove
+        feature.mean_loss = mean_loss
+        feature.pvalue_loss = feature.overall_pvalue
+        feature.effect_size = feature.overall_effect_size
 
 
 def temporal_analysis(args, inputs, features, baseline_loss, loss_fn):
     """Perform temporal analysis of important features"""
     # FIXME: Add FDR control (Benjamini Hochberg)
     # Select overall important features
-    features = list(filter(lambda feature: feature.pvalue_loss < args.importance_significance_level, features))
+    features = list(filter(lambda feature: feature.overall_pvalue < args.importance_significance_level, features))
     args.logger.info("Identified important features: %s; proceeding with temporal analysis" % ",".join([feature.name for feature in features]))
     perturbation_mechanism_within = get_perturbation_mechanism(args, perturbation_type=constants.WITHIN_INSTANCE)
     perturbation_mechanism_across = get_perturbation_mechanism(args, perturbation_type=constants.ACROSS_INSTANCES)
     for feature in features:
         # Test importance of feature ordering across whole sequence
         _, loss = perturb_feature(args, inputs, feature, perturbation_mechanism_within, loss_fn)
-        feature.ordering_important = compute_p_value(baseline_loss, loss) < args.importance_significance_level
+        feature.ordering_pvalue = compute_p_value(baseline_loss, loss)
+        feature.ordering_important = feature.ordering_pvalue < args.importance_significance_level
         args.logger.info(f"Feature {feature.name}: ordering important: {feature.ordering_important}")
-        # Test feature localization
-        left, right, window_important = search_window(args, inputs, feature, perturbation_mechanism_across, baseline_loss, loss_fn)
-        feature.temporal_window = (left, right)
-        feature.window_important = window_important  # TODO: Use downstream
+        # Test feature temporal localization
+        left, right = search_window(args, inputs, feature, perturbation_mechanism_across, baseline_loss, loss_fn)
         # Test importance of feature ordering across window
         _, loss = perturb_feature(args, inputs, feature, perturbation_mechanism_within, loss_fn, range(left, right + 1))
-        feature.window_ordering_important = compute_p_value(baseline_loss, loss) < args.importance_significance_level
+        feature.window_ordering_pvalue = compute_p_value(baseline_loss, loss)
+        feature.window_ordering_important = feature.window_ordering_pvalue < args.importance_significance_level
         args.logger.info(f"Found window for feature {feature.name}: ({left}, {right});"
                          f" significant: {feature.window_important}; ordering important: {feature.window_ordering_important}")
 
