@@ -18,6 +18,7 @@ import numpy as np
 
 from anamod import constants
 from anamod.compute_p_values import compute_p_value
+from anamod.fdr.fdr_algorithms import bh_procedure
 from anamod.losses import Loss
 from anamod.perturbations import PERTURBATION_FUNCTIONS, PERTURBATION_MECHANISMS
 from anamod.utils import get_logger
@@ -203,7 +204,9 @@ def search_window(args, inputs, feature, perturbation_mechanism, baseline_loss, 
     # Report importance as per significance test
     _, loss = perturb_feature(args, inputs, feature, perturbation_mechanism, loss_fn, range(left, right + 1))
     # Set attributes on feature
-    # FIXME: FDR control via Benjamini Hochberg for importance_test algorithm
+    # TODO: FDR control via Benjamini Hochberg for importance_test algorithm
+    # Doesn't seem appropriate though: (i) The p-values are sequentially generated and are not independent, and
+    # (ii) What does it mean for some p-values to be significant while others are not in the context of the search?
     feature.window_pvalue = compute_p_value(baseline_loss, loss)
     feature.window_important = feature.window_pvalue < args.importance_significance_level
     feature.window_effect_size = np.mean(loss) - mean_baseline_loss
@@ -226,11 +229,21 @@ def compute_importances(args, features, losses, baseline_loss):
         feature.effect_size = feature.overall_effect_size
 
 
+def fdr_control(args, features):
+    """Apply FDR control to features and returned important features"""
+    pvalues = [feature.overall_pvalue for feature in features]
+    adjusted_pvalues, rejected_hypotheses = bh_procedure(pvalues, args.importance_significance_level)
+    important_features = []
+    for idx, feature in enumerate(features):
+        feature.overall_pvalue = adjusted_pvalues[idx]
+        if rejected_hypotheses[idx]:
+            important_features.append(feature)
+    return important_features
+
+
 def temporal_analysis(args, inputs, features, baseline_loss, loss_fn):
     """Perform temporal analysis of important features"""
-    # FIXME: Add FDR control (Benjamini Hochberg)
-    # Select overall important features
-    features = list(filter(lambda feature: feature.overall_pvalue < args.importance_significance_level, features))
+    features = fdr_control(args, features)
     args.logger.info("Identified important features: %s; proceeding with temporal analysis" % ",".join([feature.name for feature in features]))
     perturbation_mechanism_within = get_perturbation_mechanism(args, perturbation_type=constants.WITHIN_INSTANCE)
     perturbation_mechanism_across = get_perturbation_mechanism(args, perturbation_type=constants.ACROSS_INSTANCES)
