@@ -89,14 +89,15 @@ def evaluate_hierarchical(args, relevant_feature_map, feature_id_map):
 def evaluate_temporal(args, model, features):
     """Evaluate results of temporal model analysis - obtain power/FDR measures for importance, temporal importance and windows"""
     # pylint: disable = protected-access, too-many-locals, invalid-name
+    num_features = len(features)
 
     def init_vectors():
         """Initialize vectors indicating importances"""
-        important = [False for idx, _ in enumerate(features)]
-        ordering_important = [False for idx, _ in enumerate(features)]
+        important = np.zeros(num_features, dtype=bool)
+        ordering_important = np.zeros(num_features, dtype=bool)
         windows = np.zeros((len(features), args.sequence_length))
-        window_important = [False for idx, _ in enumerate(features)]
-        window_ordering_important = [False for idx, _ in enumerate(features)]
+        window_important = np.zeros(num_features, dtype=bool)
+        window_ordering_important = np.zeros(num_features, dtype=bool)
         return important, ordering_important, windows, window_important, window_ordering_important
 
     # Populate importance vectors (ground truth and inferred)
@@ -134,11 +135,11 @@ def evaluate_temporal(args, model, features):
 
     imp_precision, imp_recall = get_precision_recall(important, inferred_important)
     ordering_all_precision, ordering_all_recall = get_precision_recall(ordering_important, inferred_ordering_important)
-    ordering_identified_precision, ordering_identified_recall = (ordering_all_precision, ordering_all_recall / imp_recall if imp_recall != 0 else 0)
-    window_imp_precision, window_imp_recall = get_precision_recall(window_important, inferred_window_important)
-    window_imp_recall = window_imp_recall / imp_recall if imp_recall != 0 else 0  # interested in recall for tested features
-    window_ordering_precision, window_ordering_recall = get_precision_recall(window_ordering_important, inferred_window_ordering_important)
-    window_ordering_recall = window_ordering_recall / imp_recall if imp_recall != 0 else 0  # interested in recall for tested features
+    tidx = [idx for idx, feature in enumerate(features) if feature.important]  # Features tested for temporal properties
+    ordering_identified_precision, ordering_identified_recall = get_precision_recall(ordering_important[tidx], inferred_ordering_important[tidx])
+    window_imp_precision, window_imp_recall = get_precision_recall(window_important[tidx], inferred_window_important[tidx])
+    window_ordering_precision, window_ordering_recall = get_precision_recall(window_ordering_important[tidx],
+                                                                             inferred_window_ordering_important[tidx])
 
     window_results = {}
     for idx, feature in enumerate(features):
