@@ -6,14 +6,20 @@ import cloudpickle
 from IPython.display import display
 import plotly.graph_objects as go
 
-from anamod.constants import FDR, POWER, TEMPORAL_FDR, TEMPORAL_POWER, AVERAGE_WINDOW_FDR, AVERAGE_WINDOW_POWER
+from anamod.constants import FDR, POWER, AVERAGE_WINDOW_FDR, AVERAGE_WINDOW_POWER
+from anamod.constants import ORDERING_ALL_IMPORTANT_FDR, ORDERING_ALL_IMPORTANT_POWER
+from anamod.constants import ORDERING_IDENTIFIED_IMPORTANT_FDR, ORDERING_IDENTIFIED_IMPORTANT_POWER
 from anamod.constants import TEMPORAL, WINDOW_OVERLAP, RESULTS, CONFIG, MODEL
 from anamod.constants import MODEL_FILENAME, SYNTHESIZED_FEATURES_FILENAME, ANALYZED_FEATURES_FILENAME
 
-
 GROUPS = {"Overall Feature Importance Detection": (FDR, POWER),
-          "Temporal Feature Importance Detection": (TEMPORAL_FDR, TEMPORAL_POWER),
+          "Ordering Detection (w.r.t. All Important Features)": (ORDERING_ALL_IMPORTANT_FDR, ORDERING_ALL_IMPORTANT_POWER),
+          "Ordering Detection (w.r.t. Identified Important Features)": (ORDERING_IDENTIFIED_IMPORTANT_FDR, ORDERING_IDENTIFIED_IMPORTANT_POWER),
           "Average Window Detection": (AVERAGE_WINDOW_FDR, AVERAGE_WINDOW_POWER)}
+
+LEGACY_GROUPS = {"Overall Feature Importance Detection": (FDR, POWER),
+                 "Temporal Feature Importance Detection": ("Temporal_FDR", "Temporal_Power"),
+                 "Average Window Detection": (AVERAGE_WINDOW_FDR, AVERAGE_WINDOW_POWER)}
 
 
 def flatten(nested_list):
@@ -23,7 +29,7 @@ def flatten(nested_list):
 
 def visualize_analysis(data, trial_type, analysis_type=TEMPORAL):
     """Visualize outputs"""
-    # pylint: disable = invalid-name
+    # pylint: disable = invalid-name, too-many-locals
     # TODO: Document a bit better
     # TODO: First, write out a summary of the setup
     results = data[RESULTS]
@@ -40,7 +46,8 @@ def visualize_analysis(data, trial_type, analysis_type=TEMPORAL):
         fig.add_trace(go.Violin(x=x, y=y, hovertext=hovertext))
         layout(fig, title="Average Window Overlap", xaxis_title=trial_type, yaxis_title="Average Overlap")
         fig.show()
-    for name, group in GROUPS.items():  # Overall, Temporal, Window
+    groups = GROUPS if ORDERING_ALL_IMPORTANT_FDR in results else LEGACY_GROUPS  # Backward-compatibility for old-style ordering results
+    for name, group in groups.items():  # Overall, Ordering, Window
         fig = go.Figure()
         for cat in group:  # FDR, Power
             x, y = ([], [])
@@ -59,13 +66,13 @@ def layout(fig, title="", xaxis_title="", yaxis_title=""):
     """Perform common changes to violin plot layout"""
     fig.update_traces(box_visible=True, meanline_visible=True, opacity=0.6, points="all")
     fig.update_layout(title={"text": title, "xanchor": "center", "x": 0.5},
-                        xaxis_title=xaxis_title, yaxis_title=yaxis_title,
-                        violinmode="group", template="none")
+                      xaxis_title=xaxis_title, yaxis_title=yaxis_title,
+                      violinmode="group", template="none")
 
 
 def visualize_simulation(sim_dir="."):
     """Detailed analysis of given simulation"""
-    # pylint: disable = unused-variable, invalid-name, too-many-locals
+    # pylint: disable = unused-variable, invalid-name, too-many-locals, line-too-long
     # TODO: Make compatible with hierarchical analysis
     # TODO: Clean up after finalizing what to use
     with open(f"{sim_dir}/{MODEL_FILENAME}", "rb") as model_file:
@@ -82,10 +89,10 @@ def visualize_simulation(sim_dir="."):
 
     temporally_important_features = [feature for feature in important_features if feature.temporally_important]
 
-    windowed_features = [feature for feature in analyzed_features if feature.temporal_window is not None]
-    windowed_important_features = [feature for feature in important_features if feature.temporal_window is not None]
-    windowed_temporal_features = [feature for feature in temporal_features if feature.temporal_window is not None]
-    windowed_temporally_important_features = [feature for feature in temporally_important_features if feature.temporal_window is not None]
+    windowed_features = [feature for feature in analyzed_features if feature.temporal_window is not None]  # noqa: F841
+    windowed_important_features = [feature for feature in important_features if feature.temporal_window is not None]  # noqa: F841
+    windowed_temporal_features = [feature for feature in temporal_features if feature.temporal_window is not None]  # noqa: F841
+    windowed_temporally_important_features = [feature for feature in temporally_important_features if feature.temporal_window is not None]  # noqa: F841
 
     num_features = len(synthesized_features)
     assert num_features == len(analyzed_features)
