@@ -36,11 +36,17 @@ def main():
     common.add_argument("-num_instances", type=int, default=10000)
     common.add_argument("-num_features", type=int, default=100)
     common.add_argument("-fraction_relevant_features", type=float, default=.05)
+    common.add_argument("-loss_target_values", choices=[constants.LABELS, constants.BASELINE_PREDICTIONS], default=constants.LABELS,
+                        help=("Target values to compare perturbed values to while computing losses. "
+                              "Note: baseline predictions here refer to oracle's noise-free predictions. "
+                              "If noise is enabled, noise is added when computing baseline losses, else all baseline losses would be zero "
+                              "while all perturbed losses would be positive (for quadratic loss, default for non-label predictions)"))
     common.add_argument("-num_interactions", type=int, default=0, help="number of interaction pairs in model")
     common.add_argument("-include_interaction_only_features", help="include interaction-only features in model"
                         " in addition to linear + interaction features (default enabled)", type=strtobool, default=True)
     common.add_argument("-condor", help="Use condor for parallelization", type=strtobool, default=False)
     common.add_argument("-shared_filesystem", type=strtobool, default=False)
+    common.add_argument("-features_per_worker", type=int, default=10)
     common.add_argument("-cleanup", type=strtobool, default=True, help="Clean data and model files after completing simulation")
     common.add_argument("-condor_cleanup", type=strtobool, default=True, help="Clean condor cmd/out/err/log files after completing simulation")
     # Hierarchical feature importance analysis arguments
@@ -80,7 +86,7 @@ def pipeline(args, pass_args):
     """Simulation pipeline"""
     args.logger.info("Begin anamod simulation with args: %s" % args)
     synthesized_features, data, model = run_synmod(args)
-    targets = model.predict(data, labels=True) if args.model_type == CLASSIFIER else model.predict(data)
+    targets = model.predict(data, labels=True) if args.loss_target_values == constants.LABELS else model.predict(data)
     # Create wrapper around ground-truth model
     model_wrapper = ModelWrapper(model, args.num_features, args.noise_type, args.noise_multiplier, args.seed)
     if args.analysis_type == constants.HIERARCHICAL:
@@ -135,7 +141,7 @@ def run_synmod(args):
     # Launch and monitor job
     job = CondorJobWrapper(cmd, [], job_dir, shared_filesystem=args.shared_filesystem, memory=memory_requirement, disk=disk_requirement)
     job.run()
-    CondorJobWrapper.monitor([job], cleanup=args.condor_cleanup, logger=args.logger)
+    CondorJobWrapper.monitor([job], cleanup=args.condor_cleanup)
     # Extract data
     features, instances, model = [None] * 3
     with open(f"{job_dir}/{FEATURES_FILENAME}", "rb") as data_file:
@@ -290,6 +296,7 @@ def run_anamod(args, pass_args, model, data, targets, hierarchy=None):  # pylint
     options["analysis_type"] = args.analysis_type
     options["condor"] = args.condor
     options["shared_filesystem"] = args.shared_filesystem
+    options["features_per_worker"] = args.features_per_worker
     options["num_shuffling_trials"] = args.num_shuffling_trials
     options["cleanup"] = args.cleanup
     if args.analysis_type == constants.HIERARCHICAL:
@@ -335,8 +342,11 @@ def write_summary(args, model, results):
                   num_shuffling_trials=args.num_shuffling_trials,
                   sequences_independent_of_windows=args.window_independent)
     # pylint: disable = protected-access
-    model_summary = dict(operation=model._aggregator.__class__.__name__,
-                         polynomial=model.sym_polynomial_fn.__repr__())
+    model_summary = {}
+    if args.analysis_type == constants.TEMPORAL:
+        model_summary["windows"] = [f"({window[0]}, {window[1]})" if window else None for window in model._aggregator._windows]
+        model_summary["aggregation_fns"] = [agg_fn.__class__.__name__ for agg_fn in model._aggregator._aggregation_fns]
+    model_summary["polynomial"] = model.sym_polynomial_fn.__repr__()
     summary = {constants.CONFIG: config, constants.MODEL: model_summary, constants.RESULTS: results}
     summary_filename = f"{args.output_dir}/{constants.SIMULATION_SUMMARY_FILENAME}"
     args.logger.info(f"Writing summary to {summary_filename}")

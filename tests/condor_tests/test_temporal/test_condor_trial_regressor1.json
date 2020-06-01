@@ -93,14 +93,48 @@
     }
   },
   "model": {
-    "operation": {
+    "windows": {
       "50": [
-        "Average",
-        "Max"
+        [
+          "(5, 7)",
+          null
+        ],
+        [
+          null,
+          "(0, 5)"
+        ]
       ],
       "100": [
-        "Average",
-        "Max"
+        [
+          "(5, 7)",
+          null
+        ],
+        [
+          null,
+          "(0, 5)"
+        ]
+      ]
+    },
+    "aggregation_fns": {
+      "50": [
+        [
+          "Average",
+          "Max"
+        ],
+        [
+          "Slope",
+          "Max"
+        ]
+      ],
+      "100": [
+        [
+          "Average",
+          "Max"
+        ],
+        [
+          "Slope",
+          "Max"
+        ]
       ]
     },
     "polynomial": {
@@ -138,7 +172,7 @@
     "Ordering_All_Important_FDR": {
       "50": [
         0.0,
-        1.0
+        0.0
       ],
       "100": [
         0.0,
@@ -148,7 +182,7 @@
     "Ordering_All_Important_Power": {
       "50": [
         1.0,
-        0.0
+        1.0
       ],
       "100": [
         1.0,
@@ -158,7 +192,7 @@
     "Ordering_Identified_Important_FDR": {
       "50": [
         0.0,
-        1.0
+        0.0
       ],
       "100": [
         0.0,
@@ -168,7 +202,7 @@
     "Ordering_Identified_Important_Power": {
       "50": [
         1.0,
-        0.0
+        1.0
       ],
       "100": [
         1.0,
@@ -178,7 +212,7 @@
     "Average_Window_FDR": {
       "50": [
         0.0,
-        1.0
+        0.0
       ],
       "100": [
         0.0,
@@ -188,17 +222,57 @@
     "Average_Window_Power": {
       "50": [
         1.0,
+        0.6666666666666666
+      ],
+      "100": [
+        1.0,
+        0.8333333333333334
+      ]
+    },
+    "Window_Overlap": {
+      "50": [
+        1.0,
+        0.8333333333333333
+      ],
+      "100": [
+        1.0,
+        0.9166666666666667
+      ]
+    },
+    "Window_Important_FDR": {
+      "50": [
+        0.0,
         0.0
+      ],
+      "100": [
+        0.0,
+        0.0
+      ]
+    },
+    "Window_Important_Power": {
+      "50": [
+        1.0,
+        1.0
       ],
       "100": [
         1.0,
         1.0
       ]
     },
-    "Window_Overlap": {
+    "Window_Ordering_Important_FDR": {
+      "50": [
+        0.0,
+        0.0
+      ],
+      "100": [
+        0.0,
+        0.0
+      ]
+    },
+    "Window_Ordering_Important_Power": {
       "50": [
         1.0,
-        0.0
+        1.0
       ],
       "100": [
         1.0,

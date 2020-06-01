@@ -3,6 +3,8 @@
 
 import sys
 
+import numpy as np
+
 from anamod.constants import POSITIVE
 
 
@@ -87,21 +89,11 @@ def yekutieli(args, F, M):
             # For each parent, test its child nodes as a family
             if node.is_leaf or not node.rejected:
                 continue
-            family = sorted(node.children, key=lambda x: x.pvalue)
-            max_idx = 0
-            for idx, child in enumerate(family):
-                i = idx + 1
-                m = len(family)
-                child.adjusted_pvalue = m / i * child.pvalue
-                child.critical_constant = i * args.alpha / m
-                if child.pvalue <= child.critical_constant:
-                    max_idx = i
-            for idx in range(max_idx):
-                family[idx].rejected = True
-            Rs[node.depth + 1] += max_idx
-            for idx in reversed(range(m - 1)):
-                # Adjusted pvalues - see http://www.biostathandbook.com/multiplecomparisons.html
-                family[idx].adjusted_pvalue = min(family[idx].adjusted_pvalue, family[idx + 1].adjusted_pvalue)
+            adjusted_pvalues, rejected_hypotheses = bh_procedure([child.pvalue for child in node.children], args.alpha)
+            for idx, child in enumerate(node.children):
+                child.adjusted_pvalue = adjusted_pvalues[idx]
+                child.rejected = rejected_hypotheses[idx]
+            Rs[node.depth + 1] += sum(rejected_hypotheses)
     # Sanity check
     for node in M:
         if node.parent and node.rejected:
@@ -130,3 +122,28 @@ def alpha(args, node, r):
 def psi(args, r, F, d, total_rejected):
     """Implementation of function psi"""
     return sum([node.pvalue <= alpha_star(args, node, r, total_rejected) for node in F[d - 1]])  # sum counts True as 1
+
+
+def bh_procedure(pvalues, significance_level):
+    """Return adjusted p-values and rejected hypotheses computed according to Benjamini Hochberg procedure"""
+    m = len(pvalues)
+    hypotheses = list(zip(range(m), pvalues))
+    hypotheses.sort(key=lambda x: x[1])
+    max_idx = 0
+    adjusted_pvalues = np.ones(m)
+    rejected_hypotheses = [False] * m
+    for idx, hypothesis in enumerate(hypotheses):
+        _, pvalue = hypothesis
+        i = idx + 1
+        adjusted_pvalues[idx] = m / i * pvalue
+        critical_constant = i * significance_level / m
+        if pvalue < critical_constant:
+            max_idx = i
+    for idx in range(max_idx):
+        rejected_hypotheses[idx] = True
+    for idx in reversed(range(m - 1)):
+        # Adjusted pvalues - see http://www.biostathandbook.com/multiplecomparisons.html
+        adjusted_pvalues[idx] = min(adjusted_pvalues[idx], adjusted_pvalues[idx + 1])
+    data = sorted(zip(hypotheses, adjusted_pvalues, rejected_hypotheses), key=lambda elem: elem[0][0])
+    _, adjusted_pvalues, rejected_hypotheses = zip(*data)
+    return adjusted_pvalues, rejected_hypotheses

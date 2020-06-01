@@ -94,7 +94,8 @@ class CondorPipeline(SerialPipeline):
 
     def setup_jobs(self):
         """Setup and run condor jobs"""
-        transfer_args = ["analysis_type", "perturbation", "num_shuffling_trials", "loss_function", "loss_target_values"]
+        transfer_args = ["analysis_type", "perturbation", "num_shuffling_trials", "loss_function",
+                         "importance_significance_level", "window_search_algorithm", "window_effect_size_threshold"]
         jobs = [None] * self.num_jobs
         for idx in range(self.num_jobs):
             # Create and launch condor job
@@ -122,7 +123,7 @@ class CondorPipeline(SerialPipeline):
         if not self.args.compile_results_only:
             for job in jobs:
                 job.run()
-            CondorJobWrapper.monitor(jobs, cleanup=self.args.cleanup, logger=self.args.logger)
+            CondorJobWrapper.monitor(jobs, cleanup=self.args.cleanup)
         job_dirs = [job.job_dir for job in jobs]
         results = self.compile_results(job_dirs)
         self.cleanup(job_dirs)

@@ -53,7 +53,3 @@ class ModelWrapper():
                 # Add noise - additive Gaussian, sampled for every instance/perturbed instance
                 noise[idx] = self.noise[noise_idx]
         return self.ground_truth_model.predict(X, noise=noise)
-
-    def loss(self, targets, predictions):
-        """Compute loss for prediction-target pair (comprising one or more instances)"""
-        return self.ground_truth_model.loss(targets, predictions)
