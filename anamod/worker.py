@@ -232,14 +232,17 @@ def temporal_analysis(args, inputs, features, baseline_loss, loss_fn):
     for feature in features:
         # Test importance of feature ordering across whole sequence
         _, loss = perturb_feature(args, inputs, feature, perturbation_mechanism_within, loss_fn)
-        feature.temporally_important = compute_p_value(baseline_loss, loss) < args.importance_significance_level
-        args.logger.info(f"Feature {feature.name}: ordering important: {feature.temporally_important}")
+        feature.ordering_important = compute_p_value(baseline_loss, loss) < args.importance_significance_level
+        args.logger.info(f"Feature {feature.name}: ordering important: {feature.ordering_important}")
         # Test feature localization
         left, right, window_important = search_window(args, inputs, feature, perturbation_mechanism_across, baseline_loss, loss_fn)
         feature.temporal_window = (left, right)
         feature.window_important = window_important  # TODO: Use downstream
-        # TODO: test importance of feature ordering across window
-        args.logger.info(f"Found window for feature {feature.name}: ({left}, {right})")
+        # Test importance of feature ordering across window
+        _, loss = perturb_feature(args, inputs, feature, perturbation_mechanism_within, loss_fn, range(left, right + 1))
+        feature.window_ordering_important = compute_p_value(baseline_loss, loss) < args.importance_significance_level
+        args.logger.info(f"Found window for feature {feature.name}: ({left}, {right});"
+                         f" significant: {feature.window_important}; ordering important: {feature.window_ordering_important}")
 
 
 def write_outputs(args, features, predictions):

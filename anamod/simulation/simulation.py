@@ -346,7 +346,7 @@ def write_summary(args, model, results):
     if args.analysis_type == constants.TEMPORAL:
         model_summary["windows"] = [f"({window[0]}, {window[1]})" if window else None for window in model._aggregator._windows]
         model_summary["aggregation_fns"] = [agg_fn.__class__.__name__ for agg_fn in model._aggregator._aggregation_fns]
-    model_summary["polynomial"]= model.sym_polynomial_fn.__repr__()
+    model_summary["polynomial"] = model.sym_polynomial_fn.__repr__()
     summary = {constants.CONFIG: config, constants.MODEL: model_summary, constants.RESULTS: results}
     summary_filename = f"{args.output_dir}/{constants.SIMULATION_SUMMARY_FILENAME}"
     args.logger.info(f"Writing summary to {summary_filename}")

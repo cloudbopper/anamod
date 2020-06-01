@@ -9,12 +9,14 @@ import anytree
 from anytree.importer import JsonImporter
 import numpy as np
 from sklearn.metrics import balanced_accuracy_score, precision_recall_fscore_support
+from synmod.aggregators import Slope
 
 from anamod import constants
 from anamod.constants import FDR, POWER, BASE_FEATURES_FDR, BASE_FEATURES_POWER, INTERACTIONS_FDR, INTERACTIONS_POWER
 from anamod.constants import ORDERING_ALL_IMPORTANT_FDR, ORDERING_ALL_IMPORTANT_POWER
 from anamod.constants import ORDERING_IDENTIFIED_IMPORTANT_FDR, ORDERING_IDENTIFIED_IMPORTANT_POWER
 from anamod.constants import AVERAGE_WINDOW_FDR, AVERAGE_WINDOW_POWER, WINDOW_OVERLAP
+from anamod.constants import WINDOW_IMPORTANT_FDR, WINDOW_IMPORTANT_POWER, WINDOW_ORDERING_IMPORTANT_FDR, WINDOW_ORDERING_IMPORTANT_POWER
 from anamod.fdr import hierarchical_fdr_control
 
 
@@ -86,19 +88,21 @@ def evaluate_hierarchical(args, relevant_feature_map, feature_id_map):
 
 def evaluate_temporal(args, model, features):
     """Evaluate results of temporal model analysis - obtain power/FDR measures for importance, temporal importance and windows"""
-    # pylint: disable = protected-access, too-many-locals
+    # pylint: disable = protected-access, too-many-locals, invalid-name
 
     def init_vectors():
         """Initialize vectors indicating importances"""
         important = [False for idx, _ in enumerate(features)]
-        temporally_important = [False for idx, _ in enumerate(features)]
+        ordering_important = [False for idx, _ in enumerate(features)]
         windows = np.zeros((len(features), args.sequence_length))
-        return important, temporally_important, windows
+        window_important = [False for idx, _ in enumerate(features)]
+        window_ordering_important = [False for idx, _ in enumerate(features)]
+        return important, ordering_important, windows, window_important, window_ordering_important
 
     # Populate importance vectors (ground truth and inferred)
     features = sorted(features, key=lambda feature: feature.idx[0])  # To ensure features are ordered by their index in the feature vector
-    important, temporally_important, windows = init_vectors()
-    inferred_important, inferred_temporally_important, inferred_windows = init_vectors()
+    important, ordering_important, windows, window_important, window_ordering_important = init_vectors()
+    inferred_important, inferred_ordering_important, inferred_windows, inferred_window_important, inferred_window_ordering_important = init_vectors()
     for idx, feature in enumerate(features):
         assert idx == feature.idx[0]
         # Ground truth values
@@ -106,32 +110,41 @@ def evaluate_temporal(args, model, features):
             important[idx] = True
             left, right = model._aggregator._windows[idx]
             windows[idx][left: right + 1] = 1
-            if right - left + 1 < args.sequence_length:
-                temporally_important[idx] = True  # FIXME: will fail for ordering-relevant functions e.g. slope, weighted avg
-            # TODO: Add flag for ordering relevance within window (asserted when aggregation function ordering-relevant )
+            window_important[idx] = True  # All relevant features have windows
+            window_ordering_important[idx] = isinstance(model._aggregator._aggregation_fns[idx], Slope)
+            if right - left + 1 < args.sequence_length or window_ordering_important[idx]:
+                ordering_important[idx] = True
         # Inferred values
         inferred_important[idx] = feature.important
-        inferred_temporally_important[idx] = feature.temporally_important
+        inferred_ordering_important[idx] = feature.ordering_important
+        inferred_window_important[idx] = feature.window_important
+        inferred_window_ordering_important[idx] = feature.window_ordering_important
         if feature.temporal_window is not None:
             left, right = feature.temporal_window
             inferred_windows[idx][left: right + 1] = 1
+
     # Get scores
-    if not any(important or inferred_important):
-        imp_precision, imp_recall = (1.0, 1.0)
-    else:
-        imp_precision, imp_recall, _, _ = precision_recall_fscore_support(important, inferred_important, average="binary", zero_division=0)
-    if not any(temporally_important or inferred_temporally_important):
-        timp_precision, timp_recall = (1.0, 1.0)
-    else:
-        timp_precision, timp_recall, _, _ = precision_recall_fscore_support(temporally_important, inferred_temporally_important,
-                                                                            average="binary", zero_division=0)
-    ordering_precision, ordering_recall = (timp_precision, timp_recall / imp_recall if imp_recall != 0 else 0)
+    def get_precision_recall(true, inferred):
+        """Get precision and recall given true and inferred values"""
+        if any(true) or any(inferred):
+            precision, recall, _, _ = precision_recall_fscore_support(true, inferred, average="binary", zero_division=0)
+        else:
+            precision, recall = (1.0, 1.0)
+        return precision, recall
+
+    imp_precision, imp_recall = get_precision_recall(important, inferred_important)
+    ordering_all_precision, ordering_all_recall = get_precision_recall(ordering_important, inferred_ordering_important)
+    ordering_identified_precision, ordering_identified_recall = (ordering_all_precision, ordering_all_recall / imp_recall if imp_recall != 0 else 0)
+    window_imp_precision, window_imp_recall = get_precision_recall(window_important, inferred_window_important)
+    window_imp_recall = window_imp_recall / imp_recall if imp_recall != 0 else 0  # interested in recall for tested features
+    window_ordering_precision, window_ordering_recall = get_precision_recall(window_ordering_important, inferred_window_ordering_important)
+    window_ordering_recall = window_ordering_recall / imp_recall if imp_recall != 0 else 0  # interested in recall for tested features
+
     window_results = {}
     for idx, feature in enumerate(features):
         if feature.temporal_window is None:
             continue  # Ignore features that weren't tested for windows
-        window_precision, window_recall, _, _ = precision_recall_fscore_support(windows[idx], inferred_windows[idx],
-                                                                                average="binary", zero_division=0)
+        window_precision, window_recall = get_precision_recall(windows[idx], inferred_windows[idx])
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")  # Avoid warning if the two vectors have no common values
             window_overlap = balanced_accuracy_score(windows[idx], inferred_windows[idx])
@@ -139,12 +152,14 @@ def evaluate_temporal(args, model, features):
     avg_window_precision = np.mean([result["precision"] for result in window_results.values()]) if window_results else 0.
     avg_window_recall = np.mean([result["recall"] for result in window_results.values()]) if window_results else 0.
     window_overlaps = {idx: result["overlap"] for idx, result in window_results.items()}
-    # TODO: Replace 'temporally important' by 'ordering'
+
     return {FDR: 1 - imp_precision, POWER: imp_recall,
-            ORDERING_ALL_IMPORTANT_FDR: 1 - timp_precision, ORDERING_ALL_IMPORTANT_POWER: timp_recall,
-            ORDERING_IDENTIFIED_IMPORTANT_FDR: 1 - ordering_precision, ORDERING_IDENTIFIED_IMPORTANT_POWER: ordering_recall,
+            ORDERING_ALL_IMPORTANT_FDR: 1 - ordering_all_precision, ORDERING_ALL_IMPORTANT_POWER: ordering_all_recall,
+            ORDERING_IDENTIFIED_IMPORTANT_FDR: 1 - ordering_identified_precision, ORDERING_IDENTIFIED_IMPORTANT_POWER: ordering_identified_recall,
             AVERAGE_WINDOW_FDR: 1 - avg_window_precision, AVERAGE_WINDOW_POWER: avg_window_recall,
-            WINDOW_OVERLAP: window_overlaps}
+            WINDOW_OVERLAP: window_overlaps,
+            WINDOW_IMPORTANT_FDR: 1 - window_imp_precision, WINDOW_IMPORTANT_POWER: window_imp_recall,
+            WINDOW_ORDERING_IMPORTANT_FDR: 1 - window_ordering_precision, WINDOW_ORDERING_IMPORTANT_POWER: window_ordering_recall}
 
 
 def get_precision_recall_interactions(args, relevant_feature_map, feature_id_map):

@@ -50,6 +50,10 @@
       "5": 1.0,
       "6": 0.9166666666666667,
       "8": 1.0
-    }
+    },
+    "Window_Important_FDR": 0.0,
+    "Window_Important_Power": 1.0,
+    "Window_Ordering_Important_FDR": 0.0,
+    "Window_Ordering_Important_Power": 1.0
   }
 }

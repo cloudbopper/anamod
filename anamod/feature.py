@@ -15,14 +15,15 @@ class Feature(anytree.Node):
         self.description = kwargs.get(constants.DESCRIPTION, "")
         self.idx = kwargs.get("idx", [])
         self.perturbable = kwargs.get("perturbable", True)
-        # TODO: (Verify) Could initialize the RNG right away, since cloudpickle should stick be able to pickle it
+        # TODO: (Verify) Could initialize the RNG right away, since cloudpickle should still be able to pickle it
         self._rng_seed = xxhash.xxh32_intdigest(name)
         self.rng = None  # RNG used for shuffling this feature - see perturbations.py: 'feature.rng'
         # Importance attributes
         self.important = False
-        self.temporally_important = False
+        self.ordering_important = False
         self.temporal_window = None
         self.window_important = False
+        self.window_ordering_important = False
 
     @property
     def rng_seed(self):

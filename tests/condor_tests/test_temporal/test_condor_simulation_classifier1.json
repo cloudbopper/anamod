@@ -48,6 +48,10 @@
       "1": 0.5333333333333333,
       "8": 0.6,
       "9": 0.5
-    }
+    },
+    "Window_Important_FDR": 0.5,
+    "Window_Important_Power": 0.5,
+    "Window_Ordering_Important_FDR": 1.0,
+    "Window_Ordering_Important_Power": 0.0
   }
 }
