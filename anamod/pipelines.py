@@ -11,6 +11,7 @@ import cloudpickle
 import h5py
 
 from anamod import constants, worker
+from anamod.fdr.fdr_algorithms import bh_procedure
 from anamod.utils import CondorJobWrapper
 
 
@@ -52,7 +53,20 @@ class SerialPipeline():
                 return results
 
             all_predictions.update(load_data(root[constants.PREDICTIONS]))
+        self.fdr_control(features)
         return features, all_predictions
+
+    def fdr_control(self, features):
+        """Apply FDR control to features"""
+        # TODO: better solution to unify hierarchical/temporal analysis FDR control
+        if self.args.analysis_type == constants.HIERARCHICAL:
+            return
+        pvalues = [feature.overall_pvalue for feature in features]
+        adjusted_pvalues, rejected_hypotheses = bh_procedure(pvalues, self.args.importance_significance_level)
+        for idx, feature in enumerate(features):
+            feature.overall_pvalue = adjusted_pvalues[idx]
+            if not rejected_hypotheses[idx]:
+                feature.important = False
 
     def cleanup(self, job_dirs=None):
         """Clean intermediate files after completing pipeline"""

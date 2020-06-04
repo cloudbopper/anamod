@@ -18,7 +18,6 @@ import numpy as np
 
 from anamod import constants
 from anamod.compute_p_values import compute_p_value
-from anamod.fdr.fdr_algorithms import bh_procedure
 from anamod.losses import Loss
 from anamod.perturbations import PERTURBATION_FUNCTIONS, PERTURBATION_MECHANISMS
 from anamod.utils import get_logger
@@ -230,21 +229,9 @@ def compute_importances(args, features, losses, baseline_loss):
         feature.effect_size = feature.overall_effect_size
 
 
-def fdr_control(args, features):
-    """Apply FDR control to features and returned important features"""
-    pvalues = [feature.overall_pvalue for feature in features]
-    adjusted_pvalues, rejected_hypotheses = bh_procedure(pvalues, args.importance_significance_level)
-    important_features = []
-    for idx, feature in enumerate(features):
-        feature.overall_pvalue = adjusted_pvalues[idx]
-        if rejected_hypotheses[idx]:
-            important_features.append(feature)
-    return important_features
-
-
 def temporal_analysis(args, inputs, features, baseline_loss, loss_fn):
     """Perform temporal analysis of important features"""
-    features = fdr_control(args, features)
+    features = [feature for feature in features if feature.important]
     args.logger.info("Identified important features: %s; proceeding with temporal analysis" % ",".join([feature.name for feature in features]))
     for feature in features:
         # Test importance of feature ordering across whole sequence

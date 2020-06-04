@@ -116,11 +116,11 @@ def evaluate_temporal(args, model, features):
             if right - left + 1 < args.sequence_length or window_ordering_important[idx]:
                 ordering_important[idx] = True
         # Inferred values
-        inferred_important[idx] = feature.important
-        inferred_ordering_important[idx] = feature.ordering_important
-        inferred_window_important[idx] = feature.window_important
-        inferred_window_ordering_important[idx] = feature.window_ordering_important
-        if feature.temporal_window is not None:
+        inferred_important[idx] = feature.important  # Overall importance after performing FDR control
+        inferred_ordering_important[idx] = feature.important and feature.ordering_important
+        inferred_window_important[idx] = feature.important and feature.window_important
+        inferred_window_ordering_important[idx] = feature.important and feature.window_ordering_important
+        if feature.important and feature.temporal_window is not None:
             left, right = feature.temporal_window
             inferred_windows[idx][left: right + 1] = 1
 
@@ -143,8 +143,8 @@ def evaluate_temporal(args, model, features):
 
     window_results = {}
     for idx, feature in enumerate(features):
-        if feature.temporal_window is None:
-            continue  # Ignore features that weren't tested for windows
+        if not feature.important:
+            continue  # Ignore features that were not identified as important
         window_precision, window_recall = get_precision_recall(windows[idx], inferred_windows[idx])
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")  # Avoid warning if the two vectors have no common values
