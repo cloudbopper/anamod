@@ -157,6 +157,7 @@ class ModelAnalyzer(ABC):
         self.model_filename = self.gen_model_file(model)
         # TODO: targets are not needed when using baseline predictions to compute losses
         self.data_filename = self.gen_data_file(data, targets)
+        # TODO: this method of identifying analysis type may fail unexpectedly if user forgets to provide hierarchy with non-temporal data
         self.analysis_type = constants.HIERARCHICAL if self.feature_hierarchy else constants.TEMPORAL
         self.gen_hierarchy(data)
 
