@@ -125,6 +125,7 @@ class CondorPipeline(SerialPipeline):
                 cmd += f" -{name} {os.path.abspath(path)}" if self.args.shared_filesystem else f" -{name} {os.path.basename(path)}"
             job = CondorJobWrapper(cmd, input_files, job_dir, shared_filesystem=self.args.shared_filesystem,
                                    memory=f"{self.args.memory_requirement}GB", disk=f"{self.args.disk_requirement}GB",
+                                   avoid_bad_hosts=self.args.avoid_bad_hosts, retry_arbitrary_failures=self.args.retry_arbitrary_failures,
                                    cleanup=self.args.cleanup)
             jobs[idx] = job
         return jobs

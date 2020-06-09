@@ -124,6 +124,15 @@ class ModelAnalyzer(ABC):
                 If none is provided, cloudpickle will be used - see model_loader_ for a template (TODO: fix ref)
 
                 .. _model_loader: py:mod:anamod.model_loader
+
+            avoid_bad_hosts: bool, default: False
+                Avoid condor hosts that intermittently give issues.
+                Enable to reduce likelihood of failures at the cost of increased runtime.
+                List of hosts: {constants.CONDOR_AVOID_HOSTS}
+
+            retry_arbitrary_failures: bool, default: False
+                Retry failing jobs due to any reason, up to a maximum of {constants.CONDOR_MAX_RETRIES} attempts per job.
+                Use with caution - enable if failures stem from condor issues.
         """)
 
     def __init__(self, model, data, targets, **kwargs):
@@ -153,6 +162,8 @@ class ModelAnalyzer(ABC):
         self.memory_requirement = self.process_keyword_arg("memory_requirement", 8)
         self.disk_requirement = self.process_keyword_arg("disk_requirement", 8)
         self.model_loader_filename = self.process_keyword_arg("model_loader_filename", None)
+        self.avoid_bad_hosts = self.process_keyword_arg("avoid_bad_hosts", False)
+        self.retry_arbitrary_failures = self.process_keyword_arg("retry_arbitrary_failures", False)
         # Required parameters
         self.model_filename = self.gen_model_file(model)
         # TODO: targets are not needed when using baseline predictions to compute losses

@@ -49,6 +49,8 @@ def main():
     common.add_argument("-features_per_worker", type=int, default=10)
     common.add_argument("-cleanup", type=strtobool, default=True, help="Clean data and model files after completing simulation")
     common.add_argument("-condor_cleanup", type=strtobool, default=True, help="Clean condor cmd/out/err/log files after completing simulation")
+    common.add_argument("-avoid_bad_hosts", type=strtobool, default=False)
+    common.add_argument("-retry_arbitrary_failures", type=strtobool, default=True)
     # Hierarchical feature importance analysis arguments
     hierarchical = parser.add_argument_group("Hierarchical feature analysis arguments")
     hierarchical.add_argument("-noise_multiplier", type=float, default=.05,
@@ -139,7 +141,8 @@ def run_synmod(args):
         cmd += f" -{arg} {args.__getattribute__(arg)}"
     args.logger.info(f"Running cmd: {cmd}")
     # Launch and monitor job
-    job = CondorJobWrapper(cmd, [], job_dir, shared_filesystem=args.shared_filesystem, memory=memory_requirement, disk=disk_requirement)
+    job = CondorJobWrapper(cmd, [], job_dir, shared_filesystem=args.shared_filesystem, memory=memory_requirement, disk=disk_requirement,
+                           avoid_bad_hosts=args.avoid_bad_hosts, retry_arbitrary_failures=args.retry_arbitrary_failures)
     job.run()
     CondorJobWrapper.monitor([job], cleanup=args.condor_cleanup)
     # Extract data
