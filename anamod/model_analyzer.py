@@ -141,7 +141,7 @@ class ModelAnalyzer(ABC):
         self.analyze_interactions = self.process_keyword_arg("analyze_interactions", False)
         # Temporal model analysis parameters
         self.importance_significance_level = self.process_keyword_arg("importance_significance_level", 0.05)
-        self.window_search_algorithm = self.process_keyword_arg("window_search_algorithm", constants.IMPORTANCE_TEST)
+        self.window_search_algorithm = self.process_keyword_arg("window_search_algorithm", constants.EFFECT_SIZE)
         self.window_effect_size_threshold = self.process_keyword_arg("window_effect_size_threshold", 0.05)
         # pylint: disable = invalid-name
         self.analyze_all_pairwise_interactions = self.process_keyword_arg("analyze_all_pairwise_interactions", False)
