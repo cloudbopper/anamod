@@ -13,9 +13,9 @@
   },
   "results": {
     "FDR": 0.0,
-    "Power": 0.975609756097561,
+    "Power": 0.9512195121951219,
     "Base_Features_FDR": 0.0,
-    "Base_Features_Power": 0.9333333333333333,
+    "Base_Features_Power": 0.8666666666666667,
     "Interactions_FDR": 0.0,
     "Interactions_Power": 1.0
   }
