@@ -10,8 +10,8 @@ from anamod import constants, utils
 def compute_p_value(baseline, perturbed, test=constants.PAIRED_TTEST, alternative=constants.TWOSIDED):
     """Compute p-value using paired difference test on input numpy arrays"""
     # TODO: Implement one-sided t-tests
-    baseline = utils.round_value(baseline, decimals=20)
-    perturbed = utils.round_value(perturbed, decimals=20)
+    baseline = utils.round_value(baseline, decimals=15)
+    perturbed = utils.round_value(perturbed, decimals=15)
     # Perform statistical test
     valid_tests = [constants.PAIRED_TTEST, constants.WILCOXON_TEST]
     assert test in valid_tests, "Invalid test name %s" % test
