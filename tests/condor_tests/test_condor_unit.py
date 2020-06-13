@@ -19,7 +19,8 @@ def test_condor_cat(tmpdir, shared_fs, tracking):
             cmd = f"cat {os.path.abspath(filename)} > {os.path.abspath(dirs[idx])}/newfile.txt"
         else:
             cmd = f"cat {os.path.basename(filename)} > {os.path.basename(dirs[idx])}/newfile.txt"
-        job = CondorJobWrapper(cmd, [filename], dirs[idx], shared_filesystem=shared_fs, tracking=tracking)
+        job = CondorJobWrapper(cmd, [filename], dirs[idx], shared_filesystem=shared_fs, tracking=tracking,
+                               avoid_bad_hosts=True, retry_arbitrary_failures=True)
         job.run()
         jobs[idx] = job
     CondorJobWrapper.monitor(jobs)
