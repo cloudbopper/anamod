@@ -36,8 +36,7 @@ class InstancePermutation(PerturbationFunction):
         self._current_permutation_idx = -1
         self._permutations = np.empty((num_instances, self._num_permutations), dtype=np.int32)
         for idx in range(num_instances):
-            self._permutations[idx, :] = rng.choice([pidx for pidx in range(num_instances) if pidx != idx],
-                                                    size=self._num_permutations, replace=False)
+            self._permutations[idx, :] = rng.choice(num_instances, size=self._num_permutations, replace=False)
 
     def operate(self, X):
         self._current_permutation_idx += 1
