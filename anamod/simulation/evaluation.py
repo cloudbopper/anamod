@@ -107,7 +107,7 @@ def evaluate_temporal(args, model, features):
     for idx, feature in enumerate(features):
         assert idx == feature.idx[0]
         # Ground truth values
-        if model.relevant_feature_map.get(frozenset({idx})):
+        if model.relevant_feature_map.get(frozenset({idx})):  # FIXME: This will ignore features that only appear in interactions
             important[idx] = True
             left, right = model._aggregator._windows[idx]
             windows[idx][left: right + 1] = 1
