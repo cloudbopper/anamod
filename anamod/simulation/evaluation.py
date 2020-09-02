@@ -127,10 +127,7 @@ def evaluate_temporal(args, model, features):
     # Get scores
     def get_precision_recall(true, inferred):
         """Get precision and recall given true and inferred values"""
-        if any(true) or any(inferred):
-            precision, recall, _, _ = precision_recall_fscore_support(true, inferred, average="binary", zero_division=0)
-        else:
-            precision, recall = (1.0, 1.0)
+        precision, recall, _, _ = precision_recall_fscore_support(true, inferred, average="binary", zero_division=1)
         return precision, recall
 
     imp_precision, imp_recall = get_precision_recall(important, inferred_important)
