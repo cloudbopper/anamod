@@ -1,9 +1,0 @@
-# Ignore everything
-*
-
-# But not these files...
-!.gitignore
-!all_simulation_results*.json
-
-# ...even if they are in subdirectories
-!*/
