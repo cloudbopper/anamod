@@ -18,7 +18,6 @@ import numpy as np
 
 from anamod import constants
 from anamod.compute_p_values import compute_p_value
-from anamod.fdr.fdr_algorithms import bh_procedure
 from anamod.losses import Loss
 from anamod.perturbations import PERTURBATION_FUNCTIONS, PERTURBATION_MECHANISMS
 from anamod.utils import get_logger
@@ -112,11 +111,11 @@ def compute_baseline(args, inputs):
     return pred, baseline_loss, loss_fn
 
 
-def get_perturbation_mechanism(args, perturbation_type=constants.ACROSS_INSTANCES):
+def get_perturbation_mechanism(args, rng, perturbation_type, num_instances, num_permutations):
     """Get appropriately configured object to perform perturbations"""
-    perturbation_fn_class = PERTURBATION_FUNCTIONS[args.perturbation]
+    perturbation_fn_class = PERTURBATION_FUNCTIONS[perturbation_type][args.perturbation]
     perturbation_mechanism_class = PERTURBATION_MECHANISMS[args.analysis_type]
-    return perturbation_mechanism_class(perturbation_fn_class, perturbation_type)
+    return perturbation_mechanism_class(perturbation_fn_class, perturbation_type, rng, num_instances, num_permutations)
 
 
 def perturb_features(args, inputs, features, loss_fn):
@@ -125,20 +124,21 @@ def perturb_features(args, inputs, features, loss_fn):
     args.logger.info("Begin perturbing features")
     predictions = {feature.name: np.zeros(len(inputs.targets)) for feature in features}
     losses = {feature.name: np.zeros(len(inputs.targets)) for feature in features}
-    perturbation_mechanism = get_perturbation_mechanism(args)
     # Perturb each feature
     for feature in features:
-        prediction, loss = perturb_feature(args, inputs, feature, perturbation_mechanism, loss_fn)
+        prediction, loss = perturb_feature(args, inputs, feature, loss_fn)
         predictions[feature.name] = prediction
         losses[feature.name] = loss
     args.logger.info("End perturbing features")
     return predictions, losses
 
 
-def perturb_feature(args, inputs, feature, perturbation_mechanism, loss_fn, timesteps=...):
+def perturb_feature(args, inputs, feature, loss_fn,
+                    timesteps=..., perturbation_type=constants.ACROSS_INSTANCES):
     """Perturb feature"""
     # pylint: disable = too-many-arguments
     data, targets, model = inputs
+    perturbation_mechanism = get_perturbation_mechanism(args, feature.rng, perturbation_type, data.shape[0], args.num_shuffling_trials)
     if args.perturbation == constants.SHUFFLING:
         prediction = np.zeros(len(targets))
         loss = np.zeros(len(targets))
@@ -156,7 +156,7 @@ def perturb_feature(args, inputs, feature, perturbation_mechanism, loss_fn, time
     return prediction, loss
 
 
-def search_window(args, inputs, feature, perturbation_mechanism, baseline_loss, loss_fn):
+def search_window(args, inputs, feature, baseline_loss, loss_fn):
     """Search temporal window of importance for given feature"""
     # pylint: disable = too-many-arguments, too-many-locals
     args.logger.info("Begin searching for temporal window for feature %s" % feature.name)
@@ -168,7 +168,7 @@ def search_window(args, inputs, feature, perturbation_mechanism, baseline_loss, 
     while current < rbound:
         # Search for the largest 'negative' window anchored on the left that results in a non-important p-value/effect size
         # The right boundary of the left inverted window is the left boundary of the window of interest
-        _, loss = perturb_feature(args, inputs, feature, perturbation_mechanism, loss_fn, range(0, current))
+        _, loss = perturb_feature(args, inputs, feature, loss_fn, range(0, current))
         if args.window_search_algorithm == constants.IMPORTANCE_TEST:
             important = compute_p_value(baseline_loss, loss) < args.importance_significance_level
         else:
@@ -186,7 +186,7 @@ def search_window(args, inputs, feature, perturbation_mechanism, baseline_loss, 
     # Search right boundary of window by identifying the right inverted window
     lbound, current, rbound = (left, (left + T) // 2, T)
     while lbound < current:
-        _, loss = perturb_feature(args, inputs, feature, perturbation_mechanism, loss_fn, range(current, T))
+        _, loss = perturb_feature(args, inputs, feature, loss_fn, range(current, T))
         if args.window_search_algorithm == constants.IMPORTANCE_TEST:
             important = compute_p_value(baseline_loss, loss) < args.importance_significance_level
         else:
@@ -202,7 +202,7 @@ def search_window(args, inputs, feature, perturbation_mechanism, baseline_loss, 
             current = (current + lbound) // 2
     right = current
     # Report importance as per significance test
-    _, loss = perturb_feature(args, inputs, feature, perturbation_mechanism, loss_fn, range(left, right + 1))
+    _, loss = perturb_feature(args, inputs, feature, loss_fn, range(left, right + 1))
     # Set attributes on feature
     # TODO: FDR control via Benjamini Hochberg for importance_test algorithm
     # Doesn't seem appropriate though: (i) The p-values are sequentially generated and are not independent, and
@@ -229,34 +229,20 @@ def compute_importances(args, features, losses, baseline_loss):
         feature.effect_size = feature.overall_effect_size
 
 
-def fdr_control(args, features):
-    """Apply FDR control to features and returned important features"""
-    pvalues = [feature.overall_pvalue for feature in features]
-    adjusted_pvalues, rejected_hypotheses = bh_procedure(pvalues, args.importance_significance_level)
-    important_features = []
-    for idx, feature in enumerate(features):
-        feature.overall_pvalue = adjusted_pvalues[idx]
-        if rejected_hypotheses[idx]:
-            important_features.append(feature)
-    return important_features
-
-
 def temporal_analysis(args, inputs, features, baseline_loss, loss_fn):
     """Perform temporal analysis of important features"""
-    features = fdr_control(args, features)
+    features = [feature for feature in features if feature.important]
     args.logger.info("Identified important features: %s; proceeding with temporal analysis" % ",".join([feature.name for feature in features]))
-    perturbation_mechanism_within = get_perturbation_mechanism(args, perturbation_type=constants.WITHIN_INSTANCE)
-    perturbation_mechanism_across = get_perturbation_mechanism(args, perturbation_type=constants.ACROSS_INSTANCES)
     for feature in features:
         # Test importance of feature ordering across whole sequence
-        _, loss = perturb_feature(args, inputs, feature, perturbation_mechanism_within, loss_fn)
+        _, loss = perturb_feature(args, inputs, feature, loss_fn, perturbation_type=constants.WITHIN_INSTANCE)
         feature.ordering_pvalue = compute_p_value(baseline_loss, loss)
         feature.ordering_important = feature.ordering_pvalue < args.importance_significance_level
         args.logger.info(f"Feature {feature.name}: ordering important: {feature.ordering_important}")
         # Test feature temporal localization
-        left, right = search_window(args, inputs, feature, perturbation_mechanism_across, baseline_loss, loss_fn)
+        left, right = search_window(args, inputs, feature, baseline_loss, loss_fn)
         # Test importance of feature ordering across window
-        _, loss = perturb_feature(args, inputs, feature, perturbation_mechanism_within, loss_fn, range(left, right + 1))
+        _, loss = perturb_feature(args, inputs, feature, loss_fn, range(left, right + 1), perturbation_type=constants.WITHIN_INSTANCE)
         feature.window_ordering_pvalue = compute_p_value(baseline_loss, loss)
         feature.window_ordering_important = feature.window_ordering_pvalue < args.importance_significance_level
         args.logger.info(f"Found window for feature {feature.name}: ({left}, {right});"

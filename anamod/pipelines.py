@@ -11,6 +11,7 @@ import cloudpickle
 import h5py
 
 from anamod import constants, worker
+from anamod.fdr.fdr_algorithms import bh_procedure
 from anamod.utils import CondorJobWrapper
 
 
@@ -52,7 +53,20 @@ class SerialPipeline():
                 return results
 
             all_predictions.update(load_data(root[constants.PREDICTIONS]))
+        self.fdr_control(features)
         return features, all_predictions
+
+    def fdr_control(self, features):
+        """Apply FDR control to features"""
+        # TODO: better solution to unify hierarchical/temporal analysis FDR control
+        if self.args.analysis_type == constants.HIERARCHICAL:
+            return
+        pvalues = [feature.overall_pvalue for feature in features]
+        adjusted_pvalues, rejected_hypotheses = bh_procedure(pvalues, self.args.importance_significance_level)
+        for idx, feature in enumerate(features):
+            feature.overall_pvalue = adjusted_pvalues[idx]
+            if not rejected_hypotheses[idx]:
+                feature.important = False
 
     def cleanup(self, job_dirs=None):
         """Clean intermediate files after completing pipeline"""
@@ -65,7 +79,10 @@ class SerialPipeline():
                      constants.RESULTS_FILENAME.format(self.args.output_dir, "*")]
         for filetype in filetypes:
             for filename in glob.glob(filetype):
-                os.remove(filename)
+                try:
+                    os.remove(filename)
+                except OSError as error:
+                    self.args.logger.warning(f"Cleanup: unable to remove {filename}: {error}")
         if job_dirs:  # Remove condor job directories
             for job_dir in job_dirs:
                 shutil.rmtree(job_dir)
@@ -111,6 +128,7 @@ class CondorPipeline(SerialPipeline):
                 cmd += f" -{name} {os.path.abspath(path)}" if self.args.shared_filesystem else f" -{name} {os.path.basename(path)}"
             job = CondorJobWrapper(cmd, input_files, job_dir, shared_filesystem=self.args.shared_filesystem,
                                    memory=f"{self.args.memory_requirement}GB", disk=f"{self.args.disk_requirement}GB",
+                                   avoid_bad_hosts=self.args.avoid_bad_hosts, retry_arbitrary_failures=self.args.retry_arbitrary_failures,
                                    cleanup=self.args.cleanup)
             jobs[idx] = job
         return jobs

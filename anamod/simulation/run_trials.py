@@ -32,14 +32,14 @@ class Simulation():
 
 class Trial():  # pylint: disable = too-many-instance-attributes
     """Class that parametrizes, runs, monitors, and analyzes a group of simulations"""
-    def __init__(self, seed, sim_type, analysis_type, output_dir, pass_args, **kwargs):
+    def __init__(self, seed, sim_type, analysis_type, output_dir, summarize_only, pass_args):
         # pylint: disable = too-many-arguments
         self.seed = seed
         self.type = sim_type
         self.analysis_type = analysis_type
         self.output_dir = output_dir
+        self.summarize_only = summarize_only
         self.pass_args = pass_args
-        self.summarize_only = kwargs.get("summarize_only", False)
         self.setup_simulations()
 
     def __hash__(self):
@@ -187,15 +187,13 @@ def gen_trials(args):
     trials = set()
     for seed in range(args.start_seed, args.start_seed + args.num_trials):
         output_dir = "%s/trial_%s_%d" % (args.output_dir, args.type, seed)
-        trials.add(Trial(seed, args.type, args.analysis_type, output_dir, args.pass_args))
+        trials.add(Trial(seed, args.type, args.analysis_type, output_dir, args.summarize_only, args.pass_args))
     return trials
 
 
 def run_trials(args, trials):
     """Run multiple trials, each with multiple simulations"""
     # TODO: Maybe time trials as well, both actual and CPU time (which should exclude condor delays)
-    if args.summarize_only:
-        return
     running_trials = set()  # Trials currently running
     waiting_trials = copy(trials)  # Trials that haven't yet started
     unfinished_trials = copy(trials)  # Trials that haven't finished for whatever reason

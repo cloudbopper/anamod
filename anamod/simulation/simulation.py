@@ -17,6 +17,7 @@ import synmod.master
 from synmod.constants import CLASSIFIER, REGRESSOR, FEATURES_FILENAME, MODEL_FILENAME, INSTANCES_FILENAME
 
 from anamod import constants, utils, ModelAnalyzer
+from anamod.master import validate_args
 from anamod.simulation.model_wrapper import ModelWrapper
 from anamod.simulation import evaluation
 from anamod.utils import CondorJobWrapper
@@ -31,15 +32,16 @@ def main():
     # Optional common arguments
     common = parser.add_argument_group("Optional common parameters")
     common.add_argument("-analysis_type", help="Type of model analysis to perform",
-                        default=constants.HIERARCHICAL, choices=[constants.TEMPORAL, constants.HIERARCHICAL])
+                        default=constants.TEMPORAL, choices=[constants.TEMPORAL, constants.HIERARCHICAL])
     common.add_argument("-seed", type=int, default=constants.SEED)
-    common.add_argument("-num_instances", type=int, default=10000)
-    common.add_argument("-num_features", type=int, default=100)
-    common.add_argument("-fraction_relevant_features", type=float, default=.05)
+    common.add_argument("-num_instances", type=int, default=200)
+    common.add_argument("-num_features", type=int, default=10)
+    common.add_argument("-fraction_relevant_features", type=float, default=.2)
     common.add_argument("-loss_target_values", choices=[constants.LABELS, constants.BASELINE_PREDICTIONS], default=constants.LABELS,
                         help=("Target values to compare perturbed values to while computing losses. "
                               "Note: baseline predictions here refer to oracle's noise-free predictions. "
-                              "If noise is enabled, noise is added when computing baseline losses, else all baseline losses would be zero "
+                              "If noise multiplier is non-zero, noise is added when computing baseline losses, "
+                              "else all baseline losses would be zero "
                               "while all perturbed losses would be positive (for quadratic loss, default for non-label predictions)"))
     common.add_argument("-num_interactions", type=int, default=0, help="number of interaction pairs in model")
     common.add_argument("-include_interaction_only_features", help="include interaction-only features in model"
@@ -49,19 +51,19 @@ def main():
     common.add_argument("-features_per_worker", type=int, default=10)
     common.add_argument("-cleanup", type=strtobool, default=True, help="Clean data and model files after completing simulation")
     common.add_argument("-condor_cleanup", type=strtobool, default=True, help="Clean condor cmd/out/err/log files after completing simulation")
+    common.add_argument("-avoid_bad_hosts", type=strtobool, default=True)
+    common.add_argument("-retry_arbitrary_failures", type=strtobool, default=True)
     # Hierarchical feature importance analysis arguments
     hierarchical = parser.add_argument_group("Hierarchical feature analysis arguments")
-    hierarchical.add_argument("-noise_multiplier", type=float, default=.05,
+    hierarchical.add_argument("-noise_multiplier", type=float, default=0.,
                               help="Multiplicative factor for noise added to polynomial computation for irrelevant features")
-    hierarchical.add_argument("-noise_type", choices=[constants.ADDITIVE_GAUSSIAN, constants.EPSILON_IRRELEVANT, constants.NO_NOISE],
-                              default=constants.NO_NOISE)
     hierarchical.add_argument("-hierarchy_type", help="Choice of hierarchy to generate", default=constants.CLUSTER_FROM_DATA,
                               choices=[constants.CLUSTER_FROM_DATA, constants.RANDOM])
     hierarchical.add_argument("-contiguous_node_names", type=strtobool, default=False, help="enable to change node names in hierarchy "
                               "to be contiguous for better visualization (but creating mismatch between node names and features indices)")
     hierarchical.add_argument("-analyze_interactions", help="enable analyzing interactions", type=strtobool, default=False)
     hierarchical.add_argument("-perturbation", default=constants.SHUFFLING, choices=[constants.ZEROING, constants.SHUFFLING])
-    hierarchical.add_argument("-num_shuffling_trials", type=int, default=100, help="Number of shuffling trials to average over, "
+    hierarchical.add_argument("-num_shuffling_trials", type=int, default=10, help="Number of shuffling trials to average over, "
                               "when shuffling perturbations are selected")
     # Temporal model analysis arguments
     temporal = parser.add_argument_group("Temporal model analysis arguments")
@@ -71,6 +73,7 @@ def main():
     temporal.set_defaults(window_independent=False)
 
     args, pass_args = parser.parse_known_args()
+    validate_args(args)
     if not args.output_dir:
         args.output_dir = ("sim_outputs_inst_%d_feat_%d_noise_%.3f_relfraction_%.3f_pert_%s_shufftrials_%d" %
                            (args.num_instances, args.num_features, args.noise_multiplier,
@@ -88,7 +91,7 @@ def pipeline(args, pass_args):
     synthesized_features, data, model = run_synmod(args)
     targets = model.predict(data, labels=True) if args.loss_target_values == constants.LABELS else model.predict(data)
     # Create wrapper around ground-truth model
-    model_wrapper = ModelWrapper(model, args.num_features, args.noise_type, args.noise_multiplier, args.seed)
+    model_wrapper = ModelWrapper(model, args.noise_multiplier)
     if args.analysis_type == constants.HIERARCHICAL:
         # Generate hierarchy using clustering (test data also used for clustering)
         hierarchy_root, feature_id_map = gen_hierarchy(args, data)
@@ -139,7 +142,8 @@ def run_synmod(args):
         cmd += f" -{arg} {args.__getattribute__(arg)}"
     args.logger.info(f"Running cmd: {cmd}")
     # Launch and monitor job
-    job = CondorJobWrapper(cmd, [], job_dir, shared_filesystem=args.shared_filesystem, memory=memory_requirement, disk=disk_requirement)
+    job = CondorJobWrapper(cmd, [], job_dir, shared_filesystem=args.shared_filesystem, memory=memory_requirement, disk=disk_requirement,
+                           avoid_bad_hosts=args.avoid_bad_hosts, retry_arbitrary_failures=args.retry_arbitrary_failures)
     job.run()
     CondorJobWrapper.monitor([job], cleanup=args.condor_cleanup)
     # Extract data
@@ -150,7 +154,10 @@ def run_synmod(args):
     with open(f"{job_dir}/{MODEL_FILENAME}", "rb") as model_file:
         model = cloudpickle.load(model_file)
     if args.cleanup:
-        shutil.rmtree(job_dir)
+        try:
+            shutil.rmtree(job_dir)
+        except OSError as error:
+            args.logger.warning(f"Cleanup: unable to remove {job_dir}: {error}")
     args.logger.info("End running synmod")
     return features, instances, model
 
@@ -291,12 +298,14 @@ def run_anamod(args, pass_args, model, data, targets, hierarchy=None):  # pylint
     options["feature_hierarchy"] = hierarchy
     options["output_dir"] = args.output_dir
     options["seed"] = args.seed
-    options["memory_requirement"] = 1 + (data.nbytes // (2 ** 30))
-    options["disk_requirement"] = 3 + options["memory_requirement"]
     options["analysis_type"] = args.analysis_type
     options["condor"] = args.condor
     options["shared_filesystem"] = args.shared_filesystem
     options["features_per_worker"] = args.features_per_worker
+    options["memory_requirement"] = 2 + (data.nbytes // (2 ** 30))
+    options["disk_requirement"] = 3 + options["memory_requirement"]
+    options["avoid_bad_hosts"] = args.avoid_bad_hosts
+    options["retry_arbitrary_failures"] = args.retry_arbitrary_failures
     options["num_shuffling_trials"] = args.num_shuffling_trials
     options["cleanup"] = args.cleanup
     if args.analysis_type == constants.HIERARCHICAL:
@@ -355,7 +364,7 @@ def write_summary(args, model, results):
     return summary
 
 
-def write_io(args, model, synthesized_features, analyzed_features, ):
+def write_io(args, model, synthesized_features, analyzed_features):
     """Write simulation inputs and outputs (model and features)"""
     with open(f"{args.output_dir}/{constants.MODEL_FILENAME}", "wb") as model_file:
         cloudpickle.dump(model, model_file, protocol=pickle.DEFAULT_PROTOCOL)

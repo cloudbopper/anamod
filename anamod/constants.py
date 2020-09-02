@@ -15,10 +15,23 @@ RANDOM = "random"
 # Temporal analysis
 EFFECT_SIZE = "effect_size"
 IMPORTANCE_TEST = "importance_test"
+CHOICES_WINDOW_SEARCH_ALGORITHM = {EFFECT_SIZE, IMPORTANCE_TEST}
 
 # Condor
 POLL_BASED_TRACKING = "poll_based_tracking"
 EVENT_LOG_TRACKING = "event_log_tracking"
+CONDOR_MAX_RUNNING_TIME = 4 * 3600
+CONDOR_MAX_WAIT_TIME = 600  # Time to wait for job to start running before retrying
+CONDOR_MAX_RETRIES = 50
+# Reference: https://htcondor.readthedocs.io/en/latest/classad-attributes/job-classad-attributes.html
+CONDOR_HOLD_RETRY_CODES = set([6, 7, 8, 9, 10, 11, 12, 13, 14])
+# List of hosts to avoid (if causing issues):
+CONDOR_AVOID_HOSTS = ["mastodon-5.biostat.wisc.edu",
+                      "e269.chtc.wisc.edu", "e1039.chtc.wisc.edu",  # jobs freeze indefinitely
+                      "chief.biostat.wisc.edu", "mammoth-1.biostat.wisc.edu", "nebula-7.biostat.wisc.edu",
+                      "mastodon-1.biostat.wisc.edu"]   # don't seem to be on shared filesystem
+CONDOR_MAX_ERROR_COUNT = 100  # Maximum number of condor errors to tolerate before aborting (for a variety of possible reasons)
+QUEUE, REMOVE, QUERY, HISTORY = ("queue", "remove", "query", "history")  # Condor scheduler actions
 
 # Master I/O
 MODEL_FILENAME = "model.cpkl"
@@ -56,9 +69,6 @@ DATA = "data"
 # Simulation
 RELEVANT = "relevant"
 IRRELEVANT = "irrelevant"
-ADDITIVE_GAUSSIAN = "additive_gaussian"
-EPSILON_IRRELEVANT = "epsilon_irrelevant"
-NO_NOISE = "none"
 FDR = "FDR"
 POWER = "Power"
 OUTER_NODES_FDR = "Outer_Nodes_FDR"
@@ -115,6 +125,7 @@ TREE = "tree"
 # Perturbation
 ZEROING = "zeroing"
 SHUFFLING = "shuffling"
+CHOICES_PERTURBATIONS = {SHUFFLING, ZEROING}
 RNG_SEED = "rng_seed"
 ACROSS_INSTANCES = "across"
 WITHIN_INSTANCE = "within"
@@ -123,6 +134,7 @@ QUADRATIC_LOSS = "quadratic_loss"
 ABSOLUTE_DIFFERENCE_LOSS = "absolute_difference_loss"
 BINARY_CROSS_ENTROPY = "binary_cross_entropy"
 ZERO_ONE_LOSS = "zero_one_loss"
+CHOICES_LOSS_FUNCTIONS = {None, QUADRATIC_LOSS, ABSOLUTE_DIFFERENCE_LOSS, BINARY_CROSS_ENTROPY, ZERO_ONE_LOSS}
 LABELS = "labels"
 BASELINE_PREDICTIONS = "baseline_predictions"
 

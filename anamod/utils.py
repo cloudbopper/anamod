@@ -15,18 +15,8 @@ try:
 except ImportError:
     pass  # Caller performs its own check to validate condor availability
 
-from anamod.constants import EVENT_LOG_TRACKING
-
-CONDOR_MAX_RUNNING_TIME = 4 * 3600
-CONDOR_MAX_WAIT_TIME = 600  # Time to wait for job to start running before retrying
-CONDOR_MAX_RETRIES = 5
-# Reference: https://htcondor.readthedocs.io/en/latest/classad-attributes/job-classad-attributes.html
-CONDOR_HOLD_RETRY_CODES = set([6, 7, 8, 9, 10, 11, 12, 13, 14])
-# List of hosts to avoid (if causing issues):
-CONDOR_AVOID_HOSTS = ["mastodon-5.biostat.wisc.edu", "e1039.chtc.wisc.edu",  # jobs freeze indefinitely
-                      "chief.biostat.wisc.edu", "mammoth-1.biostat.wisc.edu", "nebula-7.biostat.wisc.edu"]   # don't seem to be on shared filesystem
-CONDOR_MAX_ERROR_COUNT = 100  # Maximum number of condor errors to tolerate before aborting (for a variety of possible reasons)
-QUEUE, REMOVE, QUERY, HISTORY = ("queue", "remove", "query", "history")  # Condor scheduler actions
+from anamod.constants import (EVENT_LOG_TRACKING, CONDOR_MAX_RUNNING_TIME, CONDOR_MAX_WAIT_TIME, CONDOR_MAX_RETRIES,
+                              CONDOR_HOLD_RETRY_CODES, CONDOR_AVOID_HOSTS, CONDOR_MAX_ERROR_COUNT, QUEUE, REMOVE, QUERY, HISTORY)
 
 
 def get_logger(name, filename=None, level=logging.INFO):
@@ -96,6 +86,8 @@ class CondorJobWrapper():
                                    err_filename=f"{self.job_dir}/{self.name}.err")
         # Process keyword args
         self.shared_filesystem = kwargs.get("shared_filesystem", False)
+        self.avoid_bad_hosts = kwargs.get("avoid_bad_hosts", False)
+        self.retry_arbitrary_failures = kwargs.get("retry_arbitrary_failures", False)
         memory = kwargs.get("memory", "1GB")
         disk = kwargs.get("disk", "4GB")
         package = kwargs.get("package", "git+https://github.com/cloudbopper/anamod")
@@ -111,6 +103,7 @@ class CondorJobWrapper():
 
     def create_job(self, memory, disk, package):
         """Create job"""
+        req_bad_hosts = " && ".join([f"(Machine != \"{hostname}\")" for hostname in CONDOR_AVOID_HOSTS]) if self.avoid_bad_hosts else ""
         self.create_executable(package)
         job = htcondor.Submit({"initialdir": f"{self.job_dir}",
                                "executable": f"{self.filenames.exec_filename}",
@@ -119,7 +112,7 @@ class CondorJobWrapper():
                                "log": f"{self.filenames.log_filename}",
                                "request_memory": f"{memory}",
                                "request_disk": f"{disk}",
-                               "requirements": " && ".join([f"(Machine != \"{hostname}\")" for hostname in CONDOR_AVOID_HOSTS]),
+                               "requirements": req_bad_hosts,
                                "universe": "vanilla",
                                "should_transfer_files": "NO" if self.shared_filesystem else "YES",
                                "transfer_input_files": "" if self.shared_filesystem else ",".join(self.input_files),
@@ -161,9 +154,12 @@ class CondorJobWrapper():
 
     def run(self):
         """Run job"""
-        # Remove log file since it's used for tracking job progress
-        if os.path.exists(self.filenames.log_filename):
-            os.replace(self.filenames.log_filename, f"{self.filenames.log_filename}.{self.tries}")
+        # Back up old log/out/err files for debugging; log file is also used for tracking job progress
+        for filename in [self.filenames.log_filename, self.filenames.out_filename, self.filenames.out_filename]:
+            try:
+                os.replace(filename, f"{filename}.{self.tries}")
+            except FileNotFoundError:
+                pass
         # Run job
         schedd = htcondor.Schedd()
         self.cluster_id = CondorJobWrapper.condor_schedd_interact(schedd, QUEUE, job=self.job)
@@ -220,7 +216,8 @@ class CondorJobWrapper():
                                                         f"{job.filenames.log_filename}, retrying after pause; error: {error}")
                         job.error_count += 1
                         continue
-                    raise OSError(f"Failed {CONDOR_MAX_ERROR_COUNT} times: {error}")
+                    print(f"Failed {CONDOR_MAX_ERROR_COUNT} times", file=sys.stderr)
+                    raise
                 for event in events:
                     event_type = event.type
                     CondorJobWrapper.logger.debug(f"Job {job.name}: processing event type {event_type}")
@@ -232,7 +229,8 @@ class CondorJobWrapper():
                     if event_type == JobEventType.JOB_TERMINATED:
                         if event["TerminatedNormally"]:
                             if event["ReturnValue"] != 0:
-                                CondorJobWrapper.process_failure(job, "terminated normally with non-zero return code", jobs, retry=True)
+                                CondorJobWrapper.process_failure(job, "terminated normally with non-zero return code", jobs,
+                                                                 retry=job.retry_arbitrary_failures)
                             else:
                                 CondorJobWrapper.process_success(job, running_jobs_set, cleanup)
                         else:
@@ -240,7 +238,8 @@ class CondorJobWrapper():
                     elif event_type == JobEventType.JOB_HELD:
                         hold_reason_code = event["HoldReasonCode"]
                         if hold_reason_code != 1:
-                            CondorJobWrapper.process_failure(job, event["HoldReason"], jobs, retry=hold_reason_code in CONDOR_HOLD_RETRY_CODES)
+                            CondorJobWrapper.process_failure(job, event["HoldReason"], jobs,
+                                                             retry=(job.retry_arbitrary_failures or hold_reason_code in CONDOR_HOLD_RETRY_CODES))
                 event_log.close()
                 CondorJobWrapper.process_timeout(job, jobs)
             time.sleep(60 * random.uniform(0.9, 1.1))  # inject a little randomness to avoid synchronized waking up of parallel processes
@@ -265,7 +264,8 @@ class CondorJobWrapper():
                     error_count += 1
                     time.sleep(60)
                     continue
-                raise RuntimeError(f"Failed {CONDOR_MAX_ERROR_COUNT} times: {error}")
+                print(f"Failed {CONDOR_MAX_ERROR_COUNT} times", file=sys.stderr)
+                raise
             query_classads = {classad["ClusterId"]: classad for classad in query_responses}
             history_classads = {classad["ClusterId"]: classad for classad in history_responses}
             for job in running_jobs:
@@ -282,13 +282,15 @@ class CondorJobWrapper():
                         job.running = True
                 if job_status == 4:  # Job completed
                     if classad["ExitCode"] != 0:
-                        CondorJobWrapper.process_failure(job, "terminated normally with non-zero return code", jobs, retry=True)
+                        CondorJobWrapper.process_failure(job, "terminated normally with non-zero return code", jobs,
+                                                         retry=job.retry_arbitrary_failures)
                     else:
                         CondorJobWrapper.process_success(job, running_jobs_set, cleanup)
                 elif job_status == 5:  # Job held
                     hold_reason_code = classad["HoldReasonCode"]
                     if hold_reason_code != 1:
-                        CondorJobWrapper.process_failure(job, classad["HoldReason"], jobs, retry=hold_reason_code in CONDOR_HOLD_RETRY_CODES)
+                        CondorJobWrapper.process_failure(job, classad["HoldReason"], jobs,
+                                                         retry=(job.retry_arbitrary_failures or hold_reason_code in CONDOR_HOLD_RETRY_CODES))
                 CondorJobWrapper.process_timeout(job, jobs)
             time.sleep(60 * random.uniform(0.9, 1.1))  # inject a little randomness to avoid synchronized waking up of parallel processes
 

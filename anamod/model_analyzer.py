@@ -39,7 +39,7 @@ class ModelAnalyzer(ABC):
             output_dir: str, default: '{constants.DEFAULT_OUTPUT_DIR}'
                 Directory to write logs, intermediate files, and outputs to.
 
-            perturbation: str, choices: {{'{constants.SHUFFLING}', '{constants.ZEROING}'}}, default: '{constants.SHUFFLING}'
+            perturbation: str, choices: {constants.CHOICES_PERTURBATIONS}, default: '{constants.SHUFFLING}'
                 Type of perturbation to perform to analyze model.
 
             num_shuffling_trials: int, default: {constants.DEFAULT_NUM_PERMUTATIONS}
@@ -55,7 +55,7 @@ class ModelAnalyzer(ABC):
             seed: int, default: {constants.SEED}
                 Seed for random number generator (used to order features to be analyzed).
 
-            loss_function: str, choices: {{'{constants.QUADRATIC_LOSS}', '{constants.ABSOLUTE_DIFFERENCE_LOSS}', '{constants.BINARY_CROSS_ENTROPY}', '{constants.ZERO_ONE_LOSS}'}}, default: None
+            loss_function: str, choices: {constants.CHOICES_LOSS_FUNCTIONS}, default: None
                 Loss function to apply to model outputs.
                 If no loss function is specified, then quadratic loss is chosen for continuous targets
                 and binary cross-entropy is chosen for binary targets.
@@ -89,7 +89,7 @@ class ModelAnalyzer(ABC):
             importance_significance_level: float, default: 0.05
                 Significance level used to assess feature importance while testing for overall/window/ordering relevance
 
-            window_search_algorithm: str, choices: {{'{constants.EFFECT_SIZE}', '{constants.IMPORTANCE_TEST}'}}, default: '{constants.IMPORTANCE_TEST}'
+            window_search_algorithm: str, choices: {constants.CHOICES_WINDOW_SEARCH_ALGORITHM}, default: '{constants.EFFECT_SIZE}'
                 Search algorithm to use to search for relevant window (TODO: document)
 
             window_effect_size_threshold: float, default: 0.05
@@ -124,24 +124,34 @@ class ModelAnalyzer(ABC):
                 If none is provided, cloudpickle will be used - see model_loader_ for a template (TODO: fix ref)
 
                 .. _model_loader: py:mod:anamod.model_loader
+
+            avoid_bad_hosts: bool, default: False
+                Avoid condor hosts that intermittently give issues.
+                Enable to reduce likelihood of failures at the cost of increased runtime.
+                List of hosts: {constants.CONDOR_AVOID_HOSTS}
+
+            retry_arbitrary_failures: bool, default: False
+                Retry failing jobs due to any reason, up to a maximum of {constants.CONDOR_MAX_RETRIES} attempts per job.
+                Use with caution - enable if failures stem from condor issues.
         """)
 
     def __init__(self, model, data, targets, **kwargs):
         self.kwargs = kwargs
         # Common optional parameters
         self.output_dir = self.process_keyword_arg("output_dir", constants.DEFAULT_OUTPUT_DIR)
-        self.perturbation = self.process_keyword_arg("perturbation", constants.SHUFFLING)
+        self.perturbation = self.process_keyword_arg("perturbation", constants.SHUFFLING, constants.CHOICES_PERTURBATIONS)
         self.num_shuffling_trials = self.process_keyword_arg("num_shuffling_trials", constants.DEFAULT_NUM_PERMUTATIONS)
         self.feature_names = self.process_keyword_arg("feature_names", None)
         self.seed = self.process_keyword_arg("seed", constants.SEED)
-        self.loss_function = self.process_keyword_arg("loss_function", None)
+        self.loss_function = self.process_keyword_arg("loss_function", None, constants.CHOICES_LOSS_FUNCTIONS)
         self.compile_results_only = self.process_keyword_arg("compile_results_only", False)
         # Hierarchical feature analysis parameters
         self.feature_hierarchy = self.process_keyword_arg("feature_hierarchy", None)
         self.analyze_interactions = self.process_keyword_arg("analyze_interactions", False)
         # Temporal model analysis parameters
         self.importance_significance_level = self.process_keyword_arg("importance_significance_level", 0.05)
-        self.window_search_algorithm = self.process_keyword_arg("window_search_algorithm", constants.IMPORTANCE_TEST)
+        self.window_search_algorithm = self.process_keyword_arg("window_search_algorithm", constants.EFFECT_SIZE,
+                                                                constants.CHOICES_WINDOW_SEARCH_ALGORITHM)
         self.window_effect_size_threshold = self.process_keyword_arg("window_effect_size_threshold", 0.05)
         # pylint: disable = invalid-name
         self.analyze_all_pairwise_interactions = self.process_keyword_arg("analyze_all_pairwise_interactions", False)
@@ -151,24 +161,32 @@ class ModelAnalyzer(ABC):
         self.cleanup = self.process_keyword_arg("cleanup", True)
         self.features_per_worker = self.process_keyword_arg("features_per_worker", 1)
         self.memory_requirement = self.process_keyword_arg("memory_requirement", 8)
-        self.disk_requirement = self.process_keyword_arg("disk_requirement", 8)
+        self.disk_requirement = self.process_keyword_arg("disk_requirement", 32)
         self.model_loader_filename = self.process_keyword_arg("model_loader_filename", None)
+        self.avoid_bad_hosts = self.process_keyword_arg("avoid_bad_hosts", True)
+        self.retry_arbitrary_failures = self.process_keyword_arg("retry_arbitrary_failures", False)
         # Required parameters
         self.model_filename = self.gen_model_file(model)
         # TODO: targets are not needed when using baseline predictions to compute losses
         self.data_filename = self.gen_data_file(data, targets)
+        # TODO: this method of identifying analysis type may fail unexpectedly if user forgets to provide hierarchy with non-temporal data
         self.analysis_type = constants.HIERARCHICAL if self.feature_hierarchy else constants.TEMPORAL
         self.gen_hierarchy(data)
 
-    def process_keyword_arg(self, argname, default_value):
+    def process_keyword_arg(self, argname, default_value, choices=None):
         """Process keyword argument along with simple type validation"""
         value = self.kwargs.get(argname, default_value)
         dtype = type(default_value)
         try:
             value = bool(value) if dtype == bool else value
             assert default_value is None or isinstance(value, dtype)
-        except Exception:
-            raise ValueError(f"Invalid argument for keyword {argname}: {value}; default: {default_value}, type {dtype}")
+            assert choices is None or value in choices
+        except Exception as exc:
+            print(f"Usage:\n\n{self.__doc__}", file=sys.stderr)
+            error = f"Invalid argument for keyword {argname}: {value}; default: {default_value}, type {dtype}"
+            if choices is not None:
+                error += f"; choices: {choices}"
+            raise ValueError(error) from exc
         return value
 
     def analyze(self):
