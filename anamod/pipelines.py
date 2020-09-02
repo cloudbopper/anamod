@@ -79,7 +79,10 @@ class SerialPipeline():
                      constants.RESULTS_FILENAME.format(self.args.output_dir, "*")]
         for filetype in filetypes:
             for filename in glob.glob(filetype):
-                os.remove(filename)
+                try:
+                    os.remove(filename)
+                except OSError as error:
+                    self.args.logger.warning(f"Cleanup: unable to remove {filename}: {error}")
         if job_dirs:  # Remove condor job directories
             for job_dir in job_dirs:
                 shutil.rmtree(job_dir)

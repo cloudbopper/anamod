@@ -181,12 +181,12 @@ class ModelAnalyzer(ABC):
             value = bool(value) if dtype == bool else value
             assert default_value is None or isinstance(value, dtype)
             assert choices is None or value in choices
-        except Exception:
+        except Exception as exc:
             print(f"Usage:\n\n{self.__doc__}", file=sys.stderr)
             error = f"Invalid argument for keyword {argname}: {value}; default: {default_value}, type {dtype}"
             if choices is not None:
                 error += f"; choices: {choices}"
-            raise ValueError(error)
+            raise ValueError(error) from exc
         return value
 
     def analyze(self):

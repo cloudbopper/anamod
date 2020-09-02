@@ -40,7 +40,8 @@ def main():
     common.add_argument("-loss_target_values", choices=[constants.LABELS, constants.BASELINE_PREDICTIONS], default=constants.LABELS,
                         help=("Target values to compare perturbed values to while computing losses. "
                               "Note: baseline predictions here refer to oracle's noise-free predictions. "
-                              "If noise is enabled, noise is added when computing baseline losses, else all baseline losses would be zero "
+                              "If noise multiplier is non-zero, noise is added when computing baseline losses, "
+                              "else all baseline losses would be zero "
                               "while all perturbed losses would be positive (for quadratic loss, default for non-label predictions)"))
     common.add_argument("-num_interactions", type=int, default=0, help="number of interaction pairs in model")
     common.add_argument("-include_interaction_only_features", help="include interaction-only features in model"
@@ -54,10 +55,8 @@ def main():
     common.add_argument("-retry_arbitrary_failures", type=strtobool, default=True)
     # Hierarchical feature importance analysis arguments
     hierarchical = parser.add_argument_group("Hierarchical feature analysis arguments")
-    hierarchical.add_argument("-noise_multiplier", type=float, default=.05,
+    hierarchical.add_argument("-noise_multiplier", type=float, default=0.,
                               help="Multiplicative factor for noise added to polynomial computation for irrelevant features")
-    hierarchical.add_argument("-noise_type", choices=[constants.ADDITIVE_GAUSSIAN, constants.EPSILON_IRRELEVANT, constants.NO_NOISE],
-                              default=constants.NO_NOISE)
     hierarchical.add_argument("-hierarchy_type", help="Choice of hierarchy to generate", default=constants.CLUSTER_FROM_DATA,
                               choices=[constants.CLUSTER_FROM_DATA, constants.RANDOM])
     hierarchical.add_argument("-contiguous_node_names", type=strtobool, default=False, help="enable to change node names in hierarchy "
@@ -92,7 +91,7 @@ def pipeline(args, pass_args):
     synthesized_features, data, model = run_synmod(args)
     targets = model.predict(data, labels=True) if args.loss_target_values == constants.LABELS else model.predict(data)
     # Create wrapper around ground-truth model
-    model_wrapper = ModelWrapper(model, args.num_features, args.noise_type, args.noise_multiplier)
+    model_wrapper = ModelWrapper(model, args.noise_multiplier)
     if args.analysis_type == constants.HIERARCHICAL:
         # Generate hierarchy using clustering (test data also used for clustering)
         hierarchy_root, feature_id_map = gen_hierarchy(args, data)
@@ -155,7 +154,10 @@ def run_synmod(args):
     with open(f"{job_dir}/{MODEL_FILENAME}", "rb") as model_file:
         model = cloudpickle.load(model_file)
     if args.cleanup:
-        shutil.rmtree(job_dir)
+        try:
+            shutil.rmtree(job_dir)
+        except OSError as error:
+            args.logger.warning(f"Cleanup: unable to remove {job_dir}: {error}")
     args.logger.info("End running synmod")
     return features, instances, model
 

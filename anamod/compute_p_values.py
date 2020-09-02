@@ -32,7 +32,7 @@ def wilcoxon_test(x, y, alternative):
     e.g. for alternative == constants.LESS, rejecting the null means that median difference x - y < 0
     Returns p-value
     """
-    # TODO: verify results identical to R's Wilcoxon test for a host of input values
+    # TODO: add unit tests to verify results identical to R's Wilcoxon test for a host of input values
     # pylint: disable = invalid-name, too-many-locals
     x, y = map(asarray, (x, y))
     d = x - y

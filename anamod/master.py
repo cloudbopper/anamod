@@ -101,12 +101,11 @@ def hierarchical_fdr(args, features):
 
 def validate_args(args):
     """Validate arguments"""
-    if args.analyze_interactions and args.perturbation == constants.SHUFFLING:
-        raise ValueError("Interaction analysis is not supported with shuffling perturbations")
     if args.condor:
         try:
             importlib.import_module("htcondor")
         except ModuleNotFoundError:
-            raise ModuleNotFoundError("htcondor module not found. "
-                                      "Use 'pip install htcondor' to install htcondor on a compatible platform, or "
-                                      "disable condor")
+            print("htcondor module not found. "
+                  "Use 'pip install htcondor' to install htcondor on a compatible platform, or "
+                  "disable condor", file=sys.stderr)
+            raise

@@ -216,7 +216,8 @@ class CondorJobWrapper():
                                                         f"{job.filenames.log_filename}, retrying after pause; error: {error}")
                         job.error_count += 1
                         continue
-                    raise OSError(f"Failed {CONDOR_MAX_ERROR_COUNT} times: {error}")
+                    print(f"Failed {CONDOR_MAX_ERROR_COUNT} times", file=sys.stderr)
+                    raise
                 for event in events:
                     event_type = event.type
                     CondorJobWrapper.logger.debug(f"Job {job.name}: processing event type {event_type}")
@@ -263,7 +264,8 @@ class CondorJobWrapper():
                     error_count += 1
                     time.sleep(60)
                     continue
-                raise RuntimeError(f"Failed {CONDOR_MAX_ERROR_COUNT} times: {error}")
+                print(f"Failed {CONDOR_MAX_ERROR_COUNT} times", file=sys.stderr)
+                raise
             query_classads = {classad["ClusterId"]: classad for classad in query_responses}
             history_classads = {classad["ClusterId"]: classad for classad in history_responses}
             for job in running_jobs:
