@@ -92,7 +92,7 @@ class ModelAnalyzer(ABC):
             window_search_algorithm: str, choices: {constants.CHOICES_WINDOW_SEARCH_ALGORITHM}, default: '{constants.EFFECT_SIZE}'
                 Search algorithm to use to search for relevant window (TODO: document)
 
-            window_effect_size_threshold: float, default: 0.05
+            window_effect_size_threshold: float, default: 0.01
                 Fraction of total feature importance (effect size) permitted outside window while searching for relevant window
 
         **HTCondor parameters:**
@@ -153,7 +153,7 @@ class ModelAnalyzer(ABC):
         self.window_search_algorithm = self.process_keyword_arg("window_search_algorithm", constants.EFFECT_SIZE,
                                                                 constants.CHOICES_WINDOW_SEARCH_ALGORITHM)
         # TODO: Automatic proportional selection of window effect size threshold w.r.t. sequence length
-        self.window_effect_size_threshold = self.process_keyword_arg("window_effect_size_threshold", 0.05)
+        self.window_effect_size_threshold = self.process_keyword_arg("window_effect_size_threshold", 0.01)
         # pylint: disable = invalid-name
         self.analyze_all_pairwise_interactions = self.process_keyword_arg("analyze_all_pairwise_interactions", False)
         # HTCondor parameters
