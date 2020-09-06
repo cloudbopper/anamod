@@ -152,6 +152,7 @@ class ModelAnalyzer(ABC):
         self.importance_significance_level = self.process_keyword_arg("importance_significance_level", 0.05)
         self.window_search_algorithm = self.process_keyword_arg("window_search_algorithm", constants.EFFECT_SIZE,
                                                                 constants.CHOICES_WINDOW_SEARCH_ALGORITHM)
+        # TODO: Automatic proportional selection of window effect size threshold w.r.t. sequence length
         self.window_effect_size_threshold = self.process_keyword_arg("window_effect_size_threshold", 0.05)
         # pylint: disable = invalid-name
         self.analyze_all_pairwise_interactions = self.process_keyword_arg("analyze_all_pairwise_interactions", False)

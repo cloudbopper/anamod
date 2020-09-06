@@ -8,11 +8,13 @@ import os
 import pickle
 import pprint
 import shutil
+import sys
 
 import anytree
 import cloudpickle
 import numpy as np
 from scipy.cluster.hierarchy import linkage
+from sklearn.metrics import r2_score
 import synmod.master
 from synmod.constants import CLASSIFIER, REGRESSOR, FEATURES_FILENAME, MODEL_FILENAME, INSTANCES_FILENAME
 
@@ -53,10 +55,12 @@ def main():
     common.add_argument("-condor_cleanup", type=strtobool, default=True, help="Clean condor cmd/out/err/log files after completing simulation")
     common.add_argument("-avoid_bad_hosts", type=strtobool, default=True)
     common.add_argument("-retry_arbitrary_failures", type=strtobool, default=True)
+    common.add_argument("-skip_synthesis", type=strtobool, default=False, help="Skip synthesis and assume synthesized files already exist")
     # Hierarchical feature importance analysis arguments
     hierarchical = parser.add_argument_group("Hierarchical feature analysis arguments")
-    hierarchical.add_argument("-noise_multiplier", type=float, default=0.,
-                              help="Multiplicative factor for noise added to polynomial computation for irrelevant features")
+    hierarchical.add_argument("-noise_multiplier", default=0.,
+                              help=("Multiplicative factor for noise added to polynomial computation for irrelevant features; "
+                                    f"if '{constants.AUTO}', selected automatically to get R^2 value of 0.9 (regressor only)"))
     hierarchical.add_argument("-hierarchy_type", help="Choice of hierarchy to generate", default=constants.CLUSTER_FROM_DATA,
                               choices=[constants.CLUSTER_FROM_DATA, constants.RANDOM])
     hierarchical.add_argument("-contiguous_node_names", type=strtobool, default=False, help="enable to change node names in hierarchy "
@@ -90,6 +94,7 @@ def pipeline(args, pass_args):
     args.logger.info("Begin anamod simulation with args: %s" % args)
     synthesized_features, data, model = run_synmod(args)
     targets = model.predict(data, labels=True) if args.loss_target_values == constants.LABELS else model.predict(data)
+    args.noise_multiplier = noise_selection(args, data, targets, model)
     # Create wrapper around ground-truth model
     model_wrapper = ModelWrapper(model, args.noise_multiplier)
     if args.analysis_type == constants.HIERARCHICAL:
@@ -114,38 +119,35 @@ def pipeline(args, pass_args):
     return summary
 
 
-def run_synmod(args):
+def run_synmod(oargs):
     """Synthesize data and model"""
+    args = configure_synthesis_args(oargs)
     args.logger.info("Begin running synmod")
-    args = copy.copy(args)
-    if args.analysis_type == constants.HIERARCHICAL:
-        args.synthesis_type = constants.STATIC
-    else:
-        args.synthesis_type = constants.TEMPORAL
     if not args.condor:
         args.write_outputs = False
         return synmod.master.pipeline(args)
-    # Spawn condor job to synthesize data
-    # Compute size requirements
-    data_size = args.num_instances * args.num_features * args.sequence_length // (8 * (2 ** 30))  # Data size in GB
-    memory_requirement = "%dGB" % (1 + data_size)
-    disk_requirement = "%dGB" % (4 + data_size)
-    # Set up command-line arguments
-    args.write_outputs = True
-    args.sequences_independent_of_windows = args.window_independent
-    cmd = "python3 -m synmod"
     job_dir = f"{args.output_dir}/synthesis"
-    args.output_dir = os.path.abspath(job_dir) if args.shared_filesystem else os.path.basename(job_dir)
-    for arg in ["output_dir", "num_features", "num_instances", "synthesis_type",
-                "fraction_relevant_features", "num_interactions", "include_interaction_only_features", "seed", "write_outputs",
-                "sequence_length", "sequences_independent_of_windows", "model_type"]:
-        cmd += f" -{arg} {args.__getattribute__(arg)}"
-    args.logger.info(f"Running cmd: {cmd}")
-    # Launch and monitor job
-    job = CondorJobWrapper(cmd, [], job_dir, shared_filesystem=args.shared_filesystem, memory=memory_requirement, disk=disk_requirement,
-                           avoid_bad_hosts=args.avoid_bad_hosts, retry_arbitrary_failures=args.retry_arbitrary_failures)
-    job.run()
-    CondorJobWrapper.monitor([job], cleanup=args.condor_cleanup)
+    if not args.skip_synthesis:
+        # Spawn condor job to synthesize data
+        # Compute size requirements
+        data_size = args.num_instances * args.num_features * args.sequence_length // (8 * (2 ** 30))  # Data size in GB
+        memory_requirement = "%dGB" % (1 + data_size)
+        disk_requirement = "%dGB" % (4 + data_size)
+        # Set up command-line arguments
+        args.write_outputs = True
+        args.sequences_independent_of_windows = args.window_independent
+        cmd = "python3 -m synmod"
+        args.output_dir = os.path.abspath(job_dir) if args.shared_filesystem else os.path.basename(job_dir)
+        for arg in ["output_dir", "num_features", "num_instances", "synthesis_type",
+                    "fraction_relevant_features", "num_interactions", "include_interaction_only_features", "seed", "write_outputs",
+                    "sequence_length", "sequences_independent_of_windows", "model_type"]:
+            cmd += f" -{arg} {args.__getattribute__(arg)}"
+        args.logger.info(f"Running cmd: {cmd}")
+        # Launch and monitor job
+        job = CondorJobWrapper(cmd, [], job_dir, shared_filesystem=args.shared_filesystem, memory=memory_requirement, disk=disk_requirement,
+                               avoid_bad_hosts=args.avoid_bad_hosts, retry_arbitrary_failures=args.retry_arbitrary_failures)
+        job.run()
+        CondorJobWrapper.monitor([job], cleanup=args.condor_cleanup)
     # Extract data
     features, instances, model = [None] * 3
     with open(f"{job_dir}/{FEATURES_FILENAME}", "rb") as data_file:
@@ -160,6 +162,37 @@ def run_synmod(args):
             args.logger.warning(f"Cleanup: unable to remove {job_dir}: {error}")
     args.logger.info("End running synmod")
     return features, instances, model
+
+
+def configure_synthesis_args(oargs):
+    """Configure arguments for data/model synthesis"""
+    args = copy.copy(oargs)
+    if args.analysis_type == constants.HIERARCHICAL:
+        args.synthesis_type = constants.STATIC
+    else:
+        args.synthesis_type = constants.TEMPORAL
+    if args.noise_multiplier == constants.AUTO:
+        assert args.model_type == REGRESSOR, "Auto-selection of noise only available for regressor models"
+    else:
+        try:
+            args.noise_multiplier = float(args.noise_multiplier)
+        except ValueError:
+            print(f"Noise multiplier must be set to '{constants.AUTO}' or a non-negative float", file=sys.stderr)
+            raise
+    return args
+
+
+def noise_selection(args, data, targets, model):
+    """Select noise multiplier based on desired regressor performance if auto-selection invoked"""
+    if args.noise_multiplier != constants.AUTO:
+        return float(args.noise_multiplier)
+    targets_mean = np.mean(targets)
+    sum_of_squares_total = sum((targets - targets_mean)**2)
+    sum_of_residuals_scaled = sum((targets - model.predict(data, noise=1))**2)
+    args.noise_multiplier = np.sqrt(sum_of_squares_total * (1 - constants.AUTO_R2) / sum_of_residuals_scaled)
+    args.logger.info(f"Auto-selected noise multiplier {args.noise_multiplier} "
+                     f"to yield R2 score {r2_score(targets, model.predict(data, noise=args.noise_multiplier))}")
+    return args.noise_multiplier
 
 
 def gen_hierarchy(args, clustering_data):
@@ -349,6 +382,7 @@ def write_summary(args, model, results):
                   sequence_length=args.sequence_length,
                   model_type=model.__class__.__name__,
                   num_shuffling_trials=args.num_shuffling_trials,
+                  noise_multiplier=args.noise_multiplier,
                   sequences_independent_of_windows=args.window_independent)
     # pylint: disable = protected-access
     model_summary = {}

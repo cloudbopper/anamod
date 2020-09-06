@@ -6,6 +6,7 @@
     "sequence_length": 20,
     "model_type": "Classifier",
     "num_shuffling_trials": 10,
+    "noise_multiplier": 0.001,
     "sequences_independent_of_windows": false
   },
   "model": {

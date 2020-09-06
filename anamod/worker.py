@@ -245,7 +245,7 @@ def temporal_analysis(args, inputs, features, baseline_loss, loss_fn):
         _, loss = perturb_feature(args, inputs, feature, loss_fn, range(left, right + 1), perturbation_type=constants.WITHIN_INSTANCE)
         feature.window_ordering_pvalue = compute_p_value(baseline_loss, loss)
         feature.window_ordering_important = feature.window_ordering_pvalue < args.importance_significance_level
-        args.logger.info(f"Found window for feature {feature.name}: ({left}, {right});"
+        args.logger.info(f"(Prior to FDR control) Found window for feature {feature.name}: ({left}, {right});"
                          f" significant: {feature.window_important}; ordering important: {feature.window_ordering_important}")
 
 

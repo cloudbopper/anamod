@@ -85,7 +85,10 @@ class SerialPipeline():
                     self.args.logger.warning(f"Cleanup: unable to remove {filename}: {error}")
         if job_dirs:  # Remove condor job directories
             for job_dir in job_dirs:
-                shutil.rmtree(job_dir)
+                try:
+                    shutil.rmtree(job_dir)
+                except OSError as error:
+                    self.args.logger.warning(f"Cleanup: unable to remove {job_dir}: {error}")
         self.args.logger.info("End intermediate file cleanup")
 
     def run(self):

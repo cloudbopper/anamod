@@ -71,6 +71,16 @@
         5
       ]
     },
+    "noise_multiplier": {
+      "50": [
+        1.0,
+        1.0
+      ],
+      "100": [
+        1.0,
+        1.0
+      ]
+    },
     "sequences_independent_of_windows": {
       "50": [
         0,

@@ -114,6 +114,7 @@ def evaluate_temporal(args, model, features):
             window_important[idx] = True  # All relevant features have windows
             window_ordering_important[idx] = isinstance(model._aggregator._aggregation_fns[idx], Slope)
             if right - left + 1 < args.sequence_length or window_ordering_important[idx]:
+                # TODO: if in- and out-of-window distributions are the same, then ordering may not matter in expectation
                 ordering_important[idx] = True
         # Inferred values
         inferred_important[idx] = feature.important  # Overall importance after performing FDR control
