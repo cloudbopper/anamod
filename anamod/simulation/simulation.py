@@ -66,9 +66,9 @@ def main():
     hierarchical.add_argument("-contiguous_node_names", type=strtobool, default=False, help="enable to change node names in hierarchy "
                               "to be contiguous for better visualization (but creating mismatch between node names and features indices)")
     hierarchical.add_argument("-analyze_interactions", help="enable analyzing interactions", type=strtobool, default=False)
-    hierarchical.add_argument("-perturbation", default=constants.SHUFFLING, choices=[constants.ZEROING, constants.SHUFFLING])
-    hierarchical.add_argument("-num_shuffling_trials", type=int, default=10, help="Number of shuffling trials to average over, "
-                              "when shuffling perturbations are selected")
+    hierarchical.add_argument("-perturbation", default=constants.SHUFFLING, choices=[constants.SHUFFLING])
+    hierarchical.add_argument("-num_shuffling_trials", type=int, default=constants.DEFAULT_NUM_PERMUTATIONS,
+                              help="Number of shuffling trials to average over, when shuffling perturbations are selected")
     # Temporal model analysis arguments
     temporal = parser.add_argument_group("Temporal model analysis arguments")
     temporal.add_argument("-sequence_length", help="sequence length for temporal models", type=int, default=20)
@@ -123,11 +123,12 @@ def run_synmod(oargs):
     """Synthesize data and model"""
     args = configure_synthesis_args(oargs)
     args.logger.info("Begin running synmod")
-    if not args.condor:
-        args.write_outputs = False
-        return synmod.master.pipeline(args)
     job_dir = f"{args.output_dir}/synthesis"
     if not args.skip_synthesis:
+        if not args.condor:
+            args.write_outputs = True
+            args.output_dir = job_dir
+            return synmod.master.pipeline(args)
         # Spawn condor job to synthesize data
         # Compute size requirements
         data_size = args.num_instances * args.num_features * args.sequence_length // (8 * (2 ** 30))  # Data size in GB

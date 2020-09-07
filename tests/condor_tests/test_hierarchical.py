@@ -47,7 +47,7 @@ def test_condor_simulation_shuffling_perturbation(file_regression, tmpdir, caplo
     output_dir = pre_test(func_name, tmpdir, caplog)
     cmd = ("python -m anamod.simulation -condor 1 -memory_requirement 1 -disk_requirement 1"
            " -seed 3 -num_instances 100 -num_features 30 -fraction_relevant_features 0.5 -noise_multiplier 0.1"
-           " -contiguous_node_names 1 -hierarchy_type random -perturbation shuffling -num_shuffling_trials 10 -cleanup 0"
+           " -contiguous_node_names 1 -hierarchy_type random -perturbation shuffling -cleanup 0"
            f" -analysis_type hierarchical -shared_filesystem {shared_fs} -output_dir {output_dir}")
     pass_args = cmd.split()[2:]
     with patch.object(sys, 'argv', pass_args):

@@ -28,7 +28,7 @@ def compare_with_ground_truth(args, hierarchy_root):
     input_filename = "%s/ground_truth_pvalues.csv" % args.output_dir
     with open(input_filename, "w", newline="") as input_file:
         writer = csv.writer(input_file)
-        writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.PVALUE_LOSSES, constants.DESCRIPTION])
+        writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.PVALUE, constants.DESCRIPTION])
         for node in anytree.PostOrderIter(hierarchy_root):
             parent_name = node.parent.name if node.parent else ""
             # Decide p-values based on rough heuristic for relevance

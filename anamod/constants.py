@@ -43,8 +43,7 @@ OUTPUT_FEATURES_FILENAME = "{}/output_features_worker_{}.cpkl"
 RESULTS_FILENAME = "{}/results_worker_{}.hdf5"
 
 # Evaluation
-MEAN_LOSS = "mean_loss"
-PVALUE_LOSSES = "p-value-losses"
+PVALUE = "p-value"
 PAIRED_TTEST = "paired-t-test"
 WILCOXON_TEST = "wilcoxon-test"
 PVALUES_FILENAME = "pvalues.csv"
@@ -125,10 +124,9 @@ TREE = "tree"
 # Perturbation
 ZEROING = "zeroing"
 SHUFFLING = "shuffling"
-CHOICES_PERTURBATIONS = {SHUFFLING, ZEROING}
 RNG_SEED = "rng_seed"
 ACROSS_INSTANCES = "across"
-WITHIN_INSTANCE = "within"
+WITHIN_INSTANCE = "within"  # TODO: rename to ACROSS_TIMESTEPS
 PVALUE_THRESHOLD = 0.05
 QUADRATIC_LOSS = "quadratic_loss"
 ABSOLUTE_DIFFERENCE_LOSS = "absolute_difference_loss"
@@ -140,7 +138,7 @@ BASELINE_PREDICTIONS = "baseline_predictions"
 
 # Default values
 DEFAULT_OUTPUT_DIR = "anamod_outputs"
-DEFAULT_NUM_PERMUTATIONS = 10
+DEFAULT_NUM_PERMUTATIONS = 50  # TODO: should be set based on desired significance level
 AUTO = "auto"
 AUTO_R2 = 0.9  # R2 to aim for when auto-selecting noise
 

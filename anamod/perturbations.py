@@ -1,6 +1,8 @@
 """Classes for managing perturbations"""
 
 from abc import ABC
+from itertools import permutations
+from math import factorial
 
 import numpy as np
 
@@ -18,42 +20,33 @@ class PerturbationFunction(ABC):
 
 
 class Zeroing(PerturbationFunction):
-    """Replace input values by zeros"""
+    """Replace input values by zeros (deprecated)"""
     def operate(self, X):
         X[:] = 0
         return X
 
 
-class InstancePermutation(PerturbationFunction):
-    """Shuffles instances. This isn't truly a permutation since we want no duplicates for any instance"""
-    def __init__(self, rng, num_instances, num_permutations, *args):
-        """
-        Generate num_permutations of range(num_instances) without any duplicates for any sample.
-        """
+class Permutation(PerturbationFunction):
+    """Permute first axis of data array"""
+    def __init__(self, rng, num_elements, num_permutations, *args):
         super().__init__(*args)
-        self._num_permutations = num_permutations
-        assert self._num_permutations < num_instances
-        self._current_permutation_idx = -1
-        self._permutations = np.empty((num_instances, self._num_permutations), dtype=np.int32)
-        for idx in range(num_instances):
-            self._permutations[idx, :] = rng.choice(num_instances, size=self._num_permutations, replace=False)
-
-    def operate(self, X):
-        self._current_permutation_idx += 1
-        assert self._current_permutation_idx < self._num_permutations, f"Permutation object is configured for a maximum of {self._num_permutations}"
-        return X[self._permutations[:, self._current_permutation_idx]]
-
-
-class TimestepPermutation(PerturbationFunction):
-    """
-    Permutes timesteps. This needs to be a separate from InstancePermutation since here we want a true permutation (with duplicates allowed).
-    Otherwise small windows have too few perturbations and biased averages
-    """
-    def __init__(self, rng, *args):
-        super().__init__(*args)
+        # If the number of instances is less than the number of permutations, we need to enumerate all permutations.
+        # Else, we just shuffle
+        self.pool = None
+        if num_permutations >= num_elements:
+            total_permutations = factorial(num_elements)
+            # TODO: Probability of collisions is ~sqrt(num_elements) with shuffling, so ideally we may want to
+            # enumerate permutations even if the number of possible permutations is greater than the sample count
+            if num_permutations >= total_permutations:
+                self.pool = permutations(range(num_elements))
+                self.pool.__next__()  # First permutation is the original order
         self._rng = rng
 
     def operate(self, X):
+        if self.pool is not None:
+            idx = self.pool.__next__()  # Caller needs to catch StopIteration
+            return X[idx, ...]
+
         self._rng.shuffle(X)
         return X
 
@@ -61,10 +54,10 @@ class TimestepPermutation(PerturbationFunction):
 class PerturbationMechanism(ABC):
     """Performs perturbation"""
     def __init__(self, perturbation_fn, perturbation_type,
-                 rng, num_instances, num_permutations):
+                 rng, num_elements, num_permutations):
         # pylint: disable = too-many-arguments
         assert issubclass(perturbation_fn, PerturbationFunction)
-        self._perturbation_fn = perturbation_fn(rng, num_instances, num_permutations)
+        self._perturbation_fn = perturbation_fn(rng, num_elements, num_permutations)
         assert perturbation_type in {constants.ACROSS_INSTANCES, constants.WITHIN_INSTANCE}
         self._perturbation_type = perturbation_type
 
@@ -112,6 +105,6 @@ class PerturbTensor(PerturbationMechanism):
         return np.transpose(X_hat) if self._perturbation_type == constants.WITHIN_INSTANCE else X_hat
 
 
-PERTURBATION_FUNCTIONS = {constants.ACROSS_INSTANCES: {constants.ZEROING: Zeroing, constants.SHUFFLING: InstancePermutation},
-                          constants.WITHIN_INSTANCE: {constants.ZEROING: Zeroing, constants.SHUFFLING: TimestepPermutation}}
+PERTURBATION_FUNCTIONS = {constants.ACROSS_INSTANCES: {constants.ZEROING: Zeroing, constants.SHUFFLING: Permutation},
+                          constants.WITHIN_INSTANCE: {constants.ZEROING: Zeroing, constants.SHUFFLING: Permutation}}
 PERTURBATION_MECHANISMS = {constants.HIERARCHICAL: PerturbMatrix, constants.TEMPORAL: PerturbTensor}

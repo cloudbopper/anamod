@@ -7,6 +7,12 @@ from scipy.stats import find_repeats, rankdata, norm, ttest_rel
 from anamod import constants, utils
 
 
+def compute_empirical_p_value(baseline_test_statistic, perturbed_test_statistics):
+    """Compute Monte Carlo estimate of empirical permutation-based p-value"""
+    sample_count = len(perturbed_test_statistics)
+    return (1 + sum(perturbed_test_statistics <= baseline_test_statistic)) / (1 + sample_count)
+
+
 def compute_p_value(baseline, perturbed, test=constants.PAIRED_TTEST, alternative=constants.TWOSIDED):
     """Compute p-value using paired difference test on input numpy arrays"""
     # TODO: Implement one-sided t-tests

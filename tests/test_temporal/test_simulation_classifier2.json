@@ -5,7 +5,7 @@
     "num_features": 10,
     "sequence_length": 20,
     "model_type": "Classifier",
-    "num_shuffling_trials": 10,
+    "num_shuffling_trials": 50,
     "noise_multiplier": 0.001,
     "sequences_independent_of_windows": false
   },
@@ -55,6 +55,6 @@
     "Window_Important_FDR": 0.0,
     "Window_Important_Power": 1.0,
     "Window_Ordering_Important_FDR": 0.0,
-    "Window_Ordering_Important_Power": 1.0
+    "Window_Ordering_Important_Power": 0.5
   }
 }

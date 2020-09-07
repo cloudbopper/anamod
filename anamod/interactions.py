@@ -62,9 +62,8 @@ def compute_p_values(args, interaction_groups, interaction_predictions, cached_p
     # Leverages existing hierarchical FDR code to perform BH procedure on interactions
     # TODO: Directly use BH procedure, maybe?
     # TODO: Since we're using outputs and not losses here, the p-values schema is misleading
-    writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.DESCRIPTION, constants.EFFECT_SIZE,
-                     constants.MEAN_LOSS, constants.PVALUE_LOSSES])
-    writer.writerow([constants.DUMMY_ROOT, "", "", "", "", 0.])
+    writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.DESCRIPTION, constants.EFFECT_SIZE, constants.PVALUE])
+    writer.writerow([constants.DUMMY_ROOT, "", "", "", 0.])
     baseline_prediction = interaction_predictions[constants.BASELINE]
     redo_predictions = interaction_predictions if args.perturbation == constants.SHUFFLING else cached_predictions
     for cached_node, redo_node, parent_node in interaction_groups:
@@ -73,7 +72,7 @@ def compute_p_values(args, interaction_groups, interaction_predictions, cached_p
         pvalue = compute_p_value(lhs, rhs, alternative=constants.TWOSIDED)
         effect_size = np.mean(lhs - rhs)  # TODO: confirm sign
         # TODO: Add description?
-        writer.writerow([parent_node.name, constants.DUMMY_ROOT, "", np.around(effect_size, 10), "", np.around(pvalue, 10)])
+        writer.writerow([parent_node.name, constants.DUMMY_ROOT, "", np.around(effect_size, 10), np.around(pvalue, 10)])
     outfile.close()
 
 
