@@ -62,6 +62,7 @@ def evaluate_hierarchical(args, relevant_feature_map, feature_id_map):
     Evaluate hierarchical analysis results - obtain power/FDR measures for all nodes/base features/interactions
     """
     # pylint: disable = too-many-locals
+    # TODO: Evaluate R2 scores
     def get_relevant_rejected(nodes, leaves=False):
         """Get set of relevant and rejected nodes"""
         if leaves:
@@ -144,11 +145,15 @@ def evaluate_temporal(args, sfeatures, afeatures):
     # Window metrics
     window_results = {}
     for idx, afeature in enumerate(afeatures):
-        if not afeature.important:
-            continue  # Ignore features that were not identified as important
+        if not (afeature.important and sfeatures[idx].important):
+            # Ignore features that were not important or not identified as important
+            # Motivation: to evaluate temporal localization conditioned on correct identification of overall relevance
+            continue
         window_precision, window_recall = get_precision_recall(windows[idx], inferred_windows[idx])
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")  # Avoid warning if the two vectors have no common values
+            # TODO: Is balanced accuracy score the best metric for measuring window overlap?
+            # Leads to mismatch w.r.t. window power
             window_overlap = balanced_accuracy_score(windows[idx], inferred_windows[idx])
         window_results[idx] = {"precision": window_precision, "recall": window_recall, "overlap": window_overlap}
     avg_window_precision = np.mean([result["precision"] for result in window_results.values()]) if window_results else 0.

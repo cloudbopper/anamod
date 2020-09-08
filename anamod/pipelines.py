@@ -41,7 +41,6 @@ class SerialPipeline():
             with open(features_filename, "rb") as features_file:
                 features.extend(cloudpickle.load(features_file))
 
-        self.fdr_control(features)
         return features
 
     def fdr_control(self, features):

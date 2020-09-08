@@ -17,7 +17,6 @@ import h5py
 import numpy as np
 
 from anamod import constants
-from anamod.compute_p_values import compute_empirical_p_value
 from anamod.losses import Loss
 from anamod.perturbations import PERTURBATION_FUNCTIONS, PERTURBATION_MECHANISMS
 from anamod.utils import get_logger
@@ -61,7 +60,7 @@ def pipeline(args):
     baseline_mean_loss, loss_fn = compute_baseline(args, inputs)
     # Perturb features
     perturbed_mean_losses = perturb_features(args, inputs, features, loss_fn)
-    compute_importances(args, features, perturbed_mean_losses, baseline_mean_loss)
+    compute_importances(features, perturbed_mean_losses, baseline_mean_loss)
     # For important features, proceed with further analysis (temporal model analysis):
     if args.analysis_type == constants.TEMPORAL:
         temporal_analysis(args, inputs, features, baseline_mean_loss, loss_fn)
@@ -159,7 +158,6 @@ def search_window(args, inputs, feature, baseline_mean_loss, loss_fn):
     """Search temporal window of importance for given feature"""
     # pylint: disable = too-many-arguments, too-many-locals
     args.logger.info("Begin searching for temporal window for feature %s" % feature.name)
-    overall_effect_size_magnitude = np.abs(feature.overall_effect_size)
     T = inputs.data.shape[2]  # pylint: disable = invalid-name
     # Search left boundary of window by identifying the left inverted window
     lbound, current, rbound = (0, T // 2, T)
@@ -167,12 +165,8 @@ def search_window(args, inputs, feature, baseline_mean_loss, loss_fn):
         # Search for the largest 'negative' window anchored on the left that results in a non-important p-value/effect size
         # The right boundary of the left inverted window is the left boundary of the window of interest
         perturbed_mean_loss = perturb_feature(args, inputs, feature, loss_fn, range(0, current))
-        if args.window_search_algorithm == constants.IMPORTANCE_TEST:
-            important = compute_empirical_p_value(baseline_mean_loss, perturbed_mean_loss) < args.importance_significance_level
-        else:
-            # window_search_algorithm == constants.EFFECT_SIZE
-            important = (np.abs(np.mean(perturbed_mean_loss) - baseline_mean_loss) >
-                         (args.window_effect_size_threshold / 2) * overall_effect_size_magnitude)
+        effect_size = np.mean(perturbed_mean_loss) - baseline_mean_loss
+        important = effect_size > (args.window_effect_size_threshold / 2) * feature.overall_effect_size
         if important:
             # Move pointer to the left, decrease negative window size
             rbound = current
@@ -186,12 +180,8 @@ def search_window(args, inputs, feature, baseline_mean_loss, loss_fn):
     lbound, current, rbound = (left, (left + T) // 2, T)
     while lbound < current:
         perturbed_mean_loss = perturb_feature(args, inputs, feature, loss_fn, range(current, T))
-        if args.window_search_algorithm == constants.IMPORTANCE_TEST:
-            important = compute_empirical_p_value(baseline_mean_loss, perturbed_mean_loss) < args.importance_significance_level
-        else:
-            # window_search_algorithm == constants.EFFECT_SIZE
-            important = (np.abs(np.mean(perturbed_mean_loss) - baseline_mean_loss) >
-                         (args.window_effect_size_threshold / 2) * overall_effect_size_magnitude)
+        effect_size = np.mean(perturbed_mean_loss) - baseline_mean_loss
+        important = effect_size > (args.window_effect_size_threshold / 2) * feature.overall_effect_size
         if important:
             # Move pointer to the right, decrease negative window size
             lbound = current
@@ -201,26 +191,22 @@ def search_window(args, inputs, feature, baseline_mean_loss, loss_fn):
             rbound = current
             current = (current + lbound) // 2
     right = current
-    # Report importance as per significance test
-    perturbed_mean_loss = perturb_feature(args, inputs, feature, loss_fn, range(left, right + 1))
     # Set attributes on feature
-    # TODO: FDR control via Benjamini Hochberg for importance_test algorithm
-    # Doesn't seem appropriate though: (i) The p-values are sequentially generated and are not independent, and
-    # (ii) What does it mean for some p-values to be significant while others are not in the context of the search?
-    feature.window_pvalue = compute_empirical_p_value(baseline_mean_loss, perturbed_mean_loss)
-    feature.window_important = feature.window_pvalue < args.importance_significance_level
+    # Compute effect sizes for obtained windows
+    perturbed_mean_loss = perturb_feature(args, inputs, feature, loss_fn, range(left, right + 1))
     feature.window_effect_size = np.mean(perturbed_mean_loss) - baseline_mean_loss
+    feature.window_important = feature.window_effect_size > constants.NEAR_ZERO
     feature.temporal_window = (left, right)
     return left, right
 
 
-def compute_importances(args, features, perturbed_mean_losses, baseline_mean_loss):
+def compute_importances(features, perturbed_mean_losses, baseline_mean_loss):
     """Computes p-values indicating feature importances"""
     for feature in features:
         perturbed_mean_loss = perturbed_mean_losses[feature.name]
-        feature.overall_pvalue = compute_empirical_p_value(baseline_mean_loss, perturbed_mean_loss)
         feature.overall_effect_size = np.mean(perturbed_mean_loss) - baseline_mean_loss
-        feature.important = feature.overall_pvalue < args.importance_significance_level
+        feature.important = feature.overall_effect_size > constants.NEAR_ZERO
+        feature.overall_pvalue = 0 if feature.important else feature.overall_pvalue
 
 
 def temporal_analysis(args, inputs, features, baseline_mean_loss, loss_fn):
@@ -230,15 +216,15 @@ def temporal_analysis(args, inputs, features, baseline_mean_loss, loss_fn):
     for feature in features:
         # Test importance of feature ordering across whole sequence
         perturbed_mean_loss = perturb_feature(args, inputs, feature, loss_fn, perturbation_type=constants.WITHIN_INSTANCE)
-        feature.ordering_pvalue = compute_empirical_p_value(baseline_mean_loss, perturbed_mean_loss)
-        feature.ordering_important = feature.ordering_pvalue < args.importance_significance_level
+        effect_size = np.mean(perturbed_mean_loss) - baseline_mean_loss
+        feature.ordering_important = effect_size > constants.NEAR_ZERO
         args.logger.info(f"Feature {feature.name}: ordering important: {feature.ordering_important}")
         # Test feature temporal localization
         left, right = search_window(args, inputs, feature, baseline_mean_loss, loss_fn)
         # Test importance of feature ordering across window
         perturbed_mean_loss = perturb_feature(args, inputs, feature, loss_fn, range(left, right + 1), perturbation_type=constants.WITHIN_INSTANCE)
-        feature.window_ordering_pvalue = compute_empirical_p_value(baseline_mean_loss, perturbed_mean_loss)
-        feature.window_ordering_important = feature.window_ordering_pvalue < args.importance_significance_level
+        effect_size = np.mean(perturbed_mean_loss) - baseline_mean_loss
+        feature.window_ordering_important = effect_size > constants.NEAR_ZERO
         args.logger.info(f"(Prior to FDR control) Found window for feature {feature.name}: ({left}, {right});"
                          f" significant: {feature.window_important}; ordering important: {feature.window_ordering_important}")
 

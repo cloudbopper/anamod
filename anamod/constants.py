@@ -15,7 +15,7 @@ RANDOM = "random"
 # Temporal analysis
 EFFECT_SIZE = "effect_size"
 IMPORTANCE_TEST = "importance_test"
-CHOICES_WINDOW_SEARCH_ALGORITHM = {EFFECT_SIZE, IMPORTANCE_TEST}
+CHOICES_WINDOW_SEARCH_ALGORITHM = {EFFECT_SIZE}  # {EFFECT_SIZE, IMPORTANCE_TEST}
 
 # Condor
 POLL_BASED_TRACKING = "poll_based_tracking"
@@ -146,10 +146,11 @@ BASELINE_PREDICTIONS = "baseline_predictions"
 
 # Default values
 DEFAULT_OUTPUT_DIR = "anamod_outputs"
-DEFAULT_NUM_PERMUTATIONS = 50  # TODO: should be set based on desired significance level
+DEFAULT_NUM_PERMUTATIONS = 10
 AUTO = "auto"
 AUTO_R2 = 0.9  # R2 to aim for when auto-selecting noise
 
 # Miscellaneous
 BASELINE = u"baseline"
 SEED = 13997
+NEAR_ZERO = 1e-10  # To handle floating-point errors
