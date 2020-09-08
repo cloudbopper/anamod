@@ -6,6 +6,7 @@
     "sequence_length": 20,
     "model_type": "Classifier",
     "num_shuffling_trials": 10,
+    "noise_multiplier": 0.001,
     "sequences_independent_of_windows": false
   },
   "model": {
@@ -43,17 +44,21 @@
     "Ordering_Identified_Important_FDR": 0.0,
     "Ordering_Identified_Important_Power": 1.0,
     "Average_Window_FDR": 0.0,
-    "Average_Window_Power": 0.9622222222222223,
+    "Average_Window_Power": 1.0,
     "Window_Overlap": {
       "1": 1.0,
       "3": 1.0,
       "5": 1.0,
-      "6": 0.9722222222222222,
-      "8": 0.9333333333333333
+      "6": 1.0,
+      "8": 1.0
     },
     "Window_Important_FDR": 0.0,
     "Window_Important_Power": 1.0,
     "Window_Ordering_Important_FDR": 0.0,
-    "Window_Ordering_Important_Power": 1.0
+    "Window_Ordering_Important_Power": 1.0,
+    "overall_scores_r2": 1.0,
+    "window_scores_r2": 1.0,
+    "overall_relevant_scores_r2": 1.0,
+    "window_relevant_scores_r2": 1.0
   }
 }

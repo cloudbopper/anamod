@@ -17,7 +17,6 @@ import h5py
 import numpy as np
 
 from anamod import constants
-from anamod.compute_p_values import compute_p_value
 from anamod.losses import Loss
 from anamod.perturbations import PERTURBATION_FUNCTIONS, PERTURBATION_MECHANISMS
 from anamod.utils import get_logger
@@ -58,15 +57,15 @@ def pipeline(args):
     inputs = Inputs(data, targets, model)
     # Baseline predictions/losses
     # FIXME: baseline may be computed in master and provided to all workers
-    _, baseline_loss, loss_fn = compute_baseline(args, inputs)
+    baseline_mean_loss, loss_fn = compute_baseline(args, inputs)
     # Perturb features
-    predictions, losses = perturb_features(args, inputs, features, loss_fn)
-    compute_importances(args, features, losses, baseline_loss)
+    perturbed_mean_losses = perturb_features(args, inputs, features, loss_fn)
+    compute_importances(features, perturbed_mean_losses, baseline_mean_loss)
     # For important features, proceed with further analysis (temporal model analysis):
     if args.analysis_type == constants.TEMPORAL:
-        temporal_analysis(args, inputs, features, baseline_loss, loss_fn)
+        temporal_analysis(args, inputs, features, baseline_mean_loss, loss_fn)
     # Write outputs
-    write_outputs(args, features, predictions)
+    write_outputs(args, features)
     args.logger.info("End anamod worker pipeline")
 
 
@@ -107,8 +106,9 @@ def compute_baseline(args, inputs):
         args.loss_function = constants.BINARY_CROSS_ENTROPY if is_classifier else constants.QUADRATIC_LOSS
     loss_fn = Loss(args.loss_function, targets).loss_fn
     baseline_loss = loss_fn(pred)
-    args.logger.info(f"Mean baseline loss: {np.mean(baseline_loss)}")
-    return pred, baseline_loss, loss_fn
+    baseline_mean_loss = np.mean(baseline_loss)
+    args.logger.info(f"Baseline mean loss: {baseline_mean_loss}")
+    return baseline_mean_loss, loss_fn
 
 
 def get_perturbation_mechanism(args, rng, perturbation_type, num_instances, num_permutations):
@@ -122,58 +122,51 @@ def perturb_features(args, inputs, features, loss_fn):
     """Perturb features"""
     # TODO: Perturbation modules should be provided as input so custom modules may be used
     args.logger.info("Begin perturbing features")
-    predictions = {feature.name: np.zeros(len(inputs.targets)) for feature in features}
-    losses = {feature.name: np.zeros(len(inputs.targets)) for feature in features}
+    perturbed_mean_losses = {}
     # Perturb each feature
     for feature in features:
-        prediction, loss = perturb_feature(args, inputs, feature, loss_fn)
-        predictions[feature.name] = prediction
-        losses[feature.name] = loss
+        perturbed_mean_losses[feature.name] = perturb_feature(args, inputs, feature, loss_fn)
     args.logger.info("End perturbing features")
-    return predictions, losses
+    return perturbed_mean_losses
 
 
 def perturb_feature(args, inputs, feature, loss_fn,
                     timesteps=..., perturbation_type=constants.ACROSS_INSTANCES):
     """Perturb feature"""
-    # pylint: disable = too-many-arguments
-    data, targets, model = inputs
-    perturbation_mechanism = get_perturbation_mechanism(args, feature.rng, perturbation_type, data.shape[0], args.num_shuffling_trials)
-    if args.perturbation == constants.SHUFFLING:
-        prediction = np.zeros(len(targets))
-        loss = np.zeros(len(targets))
-        for _ in range(args.num_shuffling_trials):
+    # pylint: disable = too-many-arguments, too-many-locals
+    data, _, model = inputs
+    num_permutations = args.num_shuffling_trials
+    num_elements = data.shape[0]
+    if perturbation_type == constants.WITHIN_INSTANCE:
+        num_elements = data.shape[2] if timesteps == ... else len(timesteps)
+    perturbation_mechanism = get_perturbation_mechanism(args, feature.rng, perturbation_type, num_elements, num_permutations)
+    perturbed_mean_loss = np.zeros(num_permutations)
+    assert args.perturbation == constants.SHUFFLING, "Zeroing deprecated, only permutation-type perturbations currently supported"
+    for kidx in range(num_permutations):
+        try:
             data_perturbed = perturbation_mechanism.perturb(data, feature, timesteps=timesteps)
-            pred = model.predict(data_perturbed)
-            prediction += pred
-            loss += loss_fn(pred)
-        prediction /= args.num_shuffling_trials
-        loss /= args.num_shuffling_trials
-    else:
-        data_perturbed = perturbation_mechanism.perturb(data, feature, timesteps=timesteps)
-        prediction = model.predict(data_perturbed)
-        loss = loss_fn(prediction)
-    return prediction, loss
+        except StopIteration:
+            num_permutations = kidx
+            break
+        pred = model.predict(data_perturbed)
+        loss = loss_fn(pred)
+        perturbed_mean_loss[kidx] = np.mean(loss)
+    return perturbed_mean_loss[:num_permutations]
 
 
-def search_window(args, inputs, feature, baseline_loss, loss_fn):
+def search_window(args, inputs, feature, baseline_mean_loss, loss_fn):
     """Search temporal window of importance for given feature"""
     # pylint: disable = too-many-arguments, too-many-locals
     args.logger.info("Begin searching for temporal window for feature %s" % feature.name)
-    mean_baseline_loss = np.mean(baseline_loss)
-    overall_effect_size_magnitude = np.abs(feature.overall_effect_size)
     T = inputs.data.shape[2]  # pylint: disable = invalid-name
     # Search left boundary of window by identifying the left inverted window
     lbound, current, rbound = (0, T // 2, T)
     while current < rbound:
         # Search for the largest 'negative' window anchored on the left that results in a non-important p-value/effect size
         # The right boundary of the left inverted window is the left boundary of the window of interest
-        _, loss = perturb_feature(args, inputs, feature, loss_fn, range(0, current))
-        if args.window_search_algorithm == constants.IMPORTANCE_TEST:
-            important = compute_p_value(baseline_loss, loss) < args.importance_significance_level
-        else:
-            # window_search_algorithm == constants.EFFECT_SIZE
-            important = np.abs(np.mean(loss) - mean_baseline_loss) > (args.window_effect_size_threshold / 2) * overall_effect_size_magnitude
+        perturbed_mean_loss = perturb_feature(args, inputs, feature, loss_fn, range(0, current))
+        effect_size = np.mean(perturbed_mean_loss) - baseline_mean_loss
+        important = effect_size > (args.window_effect_size_threshold / 2) * feature.overall_effect_size
         if important:
             # Move pointer to the left, decrease negative window size
             rbound = current
@@ -186,12 +179,9 @@ def search_window(args, inputs, feature, baseline_loss, loss_fn):
     # Search right boundary of window by identifying the right inverted window
     lbound, current, rbound = (left, (left + T) // 2, T)
     while lbound < current:
-        _, loss = perturb_feature(args, inputs, feature, loss_fn, range(current, T))
-        if args.window_search_algorithm == constants.IMPORTANCE_TEST:
-            important = compute_p_value(baseline_loss, loss) < args.importance_significance_level
-        else:
-            # window_search_algorithm == constants.EFFECT_SIZE
-            important = np.abs(np.mean(loss) - mean_baseline_loss) > (args.window_effect_size_threshold / 2) * overall_effect_size_magnitude
+        perturbed_mean_loss = perturb_feature(args, inputs, feature, loss_fn, range(current, T))
+        effect_size = np.mean(perturbed_mean_loss) - baseline_mean_loss
+        important = effect_size > (args.window_effect_size_threshold / 2) * feature.overall_effect_size
         if important:
             # Move pointer to the right, decrease negative window size
             lbound = current
@@ -201,72 +191,51 @@ def search_window(args, inputs, feature, baseline_loss, loss_fn):
             rbound = current
             current = (current + lbound) // 2
     right = current
-    # Report importance as per significance test
-    _, loss = perturb_feature(args, inputs, feature, loss_fn, range(left, right + 1))
     # Set attributes on feature
-    # TODO: FDR control via Benjamini Hochberg for importance_test algorithm
-    # Doesn't seem appropriate though: (i) The p-values are sequentially generated and are not independent, and
-    # (ii) What does it mean for some p-values to be significant while others are not in the context of the search?
-    feature.window_pvalue = compute_p_value(baseline_loss, loss)
-    feature.window_important = feature.window_pvalue < args.importance_significance_level
-    feature.window_effect_size = np.mean(loss) - mean_baseline_loss
+    # Compute effect sizes for obtained windows
+    perturbed_mean_loss = perturb_feature(args, inputs, feature, loss_fn, range(left, right + 1))
+    feature.window_effect_size = np.mean(perturbed_mean_loss) - baseline_mean_loss
+    feature.window_important = feature.window_effect_size > constants.NEAR_ZERO
     feature.temporal_window = (left, right)
     return left, right
 
 
-def compute_importances(args, features, losses, baseline_loss):
+def compute_importances(features, perturbed_mean_losses, baseline_mean_loss):
     """Computes p-values indicating feature importances"""
-    mean_baseline_loss = np.mean(baseline_loss)
     for feature in features:
-        loss = losses[feature.name]
-        mean_loss = np.mean(loss)
-        feature.overall_pvalue = compute_p_value(baseline_loss, loss)
-        feature.overall_effect_size = mean_loss - mean_baseline_loss
-        feature.important = feature.overall_pvalue < args.importance_significance_level
-        # Legacy attributes; TODO: remove
-        feature.mean_loss = mean_loss
-        feature.pvalue_loss = feature.overall_pvalue
-        feature.effect_size = feature.overall_effect_size
+        perturbed_mean_loss = perturbed_mean_losses[feature.name]
+        feature.overall_effect_size = np.mean(perturbed_mean_loss) - baseline_mean_loss
+        feature.important = feature.overall_effect_size > constants.NEAR_ZERO
+        feature.overall_pvalue = 0 if feature.important else feature.overall_pvalue
 
 
-def temporal_analysis(args, inputs, features, baseline_loss, loss_fn):
+def temporal_analysis(args, inputs, features, baseline_mean_loss, loss_fn):
     """Perform temporal analysis of important features"""
     features = [feature for feature in features if feature.important]
     args.logger.info("Identified important features: %s; proceeding with temporal analysis" % ",".join([feature.name for feature in features]))
     for feature in features:
         # Test importance of feature ordering across whole sequence
-        _, loss = perturb_feature(args, inputs, feature, loss_fn, perturbation_type=constants.WITHIN_INSTANCE)
-        feature.ordering_pvalue = compute_p_value(baseline_loss, loss)
-        feature.ordering_important = feature.ordering_pvalue < args.importance_significance_level
+        perturbed_mean_loss = perturb_feature(args, inputs, feature, loss_fn, perturbation_type=constants.WITHIN_INSTANCE)
+        effect_size = np.mean(perturbed_mean_loss) - baseline_mean_loss
+        feature.ordering_important = effect_size > constants.NEAR_ZERO
         args.logger.info(f"Feature {feature.name}: ordering important: {feature.ordering_important}")
         # Test feature temporal localization
-        left, right = search_window(args, inputs, feature, baseline_loss, loss_fn)
+        left, right = search_window(args, inputs, feature, baseline_mean_loss, loss_fn)
         # Test importance of feature ordering across window
-        _, loss = perturb_feature(args, inputs, feature, loss_fn, range(left, right + 1), perturbation_type=constants.WITHIN_INSTANCE)
-        feature.window_ordering_pvalue = compute_p_value(baseline_loss, loss)
-        feature.window_ordering_important = feature.window_ordering_pvalue < args.importance_significance_level
-        args.logger.info(f"Found window for feature {feature.name}: ({left}, {right});"
+        perturbed_mean_loss = perturb_feature(args, inputs, feature, loss_fn, range(left, right + 1), perturbation_type=constants.WITHIN_INSTANCE)
+        effect_size = np.mean(perturbed_mean_loss) - baseline_mean_loss
+        feature.window_ordering_important = effect_size > constants.NEAR_ZERO
+        args.logger.info(f"(Prior to FDR control) Found window for feature {feature.name}: ({left}, {right});"
                          f" significant: {feature.window_important}; ordering important: {feature.window_ordering_important}")
 
 
-def write_outputs(args, features, predictions):
+def write_outputs(args, features):
     """Write outputs to results file"""
     args.logger.info("Begin writing outputs")
     # Write features
     features_filename = constants.OUTPUT_FEATURES_FILENAME.format(args.output_dir, args.worker_idx)
     with open(features_filename, "wb") as features_file:
         cloudpickle.dump(features, features_file, protocol=pickle.DEFAULT_PROTOCOL)
-    # TODO: Decide if all these are still necessary (only features and predictions used by callers)
-    results_filename = constants.RESULTS_FILENAME.format(args.output_dir, args.worker_idx)
-    root = h5py.File(results_filename, "w")
-
-    def store_data(group, data):
-        """Helper function to store data"""
-        for feature_id, feature_data in data.items():
-            group.create_dataset(feature_id, data=feature_data)
-
-    store_data(root.create_group(constants.PREDICTIONS), predictions)
-    root.close()
     args.logger.info("End writing outputs")
 
 

@@ -9,19 +9,16 @@ from anamod import constants
 # pylint: disable = too-many-instance-attributes
 class Feature(anytree.Node):
     """Class representing feature/feature group"""
+    # TODO: add function to visualize fields nicely
     def __init__(self, name, **kwargs):
         super().__init__(name, **kwargs)
         self.parent_name = kwargs.get(constants.PARENT_NAME, "")
         self.description = kwargs.get(constants.DESCRIPTION, "")
         self.idx = kwargs.get("idx", [])
-        self.perturbable = kwargs.get("perturbable", True)
+        self.perturbable = kwargs.get("perturbable", True)  # TODO: Use or discard
         # TODO: (Verify) Could initialize the RNG right away, since cloudpickle should still be able to pickle it
         self._rng_seed = xxhash.xxh32_intdigest(name)
         self.rng = None  # RNG used for shuffling this feature - see perturbations.py: 'feature.rng'
-        # Legacy attributes - TODO: remove
-        self.mean_loss = 0.
-        self.pvalue_loss = 1.
-        self.effect_size = 0.
         # p-value attributes
         self.overall_pvalue = 1.
         self.ordering_pvalue = 1.

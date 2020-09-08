@@ -8,7 +8,6 @@ import pickle
 import shutil
 
 import cloudpickle
-import h5py
 
 from anamod import constants, worker
 from anamod.fdr.fdr_algorithms import bh_procedure
@@ -35,26 +34,14 @@ class SerialPipeline():
         """Compile results"""
         self.args.logger.info("Compiling results")
         features = []
-        all_predictions = {}
         for idx in range(self.num_jobs):
             directory = output_dirs[idx]
             # Load features
             features_filename = constants.OUTPUT_FEATURES_FILENAME.format(directory, idx)
             with open(features_filename, "rb") as features_file:
                 features.extend(cloudpickle.load(features_file))
-            # Compile predictions
-            root = h5py.File(constants.RESULTS_FILENAME.format(directory, idx), "r")
 
-            def load_data(group):
-                """Helper function to load data"""
-                results = {}
-                for feature_id, feature_data in group.items():
-                    results[feature_id] = feature_data[...]
-                return results
-
-            all_predictions.update(load_data(root[constants.PREDICTIONS]))
-        self.fdr_control(features)
-        return features, all_predictions
+        return features
 
     def fdr_control(self, features):
         """Apply FDR control to features"""
@@ -85,7 +72,10 @@ class SerialPipeline():
                     self.args.logger.warning(f"Cleanup: unable to remove {filename}: {error}")
         if job_dirs:  # Remove condor job directories
             for job_dir in job_dirs:
-                shutil.rmtree(job_dir)
+                try:
+                    shutil.rmtree(job_dir)
+                except OSError as error:
+                    self.args.logger.warning(f"Cleanup: unable to remove {job_dir}: {error}")
         self.args.logger.info("End intermediate file cleanup")
 
     def run(self):

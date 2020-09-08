@@ -65,7 +65,7 @@ def write_outputs(args, tree):
     # Write CSV with additional column for rejected or not
     with open("%s/%s.csv" % (args.output_dir, constants.HIERARCHICAL_FDR_OUTPUTS), "w", newline="") as output_file:
         writer = csv.writer(output_file)
-        writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.PVALUE_LOSSES, constants.REJECTED_STATUS, constants.ADJUSTED_PVALUE])
+        writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.PVALUE, constants.REJECTED_STATUS, constants.ADJUSTED_PVALUE])
         for node in anytree.LevelOrderIter(tree):
             parent_name = ""
             if node.parent:
@@ -177,7 +177,7 @@ def build_tree(args):
         for row in reader:
             node_name = row[constants.NODE_NAME]
             parent_name = row[constants.PARENT_NAME]
-            pvalue = float(row[constants.PVALUE_LOSSES])
+            pvalue = float(row[constants.PVALUE])
             description = row[constants.DESCRIPTION] if constants.DESCRIPTION in row else ""
             effect_size = ""
             if constants.EFFECT_SIZE in row and row[constants.EFFECT_SIZE]:

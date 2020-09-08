@@ -39,9 +39,6 @@ class ModelAnalyzer(ABC):
             output_dir: str, default: '{constants.DEFAULT_OUTPUT_DIR}'
                 Directory to write logs, intermediate files, and outputs to.
 
-            perturbation: str, choices: {constants.CHOICES_PERTURBATIONS}, default: '{constants.SHUFFLING}'
-                Type of perturbation to perform to analyze model.
-
             num_shuffling_trials: int, default: {constants.DEFAULT_NUM_PERMUTATIONS}
                 Number of permutations to average over when using shuffling perturbations.
 
@@ -86,13 +83,13 @@ class ModelAnalyzer(ABC):
 
         **Temporal model analysis parameters:**
 
-            importance_significance_level: float, default: 0.05
+            importance_significance_level: float, default: 0.1
                 Significance level used to assess feature importance while testing for overall/window/ordering relevance
 
             window_search_algorithm: str, choices: {constants.CHOICES_WINDOW_SEARCH_ALGORITHM}, default: '{constants.EFFECT_SIZE}'
                 Search algorithm to use to search for relevant window (TODO: document)
 
-            window_effect_size_threshold: float, default: 0.05
+            window_effect_size_threshold: float, default: 0.01
                 Fraction of total feature importance (effect size) permitted outside window while searching for relevant window
 
         **HTCondor parameters:**
@@ -139,7 +136,7 @@ class ModelAnalyzer(ABC):
         self.kwargs = kwargs
         # Common optional parameters
         self.output_dir = self.process_keyword_arg("output_dir", constants.DEFAULT_OUTPUT_DIR)
-        self.perturbation = self.process_keyword_arg("perturbation", constants.SHUFFLING, constants.CHOICES_PERTURBATIONS)
+        self.perturbation = constants.SHUFFLING  # Zeroing deprecated, possibly remove option
         self.num_shuffling_trials = self.process_keyword_arg("num_shuffling_trials", constants.DEFAULT_NUM_PERMUTATIONS)
         self.feature_names = self.process_keyword_arg("feature_names", None)
         self.seed = self.process_keyword_arg("seed", constants.SEED)
@@ -148,11 +145,14 @@ class ModelAnalyzer(ABC):
         # Hierarchical feature analysis parameters
         self.feature_hierarchy = self.process_keyword_arg("feature_hierarchy", None)
         self.analyze_interactions = self.process_keyword_arg("analyze_interactions", False)
+        if self.analyze_interactions:
+            raise NotImplementedError("Interaction analysis currently disabled pending updated theoretical analysis")
         # Temporal model analysis parameters
-        self.importance_significance_level = self.process_keyword_arg("importance_significance_level", 0.05)
+        self.importance_significance_level = self.process_keyword_arg("importance_significance_level", 0.1)
         self.window_search_algorithm = self.process_keyword_arg("window_search_algorithm", constants.EFFECT_SIZE,
                                                                 constants.CHOICES_WINDOW_SEARCH_ALGORITHM)
-        self.window_effect_size_threshold = self.process_keyword_arg("window_effect_size_threshold", 0.05)
+        # TODO: Automatic proportional selection of window effect size threshold w.r.t. sequence length
+        self.window_effect_size_threshold = self.process_keyword_arg("window_effect_size_threshold", 0.01)
         # pylint: disable = invalid-name
         self.analyze_all_pairwise_interactions = self.process_keyword_arg("analyze_all_pairwise_interactions", False)
         # HTCondor parameters

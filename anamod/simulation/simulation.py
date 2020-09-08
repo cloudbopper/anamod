@@ -8,11 +8,13 @@ import os
 import pickle
 import pprint
 import shutil
+import sys
 
 import anytree
 import cloudpickle
 import numpy as np
 from scipy.cluster.hierarchy import linkage
+from sklearn.metrics import r2_score
 import synmod.master
 from synmod.constants import CLASSIFIER, REGRESSOR, FEATURES_FILENAME, MODEL_FILENAME, INSTANCES_FILENAME
 
@@ -53,18 +55,21 @@ def main():
     common.add_argument("-condor_cleanup", type=strtobool, default=True, help="Clean condor cmd/out/err/log files after completing simulation")
     common.add_argument("-avoid_bad_hosts", type=strtobool, default=True)
     common.add_argument("-retry_arbitrary_failures", type=strtobool, default=True)
+    common.add_argument("-skip_synthesis", type=strtobool, default=False, help="Skip synthesis and assume synthesized files already exist")
+    common.add_argument("-evaluate_only", type=strtobool, default=False, help="Assume results already exist and rerun evaluation")
     # Hierarchical feature importance analysis arguments
     hierarchical = parser.add_argument_group("Hierarchical feature analysis arguments")
-    hierarchical.add_argument("-noise_multiplier", type=float, default=0.,
-                              help="Multiplicative factor for noise added to polynomial computation for irrelevant features")
+    hierarchical.add_argument("-noise_multiplier", default=0.,
+                              help=("Multiplicative factor for noise added to polynomial computation for irrelevant features; "
+                                    f"if '{constants.AUTO}', selected automatically to get R^2 value of 0.9 (regressor only)"))
     hierarchical.add_argument("-hierarchy_type", help="Choice of hierarchy to generate", default=constants.CLUSTER_FROM_DATA,
                               choices=[constants.CLUSTER_FROM_DATA, constants.RANDOM])
     hierarchical.add_argument("-contiguous_node_names", type=strtobool, default=False, help="enable to change node names in hierarchy "
                               "to be contiguous for better visualization (but creating mismatch between node names and features indices)")
     hierarchical.add_argument("-analyze_interactions", help="enable analyzing interactions", type=strtobool, default=False)
-    hierarchical.add_argument("-perturbation", default=constants.SHUFFLING, choices=[constants.ZEROING, constants.SHUFFLING])
-    hierarchical.add_argument("-num_shuffling_trials", type=int, default=10, help="Number of shuffling trials to average over, "
-                              "when shuffling perturbations are selected")
+    hierarchical.add_argument("-perturbation", default=constants.SHUFFLING, choices=[constants.SHUFFLING])
+    hierarchical.add_argument("-num_shuffling_trials", type=int, default=constants.DEFAULT_NUM_PERMUTATIONS,
+                              help="Number of shuffling trials to average over, when shuffling perturbations are selected")
     # Temporal model analysis arguments
     temporal = parser.add_argument_group("Temporal model analysis arguments")
     temporal.add_argument("-sequence_length", help="sequence length for temporal models", type=int, default=20)
@@ -88,64 +93,68 @@ def main():
 def pipeline(args, pass_args):
     """Simulation pipeline"""
     args.logger.info("Begin anamod simulation with args: %s" % args)
-    synthesized_features, data, model = run_synmod(args)
-    targets = model.predict(data, labels=True) if args.loss_target_values == constants.LABELS else model.predict(data)
-    # Create wrapper around ground-truth model
-    model_wrapper = ModelWrapper(model, args.noise_multiplier)
-    if args.analysis_type == constants.HIERARCHICAL:
-        # Generate hierarchy using clustering (test data also used for clustering)
-        hierarchy_root, feature_id_map = gen_hierarchy(args, data)
-        # Update hierarchy descriptions for future visualization
-        update_hierarchy_relevance(hierarchy_root, model.relevant_feature_map, synthesized_features)
-        # Invoke feature importance algorithm
-        analyzed_features = run_anamod(args, pass_args, model_wrapper, data, targets, hierarchy_root)
-        # Compare anamod outputs with ground truth outputs
-        evaluation.compare_with_ground_truth(args, hierarchy_root)
-        # Evaluate anamod outputs - power/FDR for all nodes/outer nodes/base features
-        results = evaluation.evaluate_hierarchical(args, model.relevant_feature_map, feature_id_map)
+    if args.evaluate_only and args.analysis_type == constants.TEMPORAL:
+        # TODO: possibly refactor
+        model, synthesized_features, analyzed_features = read_io(args.output_dir)
+        results = evaluation.evaluate_temporal(args, synthesized_features, analyzed_features)
     else:
-        # Temporal model analysis
-        # FIXME: should have similar mode of parsing outputs for both analyses
-        analyzed_features = run_anamod(args, pass_args, model_wrapper, data, targets)
-        results = evaluation.evaluate_temporal(args, model, analyzed_features)
+        synthesized_features, data, model = run_synmod(args)
+        targets = model.predict(data, labels=True) if args.loss_target_values == constants.LABELS else model.predict(data)
+        args.noise_multiplier = noise_selection(args, data, targets, model)
+        # Create wrapper around ground-truth model
+        model_wrapper = ModelWrapper(model, args.noise_multiplier)
+        if args.analysis_type == constants.HIERARCHICAL:
+            # Generate hierarchy using clustering (test data also used for clustering)
+            hierarchy_root, feature_id_map = gen_hierarchy(args, data)
+            # Update hierarchy descriptions for future visualization
+            update_hierarchy_relevance(hierarchy_root, model.relevant_feature_map, synthesized_features)
+            # Invoke feature importance algorithm
+            analyzed_features = run_anamod(args, pass_args, model_wrapper, data, targets, hierarchy_root)
+            # Compare anamod outputs with ground truth outputs
+            evaluation.compare_with_ground_truth(args, hierarchy_root)
+            # Evaluate anamod outputs - power/FDR for all nodes/outer nodes/base features
+            results = evaluation.evaluate_hierarchical(args, model.relevant_feature_map, feature_id_map)
+        else:
+            # Temporal model analysis
+            # FIXME: should have similar mode of parsing outputs for both analyses
+            analyzed_features = run_anamod(args, pass_args, model_wrapper, data, targets)
+            results = evaluation.evaluate_temporal(args, synthesized_features, analyzed_features)
+        write_io(args.output_dir, model, synthesized_features, analyzed_features)
     summary = write_summary(args, model, results)
-    write_io(args, model, synthesized_features, analyzed_features)
     args.logger.info("End anamod simulation")
     return summary
 
 
-def run_synmod(args):
+def run_synmod(oargs):
     """Synthesize data and model"""
+    args = configure_synthesis_args(oargs)
     args.logger.info("Begin running synmod")
-    args = copy.copy(args)
-    if args.analysis_type == constants.HIERARCHICAL:
-        args.synthesis_type = constants.STATIC
-    else:
-        args.synthesis_type = constants.TEMPORAL
-    if not args.condor:
-        args.write_outputs = False
-        return synmod.master.pipeline(args)
-    # Spawn condor job to synthesize data
-    # Compute size requirements
-    data_size = args.num_instances * args.num_features * args.sequence_length // (8 * (2 ** 30))  # Data size in GB
-    memory_requirement = "%dGB" % (1 + data_size)
-    disk_requirement = "%dGB" % (4 + data_size)
-    # Set up command-line arguments
-    args.write_outputs = True
-    args.sequences_independent_of_windows = args.window_independent
-    cmd = "python3 -m synmod"
     job_dir = f"{args.output_dir}/synthesis"
-    args.output_dir = os.path.abspath(job_dir) if args.shared_filesystem else os.path.basename(job_dir)
-    for arg in ["output_dir", "num_features", "num_instances", "synthesis_type",
-                "fraction_relevant_features", "num_interactions", "include_interaction_only_features", "seed", "write_outputs",
-                "sequence_length", "sequences_independent_of_windows", "model_type"]:
-        cmd += f" -{arg} {args.__getattribute__(arg)}"
-    args.logger.info(f"Running cmd: {cmd}")
-    # Launch and monitor job
-    job = CondorJobWrapper(cmd, [], job_dir, shared_filesystem=args.shared_filesystem, memory=memory_requirement, disk=disk_requirement,
-                           avoid_bad_hosts=args.avoid_bad_hosts, retry_arbitrary_failures=args.retry_arbitrary_failures)
-    job.run()
-    CondorJobWrapper.monitor([job], cleanup=args.condor_cleanup)
+    if not args.skip_synthesis:
+        if not args.condor:
+            args.write_outputs = True
+            args.output_dir = job_dir
+            return synmod.master.pipeline(args)
+        # Spawn condor job to synthesize data
+        # Compute size requirements
+        data_size = args.num_instances * args.num_features * args.sequence_length // (8 * (2 ** 30))  # Data size in GB
+        memory_requirement = "%dGB" % (1 + data_size)
+        disk_requirement = "%dGB" % (4 + data_size)
+        # Set up command-line arguments
+        args.write_outputs = True
+        args.sequences_independent_of_windows = args.window_independent
+        cmd = "python3 -m synmod"
+        args.output_dir = os.path.abspath(job_dir) if args.shared_filesystem else os.path.basename(job_dir)
+        for arg in ["output_dir", "num_features", "num_instances", "synthesis_type",
+                    "fraction_relevant_features", "num_interactions", "include_interaction_only_features", "seed", "write_outputs",
+                    "sequence_length", "sequences_independent_of_windows", "model_type"]:
+            cmd += f" -{arg} {args.__getattribute__(arg)}"
+        args.logger.info(f"Running cmd: {cmd}")
+        # Launch and monitor job
+        job = CondorJobWrapper(cmd, [], job_dir, shared_filesystem=args.shared_filesystem, memory=memory_requirement, disk=disk_requirement,
+                               avoid_bad_hosts=args.avoid_bad_hosts, retry_arbitrary_failures=args.retry_arbitrary_failures)
+        job.run()
+        CondorJobWrapper.monitor([job], cleanup=args.condor_cleanup)
     # Extract data
     features, instances, model = [None] * 3
     with open(f"{job_dir}/{FEATURES_FILENAME}", "rb") as data_file:
@@ -160,6 +169,37 @@ def run_synmod(args):
             args.logger.warning(f"Cleanup: unable to remove {job_dir}: {error}")
     args.logger.info("End running synmod")
     return features, instances, model
+
+
+def configure_synthesis_args(oargs):
+    """Configure arguments for data/model synthesis"""
+    args = copy.copy(oargs)
+    if args.analysis_type == constants.HIERARCHICAL:
+        args.synthesis_type = constants.STATIC
+    else:
+        args.synthesis_type = constants.TEMPORAL
+    if args.noise_multiplier == constants.AUTO:
+        assert args.model_type == REGRESSOR, "Auto-selection of noise only available for regressor models"
+    else:
+        try:
+            args.noise_multiplier = float(args.noise_multiplier)
+        except ValueError:
+            print(f"Noise multiplier must be set to '{constants.AUTO}' or a non-negative float", file=sys.stderr)
+            raise
+    return args
+
+
+def noise_selection(args, data, targets, model):
+    """Select noise multiplier based on desired regressor performance if auto-selection invoked"""
+    if args.noise_multiplier != constants.AUTO:
+        return float(args.noise_multiplier)
+    targets_mean = np.mean(targets)
+    sum_of_squares_total = sum((targets - targets_mean)**2)
+    sum_of_residuals_scaled = sum((targets - model.predict(data, noise=1))**2)
+    args.noise_multiplier = np.sqrt(sum_of_squares_total * (1 - constants.AUTO_R2) / sum_of_residuals_scaled)
+    args.logger.info(f"Auto-selected noise multiplier {args.noise_multiplier} "
+                     f"to yield R2 score {r2_score(targets, model.predict(data, noise=args.noise_multiplier))}")
+    return args.noise_multiplier
 
 
 def gen_hierarchy(args, clustering_data):
@@ -349,6 +389,7 @@ def write_summary(args, model, results):
                   sequence_length=args.sequence_length,
                   model_type=model.__class__.__name__,
                   num_shuffling_trials=args.num_shuffling_trials,
+                  noise_multiplier=args.noise_multiplier,
                   sequences_independent_of_windows=args.window_independent)
     # pylint: disable = protected-access
     model_summary = {}
@@ -364,13 +405,24 @@ def write_summary(args, model, results):
     return summary
 
 
-def write_io(args, model, synthesized_features, analyzed_features):
+def read_io(output_dir):
+    """Read simulation inputs and outputs assuming already generated"""
+    with open(f"{output_dir}/{constants.MODEL_FILENAME}", "rb") as model_file:
+        model = cloudpickle.load(model_file)
+    with open(f"{output_dir}/{constants.SYNTHESIZED_FEATURES_FILENAME}", "rb") as synthesized_features_file:
+        synthesized_features = cloudpickle.load(synthesized_features_file)
+    with open(f"{output_dir}/{constants.ANALYZED_FEATURES_FILENAME}", "rb") as analyzed_features_file:
+        analyzed_features = cloudpickle.load(analyzed_features_file)
+    return model, synthesized_features, analyzed_features
+
+
+def write_io(output_dir, model, synthesized_features, analyzed_features):
     """Write simulation inputs and outputs (model and features)"""
-    with open(f"{args.output_dir}/{constants.MODEL_FILENAME}", "wb") as model_file:
+    with open(f"{output_dir}/{constants.MODEL_FILENAME}", "wb") as model_file:
         cloudpickle.dump(model, model_file, protocol=pickle.DEFAULT_PROTOCOL)
-    with open(f"{args.output_dir}/{constants.SYNTHESIZED_FEATURES_FILENAME}", "wb") as synthesized_features_file:
+    with open(f"{output_dir}/{constants.SYNTHESIZED_FEATURES_FILENAME}", "wb") as synthesized_features_file:
         cloudpickle.dump(synthesized_features, synthesized_features_file, protocol=pickle.DEFAULT_PROTOCOL)
-    with open(f"{args.output_dir}/{constants.ANALYZED_FEATURES_FILENAME}", "wb") as analyzed_features_file:
+    with open(f"{output_dir}/{constants.ANALYZED_FEATURES_FILENAME}", "wb") as analyzed_features_file:
         cloudpickle.dump(analyzed_features, analyzed_features_file, protocol=pickle.DEFAULT_PROTOCOL)
 
 
