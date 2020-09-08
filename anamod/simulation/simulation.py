@@ -56,6 +56,7 @@ def main():
     common.add_argument("-avoid_bad_hosts", type=strtobool, default=True)
     common.add_argument("-retry_arbitrary_failures", type=strtobool, default=True)
     common.add_argument("-skip_synthesis", type=strtobool, default=False, help="Skip synthesis and assume synthesized files already exist")
+    common.add_argument("-evaluate_only", type=strtobool, default=False, help="Assume results already exist and rerun evaluation")
     # Hierarchical feature importance analysis arguments
     hierarchical = parser.add_argument_group("Hierarchical feature analysis arguments")
     hierarchical.add_argument("-noise_multiplier", default=0.,
@@ -92,29 +93,34 @@ def main():
 def pipeline(args, pass_args):
     """Simulation pipeline"""
     args.logger.info("Begin anamod simulation with args: %s" % args)
-    synthesized_features, data, model = run_synmod(args)
-    targets = model.predict(data, labels=True) if args.loss_target_values == constants.LABELS else model.predict(data)
-    args.noise_multiplier = noise_selection(args, data, targets, model)
-    # Create wrapper around ground-truth model
-    model_wrapper = ModelWrapper(model, args.noise_multiplier)
-    if args.analysis_type == constants.HIERARCHICAL:
-        # Generate hierarchy using clustering (test data also used for clustering)
-        hierarchy_root, feature_id_map = gen_hierarchy(args, data)
-        # Update hierarchy descriptions for future visualization
-        update_hierarchy_relevance(hierarchy_root, model.relevant_feature_map, synthesized_features)
-        # Invoke feature importance algorithm
-        analyzed_features = run_anamod(args, pass_args, model_wrapper, data, targets, hierarchy_root)
-        # Compare anamod outputs with ground truth outputs
-        evaluation.compare_with_ground_truth(args, hierarchy_root)
-        # Evaluate anamod outputs - power/FDR for all nodes/outer nodes/base features
-        results = evaluation.evaluate_hierarchical(args, model.relevant_feature_map, feature_id_map)
+    if args.evaluate_only and args.analysis_type == constants.TEMPORAL:
+        # TODO: possibly refactor
+        model, synthesized_features, analyzed_features = read_io(args.output_dir)
+        results = evaluation.evaluate_temporal(args, synthesized_features, analyzed_features)
     else:
-        # Temporal model analysis
-        # FIXME: should have similar mode of parsing outputs for both analyses
-        analyzed_features = run_anamod(args, pass_args, model_wrapper, data, targets)
-        results = evaluation.evaluate_temporal(args, model, analyzed_features)
+        synthesized_features, data, model = run_synmod(args)
+        targets = model.predict(data, labels=True) if args.loss_target_values == constants.LABELS else model.predict(data)
+        args.noise_multiplier = noise_selection(args, data, targets, model)
+        # Create wrapper around ground-truth model
+        model_wrapper = ModelWrapper(model, args.noise_multiplier)
+        if args.analysis_type == constants.HIERARCHICAL:
+            # Generate hierarchy using clustering (test data also used for clustering)
+            hierarchy_root, feature_id_map = gen_hierarchy(args, data)
+            # Update hierarchy descriptions for future visualization
+            update_hierarchy_relevance(hierarchy_root, model.relevant_feature_map, synthesized_features)
+            # Invoke feature importance algorithm
+            analyzed_features = run_anamod(args, pass_args, model_wrapper, data, targets, hierarchy_root)
+            # Compare anamod outputs with ground truth outputs
+            evaluation.compare_with_ground_truth(args, hierarchy_root)
+            # Evaluate anamod outputs - power/FDR for all nodes/outer nodes/base features
+            results = evaluation.evaluate_hierarchical(args, model.relevant_feature_map, feature_id_map)
+        else:
+            # Temporal model analysis
+            # FIXME: should have similar mode of parsing outputs for both analyses
+            analyzed_features = run_anamod(args, pass_args, model_wrapper, data, targets)
+            results = evaluation.evaluate_temporal(args, synthesized_features, analyzed_features)
+        write_io(args.output_dir, model, synthesized_features, analyzed_features)
     summary = write_summary(args, model, results)
-    write_io(args, model, synthesized_features, analyzed_features)
     args.logger.info("End anamod simulation")
     return summary
 
@@ -399,13 +405,24 @@ def write_summary(args, model, results):
     return summary
 
 
-def write_io(args, model, synthesized_features, analyzed_features):
+def read_io(output_dir):
+    """Read simulation inputs and outputs assuming already generated"""
+    with open(f"{output_dir}/{constants.MODEL_FILENAME}", "rb") as model_file:
+        model = cloudpickle.load(model_file)
+    with open(f"{output_dir}/{constants.SYNTHESIZED_FEATURES_FILENAME}", "rb") as synthesized_features_file:
+        synthesized_features = cloudpickle.load(synthesized_features_file)
+    with open(f"{output_dir}/{constants.ANALYZED_FEATURES_FILENAME}", "rb") as analyzed_features_file:
+        analyzed_features = cloudpickle.load(analyzed_features_file)
+    return model, synthesized_features, analyzed_features
+
+
+def write_io(output_dir, model, synthesized_features, analyzed_features):
     """Write simulation inputs and outputs (model and features)"""
-    with open(f"{args.output_dir}/{constants.MODEL_FILENAME}", "wb") as model_file:
+    with open(f"{output_dir}/{constants.MODEL_FILENAME}", "wb") as model_file:
         cloudpickle.dump(model, model_file, protocol=pickle.DEFAULT_PROTOCOL)
-    with open(f"{args.output_dir}/{constants.SYNTHESIZED_FEATURES_FILENAME}", "wb") as synthesized_features_file:
+    with open(f"{output_dir}/{constants.SYNTHESIZED_FEATURES_FILENAME}", "wb") as synthesized_features_file:
         cloudpickle.dump(synthesized_features, synthesized_features_file, protocol=pickle.DEFAULT_PROTOCOL)
-    with open(f"{args.output_dir}/{constants.ANALYZED_FEATURES_FILENAME}", "wb") as analyzed_features_file:
+    with open(f"{output_dir}/{constants.ANALYZED_FEATURES_FILENAME}", "wb") as analyzed_features_file:
         cloudpickle.dump(analyzed_features, analyzed_features_file, protocol=pickle.DEFAULT_PROTOCOL)
 
 

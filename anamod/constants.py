@@ -26,7 +26,7 @@ CONDOR_MAX_RETRIES = 50
 # Reference: https://htcondor.readthedocs.io/en/latest/classad-attributes/job-classad-attributes.html
 CONDOR_HOLD_RETRY_CODES = set([6, 7, 8, 9, 10, 11, 12, 13, 14])
 # List of hosts to avoid (if causing issues):
-CONDOR_AVOID_HOSTS = ["mastodon-5.biostat.wisc.edu",
+CONDOR_AVOID_HOSTS = ["mastodon-5.biostat.wisc.edu", "qlu-1.biostat.wisc.edu",
                       "e269.chtc.wisc.edu", "e1039.chtc.wisc.edu",  # jobs freeze indefinitely
                       "chief.biostat.wisc.edu", "mammoth-1.biostat.wisc.edu", "nebula-7.biostat.wisc.edu",
                       "mastodon-1.biostat.wisc.edu"]   # don't seem to be on shared filesystem
@@ -42,7 +42,7 @@ INPUT_FEATURES_FILENAME = "{}/input_features_worker_{}.cpkl"
 OUTPUT_FEATURES_FILENAME = "{}/output_features_worker_{}.cpkl"
 RESULTS_FILENAME = "{}/results_worker_{}.hdf5"
 
-# Evaluation
+# Hypothesis testing
 PVALUE = "p-value"
 PAIRED_TTEST = "paired-t-test"
 WILCOXON_TEST = "wilcoxon-test"
@@ -50,6 +50,10 @@ PVALUES_FILENAME = "pvalues.csv"
 LESS = "less"
 GREATER = "greater"
 TWOSIDED = "two-sided"
+# Permutation test statistics
+MEAN_LOSS = "mean-loss"
+CHANGE_MEAN_LOSS = "change-mean-loss"
+
 
 # Interactions
 INTERACTIONS_PVALUES_FILENAME = "interaction_pvalues.csv"
@@ -87,6 +91,10 @@ WINDOW_IMPORTANT_FDR = "Window_Important_FDR"
 WINDOW_IMPORTANT_POWER = "Window_Important_Power"
 WINDOW_ORDERING_IMPORTANT_FDR = "Window_Ordering_Important_FDR"
 WINDOW_ORDERING_IMPORTANT_POWER = "Window_Ordering_Important_Power"
+OVERALL_SCORES_R2 = "overall_scores_r2"
+WINDOW_SCORES_R2 = "window_scores_r2"
+OVERALL_RELEVANT_SCORES_R2 = "overall_relevant_scores_r2"
+WINDOW_RELEVANT_SCORES_R2 = "window_relevant_scores_r2"
 SIMULATION_RESULTS = "simulation_results"
 SIMULATION_SUMMARY_FILENAME = "simulation_summary.json"
 SYNTHESIZED_FEATURES_FILENAME = "synthesized_features.cpkl"
