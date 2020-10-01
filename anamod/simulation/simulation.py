@@ -75,6 +75,7 @@ def main():
     temporal.add_argument("-sequence_length", help="sequence length for temporal models", type=int, default=20)
     temporal.add_argument("-model_type", default=REGRESSOR, choices=[CLASSIFIER, REGRESSOR])
     temporal.add_argument("-sequences_independent_of_windows", type=strtobool, dest="window_independent")
+    temporal.add_argument("-standardize_features", type=strtobool, default=True)
     temporal.set_defaults(window_independent=False)
 
     args, pass_args = parser.parse_known_args()
@@ -95,7 +96,7 @@ def pipeline(args, pass_args):
     args.logger.info("Begin anamod simulation with args: %s" % args)
     if args.evaluate_only and args.analysis_type == constants.TEMPORAL:
         # TODO: possibly refactor
-        model, synthesized_features, analyzed_features = read_io(args.output_dir)
+        model_wrapper, synthesized_features, analyzed_features = read_io(args.output_dir)
         results = evaluation.evaluate_temporal(args, synthesized_features, analyzed_features)
     else:
         synthesized_features, data, model = run_synmod(args)
@@ -119,8 +120,8 @@ def pipeline(args, pass_args):
             # FIXME: should have similar mode of parsing outputs for both analyses
             analyzed_features = run_anamod(args, pass_args, model_wrapper, data, targets)
             results = evaluation.evaluate_temporal(args, synthesized_features, analyzed_features)
-        write_io(args.output_dir, model, synthesized_features, analyzed_features)
-    summary = write_summary(args, model, results)
+        write_io(args.output_dir, model_wrapper, synthesized_features, analyzed_features)
+    summary = write_summary(args, model_wrapper, results)
     args.logger.info("End anamod simulation")
     return summary
 
@@ -373,7 +374,7 @@ def process_pass_args(pass_args):
 
 def cleanup(args, data_filename, model_filename):
     """Clean data and model files after completing simulation"""
-    # TODO: clean up hierarchy file
+    # TODO: clean up hierarchy file, model wrapper file
     if not args.cleanup:
         return
     for filename in [data_filename, model_filename]:
@@ -381,8 +382,9 @@ def cleanup(args, data_filename, model_filename):
             os.remove(filename)
 
 
-def write_summary(args, model, results):
+def write_summary(args, model_wrapper, results):
     """Write simulation summary"""
+    model = model_wrapper.ground_truth_model
     config = dict(analysis_type=args.analysis_type,
                   num_instances=args.num_instances,
                   num_features=args.num_features,
@@ -407,19 +409,19 @@ def write_summary(args, model, results):
 
 def read_io(output_dir):
     """Read simulation inputs and outputs assuming already generated"""
-    with open(f"{output_dir}/{constants.MODEL_FILENAME}", "rb") as model_file:
-        model = cloudpickle.load(model_file)
+    with open(f"{output_dir}/{constants.MODEL_WRAPPER_FILENAME}", "rb") as model_wrapper_file:
+        model_wrapper = cloudpickle.load(model_wrapper_file)
     with open(f"{output_dir}/{constants.SYNTHESIZED_FEATURES_FILENAME}", "rb") as synthesized_features_file:
         synthesized_features = cloudpickle.load(synthesized_features_file)
     with open(f"{output_dir}/{constants.ANALYZED_FEATURES_FILENAME}", "rb") as analyzed_features_file:
         analyzed_features = cloudpickle.load(analyzed_features_file)
-    return model, synthesized_features, analyzed_features
+    return model_wrapper, synthesized_features, analyzed_features
 
 
-def write_io(output_dir, model, synthesized_features, analyzed_features):
+def write_io(output_dir, model_wrapper, synthesized_features, analyzed_features):
     """Write simulation inputs and outputs (model and features)"""
-    with open(f"{output_dir}/{constants.MODEL_FILENAME}", "wb") as model_file:
-        cloudpickle.dump(model, model_file, protocol=pickle.DEFAULT_PROTOCOL)
+    with open(f"{output_dir}/{constants.MODEL_WRAPPER_FILENAME}", "wb") as model_wrapper_file:
+        cloudpickle.dump(model_wrapper, model_wrapper_file, protocol=pickle.DEFAULT_PROTOCOL)
     with open(f"{output_dir}/{constants.SYNTHESIZED_FEATURES_FILENAME}", "wb") as synthesized_features_file:
         cloudpickle.dump(synthesized_features, synthesized_features_file, protocol=pickle.DEFAULT_PROTOCOL)
     with open(f"{output_dir}/{constants.ANALYZED_FEATURES_FILENAME}", "wb") as analyzed_features_file:

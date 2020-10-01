@@ -289,44 +289,44 @@
         1.0
       ]
     },
-    "overall_scores_r2": {
+    "overall_scores_corr": {
       "50": [
-        0.9997220336241016,
-        0.9998894717385919
+        1.0,
+        1.0
       ],
       "100": [
-        0.9999905802971493,
-        0.9994414211693984
+        1.0,
+        1.0
       ]
     },
-    "window_scores_r2": {
+    "window_scores_corr": {
       "50": [
-        0.9984421101346576,
-        0.9988903774640623
+        1,
+        1
       ],
       "100": [
-        0.9999975016187018,
-        0.9936496851737229
+        1,
+        1
       ]
     },
-    "overall_relevant_scores_r2": {
+    "overall_relevant_scores_corr": {
       "50": [
-        NaN,
-        NaN
+        1,
+        1
       ],
       "100": [
-        NaN,
-        NaN
+        1,
+        1
       ]
     },
-    "window_relevant_scores_r2": {
+    "window_relevant_scores_corr": {
       "50": [
-        NaN,
-        NaN
+        1,
+        1
       ],
       "100": [
-        NaN,
-        NaN
+        1,
+        1
       ]
     }
   }

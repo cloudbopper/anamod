@@ -37,28 +37,27 @@
     "polynomial": "0.820678762590906*beta*x_0 - 0.620017053224554*beta*x_2 - 0.430519899964703*beta*x_4 + 0.199824546264546*beta*x_7 + 0.991554208437103*beta*x_9 + 0.37630889518349*x_1 + 0.962957961254533*x_3 + 0.2585463394981*x_5 + 0.162072957560713*x_6 + 0.0704962107233014*x_8"
   },
   "results": {
-    "FDR": 0.2857142857142857,
-    "Power": 1.0,
-    "Ordering_All_Important_FDR": 0.33333333333333337,
-    "Ordering_All_Important_Power": 0.8,
-    "Ordering_Identified_Important_FDR": 0.33333333333333337,
-    "Ordering_Identified_Important_Power": 0.8,
+    "FDR": 0.0,
+    "Power": 0.8,
+    "Ordering_All_Important_FDR": 0.0,
+    "Ordering_All_Important_Power": 0.6,
+    "Ordering_Identified_Important_FDR": 0.0,
+    "Ordering_Identified_Important_Power": 0.75,
     "Average_Window_FDR": 0.0,
-    "Average_Window_Power": 0.9444444444444444,
+    "Average_Window_Power": 1.0,
     "Window_Overlap": {
       "1": 1.0,
       "3": 1.0,
       "5": 1.0,
-      "6": 0.8611111111111112,
-      "8": 1.0
+      "6": 1.0
     },
-    "Window_Important_FDR": 0.2857142857142857,
-    "Window_Important_Power": 1.0,
+    "Window_Important_FDR": 0.0,
+    "Window_Important_Power": 0.75,
     "Window_Ordering_Important_FDR": 0.0,
-    "Window_Ordering_Important_Power": 1.0,
-    "overall_scores_r2": 1.0,
-    "window_scores_r2": 1.0,
-    "overall_relevant_scores_r2": 1.0,
-    "window_relevant_scores_r2": 1.0
+    "Window_Ordering_Important_Power": 0.5,
+    "overall_scores_corr": 1.0,
+    "window_scores_corr": 1.0,
+    "overall_relevant_scores_corr": 1.0,
+    "window_relevant_scores_corr": 1.0
   }
 }

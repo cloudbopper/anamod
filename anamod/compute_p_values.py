@@ -11,7 +11,8 @@ def compute_empirical_p_value(baseline_mean_loss, perturbed_mean_loss, statistic
     """Compute Monte Carlo estimate of empirical permutation-based p-value"""
     if statistic == constants.MEAN_LOSS:
         sample_count = len(perturbed_mean_loss)
-        return (1 + sum(perturbed_mean_loss <= baseline_mean_loss)) / (1 + sample_count)  # Mean baseline loss should be smaller to reject null
+        # Mean baseline loss should be smaller to reject null
+        return (1 + sum(perturbed_mean_loss <= baseline_mean_loss + 1e-10)) / (1 + sample_count)
 
     # statistic == constants.CHANGE_MEAN_LOSS
     perturbed_statistics = np.zeros((perturbed_mean_loss.shape[0] - 1) // 2)
@@ -19,7 +20,8 @@ def compute_empirical_p_value(baseline_mean_loss, perturbed_mean_loss, statistic
     for pidx in range(perturbed_statistics.shape[0]):
         perturbed_statistics[pidx] = perturbed_mean_loss[2 * pidx + 1] - perturbed_mean_loss[2 * pidx + 2]
     sample_count = len(perturbed_statistics)
-    return (1 + sum(perturbed_statistics >= baseline_statistic)) / (1 + sample_count)  # Mean change in loss should be larger to reject null
+    # Mean change in loss should be larger to reject null
+    return (1 + sum(perturbed_statistics >= baseline_statistic + 1e-10)) / (1 + sample_count)
 
 
 def compute_p_value(baseline, perturbed, test=constants.PAIRED_TTEST, alternative=constants.TWOSIDED):
