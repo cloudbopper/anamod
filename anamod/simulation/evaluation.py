@@ -181,7 +181,7 @@ def evaluate_temporal(args, sfeatures, afeatures):
         overall_relevant_scores_corr = pearsonr(relevant_scores, relevant_inferred_scores)[0] if len(relevant_scores) >= 2 else 1
         window_relevant_scores_corr = pearsonr(relevant_window_scores, relevant_inferred_window_scores)[0] if len(relevant_window_scores) >= 2 else 1
 
-    return {FDR: 1 - imp_precision, POWER: imp_recall,
+    vals = {FDR: 1 - imp_precision, POWER: imp_recall,
             ORDERING_ALL_IMPORTANT_FDR: 1 - ordering_all_precision, ORDERING_ALL_IMPORTANT_POWER: ordering_all_recall,
             ORDERING_IDENTIFIED_IMPORTANT_FDR: 1 - ordering_identified_precision, ORDERING_IDENTIFIED_IMPORTANT_POWER: ordering_identified_recall,
             AVERAGE_WINDOW_FDR: 1 - avg_window_precision, AVERAGE_WINDOW_POWER: avg_window_recall,
@@ -190,6 +190,7 @@ def evaluate_temporal(args, sfeatures, afeatures):
             WINDOW_ORDERING_IMPORTANT_FDR: 1 - window_ordering_precision, WINDOW_ORDERING_IMPORTANT_POWER: window_ordering_recall,
             OVERALL_SCORES_CORR: overall_scores_corr, WINDOW_SCORES_CORR: window_scores_corr,
             OVERALL_RELEVANT_SCORES_CORR: overall_relevant_scores_corr, WINDOW_RELEVANT_SCORES_CORR: window_relevant_scores_corr}
+    return {key: value if isinstance(value, dict) else round(value, 10) for key, value in vals.items()}  # Round values to avoid FP discrepancies
 
 
 def get_precision_recall_interactions(args, relevant_feature_map, feature_id_map):
