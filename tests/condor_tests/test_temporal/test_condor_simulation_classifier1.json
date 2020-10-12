@@ -11,16 +11,16 @@
   },
   "model": {
     "windows": [
-      "(1, 18)",
-      "(0, 14)",
-      "(4, 10)",
-      "(17, 19)",
-      "(13, 19)",
-      "(14, 15)",
-      "(2, 19)",
-      "(8, 15)",
-      "(1, 15)",
-      "(5, 11)"
+      "(14, 17)",
+      "(3, 14)",
+      "(2, 11)",
+      "(15, 16)",
+      "(7, 19)",
+      "(1, 16)",
+      "(12, 19)",
+      "(10, 15)",
+      "(14, 16)",
+      "(2, 10)"
     ],
     "aggregation_fns": [
       "Slope",
@@ -52,7 +52,7 @@
       "6": 1.0
     },
     "Window_Important_FDR": 0.0,
-    "Window_Important_Power": 0.75,
+    "Window_Important_Power": 1.0,
     "Window_Ordering_Important_FDR": 0.0,
     "Window_Ordering_Important_Power": 0.5,
     "overall_scores_corr": 1.0,
