@@ -42,6 +42,9 @@ class ModelAnalyzer(ABC):
             num_shuffling_trials: int, default: {constants.DEFAULT_NUM_PERMUTATIONS}
                 Number of permutations to average over when using shuffling perturbations.
 
+            permutation_test_statistic: str, choices: {constants.CHOICES_TEST_STATISTICS}, default: {constants.MEAN_LOSS}
+                Test statistic to use for computing empirical p-values
+
             feature_names: list of strings, default: None
                 List of names to be used assigned to features.
 
@@ -138,6 +141,7 @@ class ModelAnalyzer(ABC):
         self.output_dir = self.process_keyword_arg("output_dir", constants.DEFAULT_OUTPUT_DIR)
         self.perturbation = constants.SHUFFLING  # Zeroing deprecated, possibly remove option
         self.num_shuffling_trials = self.process_keyword_arg("num_shuffling_trials", constants.DEFAULT_NUM_PERMUTATIONS)
+        self.permutation_test_statistic = self.process_keyword_arg("permutation_test_statistic", constants.MEAN_LOSS)
         self.feature_names = self.process_keyword_arg("feature_names", None)
         self.seed = self.process_keyword_arg("seed", constants.SEED)
         self.loss_function = self.process_keyword_arg("loss_function", None, constants.CHOICES_LOSS_FUNCTIONS)

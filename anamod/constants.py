@@ -56,7 +56,6 @@ MEAN_LOG_LOSS = "mean_log_loss"
 MEDIAN_LOSS = "median_loss"
 RELATIVE_MEAN_LOSS = "relative_mean_loss"
 SIGN_LOSS = "sign_loss"
-CHANGE_MEAN_LOSS = "change_mean_loss"  # FIXME: remove
 CHOICES_TEST_STATISTICS = [MEAN_LOSS, MEAN_LOG_LOSS, MEDIAN_LOSS, RELATIVE_MEAN_LOSS, SIGN_LOSS]
 
 

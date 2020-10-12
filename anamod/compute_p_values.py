@@ -7,21 +7,40 @@ from scipy.stats import find_repeats, rankdata, norm, ttest_rel
 from anamod import constants, utils
 
 
-def compute_empirical_p_value(baseline_mean_loss, perturbed_mean_loss, statistic=constants.MEAN_LOSS):
+def compute_empirical_p_value(baseline_loss, perturbed_loss, statistic):
     """Compute Monte Carlo estimate of empirical permutation-based p-value"""
+    num_instances, num_permutations = perturbed_loss.shape
     if statistic == constants.MEAN_LOSS:
-        sample_count = len(perturbed_mean_loss)
-        # Mean baseline loss should be smaller to reject null
-        return (1 + sum(perturbed_mean_loss <= baseline_mean_loss + 1e-10)) / (1 + sample_count)
-
-    # statistic == constants.CHANGE_MEAN_LOSS
-    perturbed_statistics = np.zeros((perturbed_mean_loss.shape[0] - 1) // 2)
-    baseline_statistic = perturbed_mean_loss[0] - baseline_mean_loss
-    for pidx in range(perturbed_statistics.shape[0]):
-        perturbed_statistics[pidx] = perturbed_mean_loss[2 * pidx + 1] - perturbed_mean_loss[2 * pidx + 2]
-    sample_count = len(perturbed_statistics)
-    # Mean change in loss should be larger to reject null
-    return (1 + sum(perturbed_statistics >= baseline_statistic + 1e-10)) / (1 + sample_count)
+        baseline_statistic = np.mean(baseline_loss)
+        perturbed_statistic = np.mean(perturbed_loss, axis=0)
+    elif statistic == constants.MEAN_LOG_LOSS:
+        baseline_statistic = np.mean(np.log(baseline_loss))
+        perturbed_statistic = np.mean(np.log(perturbed_loss), axis=0)
+    elif statistic == constants.MEDIAN_LOSS:
+        baseline_statistic = np.median(baseline_loss)
+        perturbed_statistic = np.median(perturbed_loss, axis=0)
+    elif statistic == constants.RELATIVE_MEAN_LOSS:
+        perturbed_statistic = np.zeros(num_permutations)
+        for kidx in range(num_permutations):
+            normalized_loss = np.divide(perturbed_loss[:, kidx], baseline_loss)
+            perturbed_statistic[kidx] = np.mean(normalized_loss)
+        baseline_statistic = 1
+    elif statistic == constants.SIGN_LOSS:
+        threshold = num_instances // 2
+        perturbed_statistic = np.zeros(num_permutations)
+        for kidx in range(num_permutations):
+            count = sum(perturbed_loss[:, kidx] > baseline_loss + 1e-10)
+            if count > threshold:
+                perturbed_statistic[kidx] = 1
+            elif count == threshold:
+                perturbed_statistic[kidx] = 0
+            else:
+                perturbed_statistic[kidx] = -1
+        baseline_statistic = 0
+    else:
+        raise ValueError(f"Unknown statistic {statistic}")
+    # Baseline statistic should be smaller to reject null
+    return (1 + sum(perturbed_statistic <= baseline_statistic + 1e-10)) / (1 + num_permutations)
 
 
 def compute_p_value(baseline, perturbed, test=constants.PAIRED_TTEST, alternative=constants.TWOSIDED):
