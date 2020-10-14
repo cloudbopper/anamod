@@ -8,7 +8,9 @@ import warnings
 import anytree
 from anytree.importer import JsonImporter
 import numpy as np
-from sklearn.metrics import balanced_accuracy_score, precision_recall_fscore_support, r2_score
+from scipy.stats import pearsonr
+from sklearn.metrics import balanced_accuracy_score, precision_recall_fscore_support
+from synmod.constants import REGRESSOR
 
 from anamod import constants
 from anamod.constants import FDR, POWER, BASE_FEATURES_FDR, BASE_FEATURES_POWER, INTERACTIONS_FDR, INTERACTIONS_POWER
@@ -16,9 +18,8 @@ from anamod.constants import ORDERING_ALL_IMPORTANT_FDR, ORDERING_ALL_IMPORTANT_
 from anamod.constants import ORDERING_IDENTIFIED_IMPORTANT_FDR, ORDERING_IDENTIFIED_IMPORTANT_POWER
 from anamod.constants import AVERAGE_WINDOW_FDR, AVERAGE_WINDOW_POWER, WINDOW_OVERLAP
 from anamod.constants import WINDOW_IMPORTANT_FDR, WINDOW_IMPORTANT_POWER, WINDOW_ORDERING_IMPORTANT_FDR, WINDOW_ORDERING_IMPORTANT_POWER
-from anamod.constants import OVERALL_SCORES_R2, WINDOW_SCORES_R2, OVERALL_RELEVANT_SCORES_R2, WINDOW_RELEVANT_SCORES_R2
+from anamod.constants import OVERALL_SCORES_CORR, WINDOW_SCORES_CORR, OVERALL_RELEVANT_SCORES_CORR, WINDOW_RELEVANT_SCORES_CORR
 from anamod.fdr import hierarchical_fdr_control
-from synmod.constants import REGRESSOR
 
 
 def compare_with_ground_truth(args, hierarchy_root):
@@ -62,7 +63,7 @@ def evaluate_hierarchical(args, relevant_feature_map, feature_id_map):
     Evaluate hierarchical analysis results - obtain power/FDR measures for all nodes/base features/interactions
     """
     # pylint: disable = too-many-locals
-    # TODO: Evaluate R2 scores
+    # TODO: Evaluate CORR scores
     def get_relevant_rejected(nodes, leaves=False):
         """Get set of relevant and rejected nodes"""
         if leaves:
@@ -77,10 +78,10 @@ def evaluate_hierarchical(args, relevant_feature_map, feature_id_map):
         nodes = list(anytree.PreOrderIter(tree))
         # All nodes FDR/power
         relevant, rejected = get_relevant_rejected(nodes)
-        precision, recall, _, _ = precision_recall_fscore_support(relevant, rejected, average="binary")
+        precision, recall, _, _ = precision_recall_fscore_support(relevant, rejected, average="binary", zero_division=1)
         # Base features FDR/power
         bf_relevant, bf_rejected = get_relevant_rejected(nodes, leaves=True)
-        bf_precision, bf_recall, _, _ = precision_recall_fscore_support(bf_relevant, bf_rejected, average="binary")
+        bf_precision, bf_recall, _, _ = precision_recall_fscore_support(bf_relevant, bf_rejected, average="binary", zero_division=1)
         # Interactions FDR/power
         interaction_precision, interaction_recall = get_precision_recall_interactions(args, relevant_feature_map, feature_id_map)
         return {FDR: 1 - precision, POWER: recall,
@@ -120,13 +121,14 @@ def evaluate_temporal(args, sfeatures, afeatures):
             window_ordering_important[idx] = sfeature.window_ordering_important
             ordering_important[idx] = sfeature.ordering_important
         # Inferred values
-        inferred_important[idx] = afeature.important  # Overall importance after performing FDR control
-        inferred_ordering_important[idx] = afeature.important and afeature.ordering_important
-        inferred_window_important[idx] = afeature.important and afeature.window_important
-        inferred_window_ordering_important[idx] = afeature.important and afeature.window_ordering_important
-        if afeature.important and afeature.temporal_window is not None:
-            left, right = afeature.temporal_window
-            inferred_windows[idx][left: right + 1] = 1
+        if afeature.important:
+            inferred_important[idx] = afeature.important  # Overall importance after performing FDR control
+            inferred_window_important[idx] = afeature.window_important
+            if afeature.temporal_window is not None:
+                left, right = afeature.temporal_window
+                inferred_windows[idx][left: right + 1] = 1
+            inferred_window_ordering_important[idx] = afeature.window_ordering_important
+            inferred_ordering_important[idx] = afeature.ordering_important
 
     # Get scores
     def get_precision_recall(true, inferred):
@@ -142,7 +144,7 @@ def evaluate_temporal(args, sfeatures, afeatures):
     window_ordering_precision, window_ordering_recall = get_precision_recall(window_ordering_important[tidx],
                                                                              inferred_window_ordering_important[tidx])
 
-    # Window metrics
+    # Window metrics for relevant features
     window_results = {}
     for idx, afeature in enumerate(afeatures):
         if not (afeature.important and sfeatures[idx].important):
@@ -163,27 +165,32 @@ def evaluate_temporal(args, sfeatures, afeatures):
     # Importance scores
     scores = [sfeature.effect_size for sfeature in sfeatures]
     inferred_scores = [afeature.overall_effect_size for afeature in afeatures]
-    inferred_window_scores = [afeature.window_effect_size for afeature in afeatures]
-    overall_scores_r2, window_scores_r2 = (1.0, 1.0)
+    window_scores = [sfeature.effect_size for idx, sfeature in enumerate(sfeatures) if afeatures[idx].window_important]
+    inferred_window_scores = [afeature.window_effect_size for afeature in afeatures if afeature.window_important]
+    overall_scores_corr, window_scores_corr = (1.0, 1.0)
     relevant_scores = [sfeature.effect_size for sfeature in sfeatures if sfeature.important]
     relevant_inferred_scores = [afeature.overall_effect_size for idx, afeature in enumerate(afeatures) if sfeatures[idx].important]
-    relevant_window_scores = [afeature.window_effect_size for idx, afeature in enumerate(afeatures) if sfeatures[idx].important]
-    overall_relevant_scores_r2, window_relevant_scores_r2 = (1.0, 1.0)
+    relevant_window_scores = [sfeature.effect_size for idx, sfeature in enumerate(sfeatures)
+                              if sfeature.important and afeatures[idx].window_important]
+    relevant_inferred_window_scores = [afeature.window_effect_size for idx, afeature in enumerate(afeatures)
+                                       if sfeatures[idx].important and afeatures[idx].window_important]
+    overall_relevant_scores_corr, window_relevant_scores_corr = (1.0, 1.0)
     if args.model_type == REGRESSOR:
-        overall_scores_r2 = r2_score(scores, inferred_scores)
-        window_scores_r2 = r2_score(scores, inferred_window_scores)
-        overall_relevant_scores_r2 = r2_score(relevant_scores, relevant_inferred_scores)
-        window_relevant_scores_r2 = r2_score(relevant_scores, relevant_window_scores)
+        overall_scores_corr = pearsonr(scores, inferred_scores)[0] if len(scores) >= 2 else 1
+        window_scores_corr = pearsonr(window_scores, inferred_window_scores)[0] if len(window_scores) >= 2 else 1
+        overall_relevant_scores_corr = pearsonr(relevant_scores, relevant_inferred_scores)[0] if len(relevant_scores) >= 2 else 1
+        window_relevant_scores_corr = pearsonr(relevant_window_scores, relevant_inferred_window_scores)[0] if len(relevant_window_scores) >= 2 else 1
 
-    return {FDR: 1 - imp_precision, POWER: imp_recall,
+    vals = {FDR: 1 - imp_precision, POWER: imp_recall,
             ORDERING_ALL_IMPORTANT_FDR: 1 - ordering_all_precision, ORDERING_ALL_IMPORTANT_POWER: ordering_all_recall,
             ORDERING_IDENTIFIED_IMPORTANT_FDR: 1 - ordering_identified_precision, ORDERING_IDENTIFIED_IMPORTANT_POWER: ordering_identified_recall,
             AVERAGE_WINDOW_FDR: 1 - avg_window_precision, AVERAGE_WINDOW_POWER: avg_window_recall,
             WINDOW_OVERLAP: window_overlaps,
             WINDOW_IMPORTANT_FDR: 1 - window_imp_precision, WINDOW_IMPORTANT_POWER: window_imp_recall,
             WINDOW_ORDERING_IMPORTANT_FDR: 1 - window_ordering_precision, WINDOW_ORDERING_IMPORTANT_POWER: window_ordering_recall,
-            OVERALL_SCORES_R2: overall_scores_r2, WINDOW_SCORES_R2: window_scores_r2,
-            OVERALL_RELEVANT_SCORES_R2: overall_relevant_scores_r2, WINDOW_RELEVANT_SCORES_R2: window_relevant_scores_r2}
+            OVERALL_SCORES_CORR: overall_scores_corr, WINDOW_SCORES_CORR: window_scores_corr,
+            OVERALL_RELEVANT_SCORES_CORR: overall_relevant_scores_corr, WINDOW_RELEVANT_SCORES_CORR: window_relevant_scores_corr}
+    return {key: value if isinstance(value, dict) else round(value, 10) for key, value in vals.items()}  # Round values to avoid FP discrepancies
 
 
 def get_precision_recall_interactions(args, relevant_feature_map, feature_id_map):

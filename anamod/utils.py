@@ -238,6 +238,7 @@ class CondorJobWrapper():
                     elif event_type == JobEventType.JOB_HELD:
                         hold_reason_code = event["HoldReasonCode"]
                         if hold_reason_code != 1:
+                            # TODO: investigate KeyError for HoldReason if reproducible
                             CondorJobWrapper.process_failure(job, event["HoldReason"], jobs,
                                                              retry=(job.retry_arbitrary_failures or hold_reason_code in CONDOR_HOLD_RETRY_CODES))
                 event_log.close()

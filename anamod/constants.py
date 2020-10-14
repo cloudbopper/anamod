@@ -51,8 +51,12 @@ LESS = "less"
 GREATER = "greater"
 TWOSIDED = "two-sided"
 # Permutation test statistics
-MEAN_LOSS = "mean-loss"
-CHANGE_MEAN_LOSS = "change-mean-loss"
+MEAN_LOSS = "mean_loss"
+MEAN_LOG_LOSS = "mean_log_loss"
+MEDIAN_LOSS = "median_loss"
+RELATIVE_MEAN_LOSS = "relative_mean_loss"
+SIGN_LOSS = "sign_loss"
+CHOICES_TEST_STATISTICS = [MEAN_LOSS, MEAN_LOG_LOSS, MEDIAN_LOSS, RELATIVE_MEAN_LOSS, SIGN_LOSS]
 
 
 # Interactions
@@ -91,14 +95,15 @@ WINDOW_IMPORTANT_FDR = "Window_Important_FDR"
 WINDOW_IMPORTANT_POWER = "Window_Important_Power"
 WINDOW_ORDERING_IMPORTANT_FDR = "Window_Ordering_Important_FDR"
 WINDOW_ORDERING_IMPORTANT_POWER = "Window_Ordering_Important_Power"
-OVERALL_SCORES_R2 = "overall_scores_r2"
-WINDOW_SCORES_R2 = "window_scores_r2"
-OVERALL_RELEVANT_SCORES_R2 = "overall_relevant_scores_r2"
-WINDOW_RELEVANT_SCORES_R2 = "window_relevant_scores_r2"
+OVERALL_SCORES_CORR = "overall_scores_corr"
+WINDOW_SCORES_CORR = "window_scores_corr"
+OVERALL_RELEVANT_SCORES_CORR = "overall_relevant_scores_corr"
+WINDOW_RELEVANT_SCORES_CORR = "window_relevant_scores_corr"
 SIMULATION_RESULTS = "simulation_results"
 SIMULATION_SUMMARY_FILENAME = "simulation_summary.json"
 SYNTHESIZED_FEATURES_FILENAME = "synthesized_features.cpkl"
 ANALYZED_FEATURES_FILENAME = "analyzed_features.cpkl"
+MODEL_WRAPPER_FILENAME = "model_wrapper.cpkl"
 
 # Trial (multiple simulations)
 DEFAULT = "DEFAULT"
