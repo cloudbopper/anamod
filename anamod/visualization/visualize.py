@@ -1,5 +1,6 @@
 """Functions to visualize data"""
 
+from collections import OrderedDict
 from functools import reduce
 import json
 from types import SimpleNamespace
@@ -81,15 +82,19 @@ def visualize_analysis(data, trial_type, analysis_type=TEMPORAL, plot_type=BOX):
         layout(fig, title="Average Window Overlap", xaxis_title=trial_type, yaxis_title="Average Overlap", plot_type=plot_type)
         fig.show()
     groups = GROUPS if ORDERING_ALL_IMPORTANT_FDR in results else LEGACY_GROUPS  # Backward-compatibility for old-style ordering results
+    means = {}
     for name, group in groups.items():  # Overall, Ordering, Window
         fig = go.Figure()
         for cat in group:  # FDR, Power
             x, y = ([], [])
+            key = f"{name}->{cat}"
+            means[key] = OrderedDict()
             # Add all values to the same list y, and corresponding param names in x (used to split by param)
             for param, values in results[cat].items():
                 y.extend(values)
                 param_name = get_param_name(param)
                 x.extend([param_name] * len(values))
+                means[key][param] = np.mean(values)
             if plot_type == BOX:
                 fig.add_trace(go.Box(x=x, y=y, hovertext=hovertext, legendgroup=cat, name=cat))
             else:
@@ -97,6 +102,7 @@ def visualize_analysis(data, trial_type, analysis_type=TEMPORAL, plot_type=BOX):
                                         legendgroup=cat, scalegroup=cat, name=cat))
         layout(fig, title=name, xaxis_title=trial_type, yaxis_title="Value", plot_type=plot_type)
         fig.show()
+    return means
 
 
 def layout(fig, title="", xaxis_title="", yaxis_title="", plot_type=BOX):
@@ -208,15 +214,16 @@ def visualize_scores_aux(sfeatures, afeatures, seq_type):
 def visualize_overlap(sfeatures, afeatures, seq_length):
     """Visualize window overlap with ground truth model"""
     # pylint: disable = invalid-name, too-many-locals
-    sns.set(rc={'figure.figsize': (20, 30), 'figure.dpi': 300,
-                'font.family': 'Serif', 'font.serif': 'Palatino',
-                'axes.labelsize': 24, 'xtick.labelsize': 16, 'ytick.labelsize': 24})
-
     # First sort features by decreasing order of ground truth effect
     sfeatures, afeatures = zip(*sorted(zip(sfeatures, afeatures),
                                        key=lambda pair: (pair[0].effect_size, pair[1].window_effect_size), reverse=True))
     max_idx = max(max(np.argwhere([sfeature.effect_size > 0 for sfeature in sfeatures])),
                   max(np.argwhere([afeature.window_effect_size > 0 for afeature in afeatures])))[0]
+
+    sns.set(rc={'figure.figsize': (20, max_idx), 'figure.dpi': 300,
+                'font.family': 'Serif', 'font.serif': 'Palatino',
+                'axes.labelsize': 24, 'xtick.labelsize': 20, 'ytick.labelsize': 20})
+
     sfeatures = sfeatures[:max_idx]
     afeatures = afeatures[:max_idx]
     num_features = len(afeatures)
@@ -226,7 +233,7 @@ def visualize_overlap(sfeatures, afeatures, seq_length):
     labels = [""] * (3 * num_features - 1)
     for idx, feature in enumerate(afeatures):
         # Ground truth values
-        labels[3 * idx] = "Ground truth"
+        labels[3 * idx] = f"$\\mathbf{{x_{{{feature.name}}}}}$"
         sfeature = sfeatures[idx]
         if sfeature.effect_size != 0:
             # Relevant feature
@@ -234,7 +241,7 @@ def visualize_overlap(sfeatures, afeatures, seq_length):
             data[3 * idx, left: right + 1] = sfeature.effect_size
             hatchdata[3 * idx, left: right + 1] = sfeature.window_ordering_important
         # Inferred values
-        labels[3 * idx + 1] = "Estimated"
+        labels[3 * idx + 1] = ""
         if feature.temporal_window:
             left, right = feature.temporal_window
             data[3 * idx + 1, left: right + 1] = max(0, feature.window_effect_size)
@@ -244,7 +251,7 @@ def visualize_overlap(sfeatures, afeatures, seq_length):
         if idx < num_features - 1:
             spacing[3 * idx + 2, :] = 1
     plt.figure()
-    ax = sns.heatmap(data, yticklabels=labels, xticklabels=np.arange(1, seq_length + 1),
+    ax = sns.heatmap(data,
                      mask=(data == 0), linewidth=2, linecolor="black", cmap="YlOrRd",
                      norm=LogNorm(vmin=data.min(), vmax=data.max()),
                      cbar_kws=dict(label="Importance Score"))
@@ -255,7 +262,13 @@ def visualize_overlap(sfeatures, afeatures, seq_length):
     ax.axvline(x=seq_length, color='black', linewidth=4)
     # Labels
     ax.set_xlabel("Timesteps")
-#     ax.set_ylabel("Relevant Features")
+    xticks = np.arange(1, seq_length + 1, 2)
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(xticks, fontdict=dict(horizontalalignment="right"), rotation="horizontal")
+    ax.set_ylabel("Features")
+    yticks = np.arange(1, 3 * max_idx, 1)
+    ax.set_yticks(yticks)
+    ax.set_yticklabels(labels, rotation="horizontal")
     # Hatch texture for ordering relevance
     x = np.arange(seq_length + 1)
     y = np.arange(3 * num_features)
