@@ -151,7 +151,7 @@ BASELINE_PREDICTIONS = "baseline_predictions"
 
 # Default values
 DEFAULT_OUTPUT_DIR = "anamod_outputs"
-DEFAULT_NUM_PERMUTATIONS = 10
+DEFAULT_NUM_PERMUTATIONS = 50
 AUTO = "auto"
 AUTO_R2 = 0.9  # R2 to aim for when auto-selecting noise
 

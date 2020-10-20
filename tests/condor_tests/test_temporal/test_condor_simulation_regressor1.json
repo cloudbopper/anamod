@@ -5,7 +5,7 @@
     "num_features": 10,
     "sequence_length": 20,
     "model_type": "Regressor",
-    "num_shuffling_trials": 10,
+    "num_shuffling_trials": 50,
     "noise_multiplier": 0.001,
     "sequences_independent_of_windows": false
   },
@@ -44,10 +44,10 @@
     "Ordering_Identified_Important_FDR": 0.0,
     "Ordering_Identified_Important_Power": 1.0,
     "Average_Window_FDR": 0.0,
-    "Average_Window_Power": 0.9246153846,
+    "Average_Window_Power": 0.94,
     "Window_Overlap": {
       "1": 1.0,
-      "3": 0.9615384615384616,
+      "3": 1.0,
       "5": 1.0,
       "6": 1.0,
       "8": 0.85
@@ -56,9 +56,9 @@
     "Window_Important_Power": 1.0,
     "Window_Ordering_Important_FDR": 0.0,
     "Window_Ordering_Important_Power": 1.0,
-    "overall_scores_corr": 0.9999984953,
-    "window_scores_corr": 0.9997325478,
-    "overall_relevant_scores_corr": 0.9999985139,
-    "window_relevant_scores_corr": 0.9997325478
+    "overall_scores_corr": 0.9999979559,
+    "window_scores_corr": 0.9999985969,
+    "overall_relevant_scores_corr": 0.9999975866,
+    "window_relevant_scores_corr": 0.9999985969
   }
 }

@@ -5,7 +5,7 @@
     "num_features": 30,
     "sequence_length": 20,
     "model_type": "Regressor",
-    "num_shuffling_trials": 10,
+    "num_shuffling_trials": 50,
     "noise_multiplier": 0.1,
     "sequences_independent_of_windows": false
   },
@@ -14,9 +14,9 @@
   },
   "results": {
     "FDR": 0.0,
-    "Power": 0.0,
+    "Power": 1.0,
     "Base_Features_FDR": 0.0,
-    "Base_Features_Power": 0.0,
+    "Base_Features_Power": 1.0,
     "Interactions_FDR": 1.0,
     "Interactions_Power": 0.0
   }
