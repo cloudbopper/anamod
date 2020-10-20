@@ -11,16 +11,16 @@
   },
   "model": {
     "windows": [
-      "(1, 18)",
-      "(0, 14)",
-      "(4, 10)",
-      "(17, 19)",
-      "(13, 19)",
-      "(14, 15)",
-      "(2, 19)",
-      "(8, 15)",
-      "(1, 15)",
-      "(5, 11)"
+      "(3, 18)",
+      "(5, 10)",
+      "(1, 10)",
+      "(7, 19)",
+      "(3, 11)",
+      "(7, 17)",
+      "(1, 10)",
+      "(0, 11)",
+      "(1, 10)",
+      "(7, 17)"
     ],
     "aggregation_fns": [
       "Slope",
@@ -37,28 +37,28 @@
     "polynomial": "0.820678762590906*beta*x_0 - 0.620017053224554*beta*x_2 - 0.430519899964703*beta*x_4 + 0.199824546264546*beta*x_7 + 0.991554208437103*beta*x_9 + 0.37630889518349*x_1 + 0.962957961254533*x_3 + 0.2585463394981*x_5 + 0.162072957560713*x_6 + 0.0704962107233014*x_8"
   },
   "results": {
-    "FDR": 0.1666666667,
+    "FDR": 0.0,
     "Power": 1.0,
-    "Ordering_All_Important_FDR": 0.1666666667,
+    "Ordering_All_Important_FDR": 0.0,
     "Ordering_All_Important_Power": 1.0,
-    "Ordering_Identified_Important_FDR": 0.1666666667,
+    "Ordering_Identified_Important_FDR": 0.0,
     "Ordering_Identified_Important_Power": 1.0,
     "Average_Window_FDR": 0.0,
-    "Average_Window_Power": 1.0,
+    "Average_Window_Power": 0.9246153846,
     "Window_Overlap": {
       "1": 1.0,
-      "3": 1.0,
+      "3": 0.9615384615384616,
       "5": 1.0,
       "6": 1.0,
-      "8": 1.0
+      "8": 0.85
     },
     "Window_Important_FDR": 0.0,
     "Window_Important_Power": 1.0,
     "Window_Ordering_Important_FDR": 0.0,
-    "Window_Ordering_Important_Power": 0.5,
-    "overall_scores_corr": 0.9999556536,
-    "window_scores_corr": 0.9999516144,
-    "overall_relevant_scores_corr": 0.9999565606,
-    "window_relevant_scores_corr": 0.9999516144
+    "Window_Ordering_Important_Power": 1.0,
+    "overall_scores_corr": 0.9999984953,
+    "window_scores_corr": 0.9997325478,
+    "overall_relevant_scores_corr": 0.9999985139,
+    "window_relevant_scores_corr": 0.9997325478
   }
 }

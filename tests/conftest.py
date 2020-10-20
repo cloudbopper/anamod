@@ -6,6 +6,9 @@ import pytest
 from anamod.constants import POLL_BASED_TRACKING, EVENT_LOG_TRACKING
 
 
+collect_ignore = ['setup.py']
+
+
 def pytest_addoption(parser):
     """Add command-line parameters"""
     parser.addoption("--shared-fs", action="store_true", help="Assume shared filesystem for condor")

@@ -148,7 +148,7 @@ def run_synmod(oargs):
         args.output_dir = os.path.abspath(job_dir) if args.shared_filesystem else os.path.basename(job_dir)
         for arg in ["output_dir", "num_features", "num_instances", "synthesis_type",
                     "fraction_relevant_features", "num_interactions", "include_interaction_only_features", "seed", "write_outputs",
-                    "sequence_length", "sequences_independent_of_windows", "model_type"]:
+                    "sequence_length", "sequences_independent_of_windows", "model_type", "standardize_features"]:
             cmd += f" -{arg} {args.__getattribute__(arg)}"
         args.logger.info(f"Running cmd: {cmd}")
         # Launch and monitor job
