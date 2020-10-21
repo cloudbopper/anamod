@@ -158,7 +158,7 @@ def evaluate_temporal(args, sfeatures, afeatures):
             # Leads to mismatch w.r.t. window power
             window_overlap = balanced_accuracy_score(windows[idx], inferred_windows[idx])
         window_results[idx] = {"precision": window_precision, "recall": window_recall, "overlap": window_overlap}
-    avg_window_precision = np.mean([result["precision"] for result in window_results.values()]) if window_results else 0.
+    avg_window_precision = np.mean([result["precision"] for result in window_results.values()]) if window_results else 1.
     avg_window_recall = np.mean([result["recall"] for result in window_results.values()]) if window_results else 0.
     window_overlaps = {idx: result["overlap"] for idx, result in window_results.items()}
 

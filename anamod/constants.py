@@ -104,6 +104,7 @@ SIMULATION_SUMMARY_FILENAME = "simulation_summary.json"
 SYNTHESIZED_FEATURES_FILENAME = "synthesized_features.cpkl"
 ANALYZED_FEATURES_FILENAME = "analyzed_features.cpkl"
 MODEL_WRAPPER_FILENAME = "model_wrapper.cpkl"
+TARGETS_FILENAME = "targets.npy"
 
 # Trial (multiple simulations)
 DEFAULT = "DEFAULT"
