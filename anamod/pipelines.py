@@ -41,19 +41,27 @@ class SerialPipeline():
             with open(features_filename, "rb") as features_file:
                 features.extend(cloudpickle.load(features_file))
 
+        self.fdr_control(features)
         return features
 
     def fdr_control(self, features):
         """Apply FDR control to features"""
         # TODO: better solution to unify hierarchical/temporal analysis FDR control
         if self.args.analysis_type == constants.HIERARCHICAL:
-            return
+            return  # Hierarchical FDR control performed separately
         pvalues = [feature.overall_pvalue for feature in features]
         adjusted_pvalues, rejected_hypotheses = bh_procedure(pvalues, self.args.importance_significance_level)
         for idx, feature in enumerate(features):
             feature.overall_pvalue = adjusted_pvalues[idx]
             if not rejected_hypotheses[idx]:
                 feature.important = False
+            else:
+                # Feature important overall; apply FDR control to tests for sequence ordering and window importance
+                adjusted_pvalues2, rejected_hypotheses2 = bh_procedure([feature.ordering_pvalue, feature.window_pvalue],
+                                                                        self.args.importance_significance_level)
+                feature.ordering_pvalue, feature.window_pvalue = adjusted_pvalues2
+                feature.ordering_important, feature.window_important = rejected_hypotheses2
+                feature.window_ordering_important &= feature.window_important
 
     def cleanup(self, job_dirs=None):
         """Clean intermediate files after completing pipeline"""

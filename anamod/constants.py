@@ -104,6 +104,7 @@ SIMULATION_SUMMARY_FILENAME = "simulation_summary.json"
 SYNTHESIZED_FEATURES_FILENAME = "synthesized_features.cpkl"
 ANALYZED_FEATURES_FILENAME = "analyzed_features.cpkl"
 MODEL_WRAPPER_FILENAME = "model_wrapper.cpkl"
+TARGETS_FILENAME = "targets.npy"
 
 # Trial (multiple simulations)
 DEFAULT = "DEFAULT"
@@ -151,7 +152,7 @@ BASELINE_PREDICTIONS = "baseline_predictions"
 
 # Default values
 DEFAULT_OUTPUT_DIR = "anamod_outputs"
-DEFAULT_NUM_PERMUTATIONS = 10
+DEFAULT_NUM_PERMUTATIONS = 50
 AUTO = "auto"
 AUTO_R2 = 0.9  # R2 to aim for when auto-selecting noise
 
