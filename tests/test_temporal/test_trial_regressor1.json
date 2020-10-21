@@ -8,7 +8,7 @@
     ],
     "analysis_type": "temporal",
     "start_seed": 1000,
-    "simulation_cmdline": "-analysis_type temporal -model_type regressor -sequence_length 10 -sequences_independent_of_windows 0 -perturbation shuffling -noise_type none -num_features 2 -fraction_relevant_features 0.5 -num_shuffling_trials 50 -num_interactions 0 -noise_multiplier 0.5 "
+    "simulation_cmdline": "-analysis_type temporal -model_type regressor -sequence_length 10 -sequences_independent_of_windows 0 -perturbation shuffling -noise_multiplier auto -num_features 2 -fraction_relevant_features 0.5 -num_shuffling_trials 50 -num_interactions 0 "
   },
   "config": {
     "analysis_type": {
@@ -73,12 +73,12 @@
     },
     "noise_multiplier": {
       "50": [
-        0.5,
-        0.5
+        1.1300656018557627,
+        0.2039259194860458
       ],
       "100": [
-        0.5,
-        0.5
+        1.1300656018557627,
+        0.2039259194860458
       ]
     },
     "sequences_independent_of_windows": {

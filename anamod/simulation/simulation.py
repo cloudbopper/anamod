@@ -253,9 +253,7 @@ def configure_synthesis_args(oargs):
         args.synthesis_type = constants.STATIC
     else:
         args.synthesis_type = constants.TEMPORAL
-    if args.noise_multiplier == constants.AUTO:
-        assert args.model_type == REGRESSOR, "Auto-selection of noise only available for regressor models"
-    else:
+    if args.noise_multiplier != constants.AUTO:
         try:
             args.noise_multiplier = float(args.noise_multiplier)
         except ValueError:
@@ -266,14 +264,28 @@ def configure_synthesis_args(oargs):
 
 def noise_selection(args, data, targets, model):
     """Select noise multiplier based on desired regressor performance if auto-selection invoked"""
+    # pylint: disable = protected-access
     if args.noise_multiplier != constants.AUTO:
         return float(args.noise_multiplier)
-    targets_mean = np.mean(targets)
-    sum_of_squares_total = sum((targets - targets_mean)**2)
-    sum_of_residuals_scaled = sum((targets - model.predict(data, noise=1))**2)
-    args.noise_multiplier = np.sqrt(sum_of_squares_total * (1 - constants.AUTO_R2) / sum_of_residuals_scaled)
-    args.logger.info(f"Auto-selected noise multiplier {args.noise_multiplier} "
-                     f"to yield R2 score {r2_score(targets, model.predict(data, noise=args.noise_multiplier))}")
+    if args.model_type == REGRESSOR:
+        targets_mean = np.mean(targets)
+        sum_of_squares_total = sum((targets - targets_mean)**2)
+        sum_of_residuals_scaled = sum((targets - model.predict(data, noise=1))**2)
+        args.noise_multiplier = np.sqrt(sum_of_squares_total * (1 - constants.AUTO_R2) / sum_of_residuals_scaled)
+        args.logger.info(f"Auto-selected noise multiplier {args.noise_multiplier} "
+                         f"to yield R2 score {r2_score(targets, model.predict(data, noise=args.noise_multiplier))}")
+    else:
+        agg_data_t = model._aggregator.operate(data).transpose()
+        targets = model.predict(data, labels=True) if args.loss_target_values != constants.LABELS else targets
+        noise_multipliers = np.arange(0.01, 1, 0.01)
+        accuracies = np.zeros(noise_multipliers.shape[0])
+        for idx, noise_multiplier in enumerate(noise_multipliers):
+            accuracies[idx] = sum(targets == (model._polynomial_fn(agg_data_t, noise_multiplier) - model._threshold > 0)) / args.num_instances
+        acc_diff = np.abs(accuracies - constants.AUTO_R2)
+        best_idx = np.argmin(acc_diff)
+        args.noise_multiplier = noise_multipliers[best_idx]
+        args.logger.info(f"Auto-selected noise multiplier {args.noise_multiplier} "
+                         f"to yield accuracy {accuracies[best_idx]}")
     return args.noise_multiplier
 
 
