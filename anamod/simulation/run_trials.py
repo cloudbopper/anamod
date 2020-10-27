@@ -26,6 +26,7 @@ class Simulation():
         self.param = param
         self.popen = popen
         self.complete = False
+        self.attempt = 1
 
     def __hash__(self):
         return hash(self.cmd)
@@ -134,11 +135,17 @@ class Trial():  # pylint: disable = too-many-instance-attributes
         for sim in copy(self.running_sims):
             returncode = sim.popen.poll()
             if returncode is not None:
+                if returncode != 0:
+                    assert not os.path.isfile(f"{sim.output_dir}/{constants.SIMULATION_SUMMARY_FILENAME}")
+                    if sim.attempt < constants.MAX_ATTEMPTS:
+                        sim.attempt += 1
+                        self.logger.warning(f"Simulation {sim.cmd} failed; re-attempting ({sim.attempt} of {constants.MAX_ATTEMPTS})")
+                        sim.popen = subprocess.Popen(sim.cmd, shell=True)
+                        continue
+                    self.logger.error(f"Simulation {sim.cmd} failed; reached max attempts ({constants.MAX_ATTEMPTS}); see logs in {sim.output_dir}")
+                    self.error = True
                 self.running_sims.remove(sim)
                 sim_count -= 1
-                if returncode != 0:
-                    self.logger.error(f"Simulation {sim.cmd} failed; see logs in {sim.output_dir}")
-                    self.error = True
         if not self.running_sims:
             if self.error:
                 self.logger.error(f"run_simulations.py failed, see log at {self.output_dir}")

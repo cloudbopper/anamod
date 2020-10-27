@@ -1,5 +1,6 @@
 """Serial and distributed (condor) perturbation pipelines"""
 
+from collections import OrderedDict
 import copy
 import glob
 import math
@@ -137,9 +138,16 @@ class CondorPipeline(SerialPipeline):
         self.write_features()
         jobs = self.setup_jobs()
         if not self.args.compile_results_only:
-            for job in jobs:
-                job.run()
-            CondorJobWrapper.monitor(jobs, cleanup=self.args.cleanup)
+            running_jobs = OrderedDict.fromkeys(jobs)
+            for idx, job in enumerate(jobs):
+                features_filename = constants.OUTPUT_FEATURES_FILENAME.format(job.job_dir, idx)
+                if os.path.isfile(features_filename):
+                    # Outputs computed previously, do not rerun job
+                    # TODO: maybe add option to toggle reusing old results
+                    running_jobs.pop(job)
+                else:
+                    job.run()
+            CondorJobWrapper.monitor(list(running_jobs.keys()), cleanup=self.args.cleanup)
         job_dirs = [job.job_dir for job in jobs]
         results = self.compile_results(job_dirs)
         self.cleanup(job_dirs)

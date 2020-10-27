@@ -56,8 +56,6 @@ def main():
     common.add_argument("-retry_arbitrary_failures", type=strtobool, default=True)
     common.add_argument("-synthesis_dir", help="Directory for synthesized data. If none provided, will be set as {output_dir}/synthesis")
     common.add_argument("-synthesize_only", type=strtobool, default=False, help="Synthesize data and stop (skip analysis/evaluation)")
-    common.add_argument("-analyze_only", type=strtobool, default=False,
-                        help="Skip synthesis assuming already done and proceed with analysis/evaluation")
     common.add_argument("-evaluate_only", type=strtobool, default=False, help="Assume results already exist and rerun evaluation")
     # Hierarchical feature importance analysis arguments
     hierarchical = parser.add_argument_group("Hierarchical feature analysis arguments")
@@ -82,8 +80,8 @@ def main():
 
     args, pass_args = parser.parse_known_args()
     validate_args(args)
-    if args.analyze_only or args.evaluate_only:
-        assert args.analysis_type != constants.HIERARCHICAL, "-analyze_only and -evaluate_only not currently supported with hierarchical analysis"
+    if args.evaluate_only:
+        assert args.analysis_type != constants.HIERARCHICAL, "-evaluate_only not currently supported with hierarchical analysis"
     if not args.output_dir:
         args.output_dir = ("sim_outputs_inst_%d_feat_%d_noise_%.3f_relfraction_%.3f_pert_%s_shufftrials_%d" %
                            (args.num_instances, args.num_features, args.noise_multiplier,
@@ -112,11 +110,12 @@ def synthesize(args):
     """Synthesize data and model"""
     if args.evaluate_only:
         return (None, None, None, None)
-    if args.analyze_only:
-        # Synthesized/intermediate files already generated
+    try:
+        # Load synthesized/intermediate files if already generated
+        # TODO: maybe add option to toggle reusing old generated files
         synthesized_features, data, _ = read_synthesized_inputs(args.synthesis_dir)
         model_wrapper, targets = read_intermediate_inputs(args.synthesis_dir)
-    else:
+    except FileNotFoundError:
         synthesized_features, data, model = run_synmod(args)
         targets = model.predict(data, labels=True) if args.loss_target_values == constants.LABELS else model.predict(data)
         noise_multiplier = noise_selection(args, data, targets, model)
