@@ -21,7 +21,7 @@ CHOICES_WINDOW_SEARCH_ALGORITHM = {EFFECT_SIZE}  # {EFFECT_SIZE, IMPORTANCE_TEST
 POLL_BASED_TRACKING = "poll_based_tracking"
 EVENT_LOG_TRACKING = "event_log_tracking"
 CONDOR_MAX_RUNNING_TIME = 24 * 3600
-CONDOR_MAX_WAIT_TIME = 600  # Time to wait for job to start running before retrying
+CONDOR_MAX_WAIT_TIME = 1200  # Time to wait for job to start running before retrying
 CONDOR_MAX_RETRIES = 50
 # Reference: https://htcondor.readthedocs.io/en/latest/classad-attributes/job-classad-attributes.html
 CONDOR_HOLD_RETRY_CODES = set([6, 7, 8, 9, 10, 11, 12, 13, 14])
@@ -121,6 +121,7 @@ CONFIG_HIERARCHICAL = "config_run_simulations_hierarchical.ini"
 CONFIG_TEMPORAL = "config_run_simulations_temporal.ini"
 ALL_TRIALS_SUMMARY_FILENAME = "all_trials_summary.json"
 CONFIG, MODEL, RESULTS = ("config", "model", "results")  # simulation output JSON categories
+MAX_ATTEMPTS = 10
 
 # Hierarchical FDR
 HIERARCHICAL_FDR_DIR = "hierarchical_fdr_results"

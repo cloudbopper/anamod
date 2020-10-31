@@ -161,10 +161,23 @@ class CondorJobWrapper():
             except FileNotFoundError:
                 pass
         # Run job
-        schedd = htcondor.Schedd()
-        self.cluster_id = CondorJobWrapper.condor_schedd_interact(schedd, QUEUE, job=self.job)
+        error_count = 0
+        while error_count < CONDOR_MAX_ERROR_COUNT:
+            schedd = htcondor.Schedd()
+            self.cluster_id = CondorJobWrapper.condor_schedd_interact(schedd, QUEUE, job=self.job)
+            if self.cluster_id is None:
+                error_count += 1
+                CondorJobWrapper.logger.warning(f"Failed to submit job: {self.name}; cmd: {self.cmd};"
+                                                f" attempt: {error_count} out of max {CONDOR_MAX_ERROR_COUNT}")
+                time.sleep(60)
+                continue
+            break
+        if error_count == CONDOR_MAX_ERROR_COUNT:
+            error_message = f"Failed to submit job: {self.name}; cmd: {self.cmd}; after {CONDOR_MAX_ERROR_COUNT} attempts"
+            CondorJobWrapper.logger.error(error_message)
+            raise CondorJobFailure(error_message)
+        CondorJobWrapper.logger.info(f"Submitted job: {self.name}; cmd: {self.cmd}; attempt: {self.tries}; cluster ID: {self.cluster_id}")
         self.tries += 1
-        CondorJobWrapper.logger.info(f"Launched job: {self.name}; cmd: {self.cmd}; attempt: {self.tries}; cluster ID: {self.cluster_id}")
         self.running = False
         self.submit_time = time.time()
 
@@ -216,7 +229,8 @@ class CondorJobWrapper():
                                                         f"{job.filenames.log_filename}, retrying after pause; error: {error}")
                         job.error_count += 1
                         continue
-                    print(f"Failed {CONDOR_MAX_ERROR_COUNT} times", file=sys.stderr)
+                    CondorJobWrapper.logger.error(f"Job {job.name}: failed to open log"
+                                                  f" {job.filenames.log_filename} in {CONDOR_MAX_ERROR_COUNT} attempts")
                     raise
                 for event in events:
                     event_type = event.type
@@ -265,7 +279,7 @@ class CondorJobWrapper():
                     error_count += 1
                     time.sleep(60)
                     continue
-                print(f"Failed {CONDOR_MAX_ERROR_COUNT} times", file=sys.stderr)
+                CondorJobWrapper.logger.error(f"Failed to query scheduler in {CONDOR_MAX_ERROR_COUNT} attempts")
                 raise
             query_classads = {classad["ClusterId"]: classad for classad in query_responses}
             history_classads = {classad["ClusterId"]: classad for classad in history_responses}
@@ -336,6 +350,7 @@ class CondorJobWrapper():
     @staticmethod
     def remove_jobs(jobs, reason=None):
         """Remove jobs from condor queue"""
+        # TODO: do we need to handle scheduler failure here?
         schedd = htcondor.Schedd()
         for job in jobs:
             CondorJobWrapper.condor_schedd_interact(schedd, REMOVE, job_spec=f"ClusterId=={job.cluster_id}", reason=reason)
@@ -345,26 +360,21 @@ class CondorJobWrapper():
         """Wrapper around condor scheduler interactions to catch/deal with potential errors"""
         # pylint: disable = too-many-arguments
         output = None
-        error_count = 0
-        while error_count < CONDOR_MAX_ERROR_COUNT:
-            try:
-                if action == QUEUE:
-                    assert job is not None
-                    with schedd.transaction() as txn:
-                        output = job.queue(txn)  # cluster ID
-                elif action == REMOVE:
-                    assert job_spec is not None
-                    schedd.act(JobAction.Remove, job_spec, reason=reason)
-                elif action == QUERY:
-                    output = list(schedd.xquery("true", ["ClusterId", "JobStatus", "ExitCode", "HoldReason", "HoldReasonCode"]))
-                elif action == HISTORY:
-                    output = list(schedd.history("true", ["ClusterId", "JobStatus", "ExitCode", "HoldReason", "HoldReasonCode"]))
-                else:
-                    raise ValueError(f"Condor scheduler action {action} not understood")
-                break
-            except RuntimeError as error:
-                CondorJobWrapper.logger.warning(f"Retrying condor scheduler action '{action}' after a pause after "
-                                                f"encountering error no. {error_count} (max {CONDOR_MAX_ERROR_COUNT}): {error}")
-                error_count += 1
-                time.sleep(30)
+        try:
+            if action == QUEUE:
+                assert job is not None
+                with schedd.transaction() as txn:
+                    output = job.queue(txn)  # cluster ID
+            elif action == REMOVE:
+                assert job_spec is not None
+                schedd.act(JobAction.Remove, job_spec, reason=reason)
+            elif action == QUERY:
+                output = list(schedd.xquery("true", ["ClusterId", "JobStatus", "ExitCode", "HoldReason", "HoldReasonCode"]))
+            elif action == HISTORY:
+                output = list(schedd.history("true", ["ClusterId", "JobStatus", "ExitCode", "HoldReason", "HoldReasonCode"]))
+            else:
+                raise ValueError(f"Condor scheduler action {action} not understood")
+        except RuntimeError as error:
+            CondorJobWrapper.logger.warning(f"Condor scheduler action '{action}' failed: {error}")
+            output = None  # To ensure failure is recognized upstream
         return output

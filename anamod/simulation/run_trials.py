@@ -25,6 +25,8 @@ class Simulation():
         self.output_dir = output_dir
         self.param = param
         self.popen = popen
+        self.complete = False
+        self.attempt = 1
 
     def __hash__(self):
         return hash(self.cmd)
@@ -33,13 +35,15 @@ class Simulation():
 class Trial():  # pylint: disable = too-many-instance-attributes
     """Class that parametrizes, runs, monitors, and analyzes a group of simulations"""
     # pylint: disable = too-many-arguments, attribute-defined-outside-init
-    def __init__(self, seed, sim_type, analysis_type, output_dir, summarize_only, reevaluate, pass_args):
+    def __init__(self, seed, sim_type, analysis_type, output_dir, summarize_only,
+                 reevaluate, max_simulation_count, pass_args):
         self.seed = seed
         self.type = sim_type
         self.analysis_type = analysis_type
         self.output_dir = output_dir
         self.summarize_only = summarize_only
         self.reevaluate = reevaluate
+        self.max_simulation_count = max_simulation_count
         self.pass_args = pass_args
         self.setup_simulations()
 
@@ -55,7 +59,6 @@ class Trial():  # pylint: disable = too-many-instance-attributes
         self.logger.info(f"Trial for seed {self.seed}: Begin running/analyzing simulations")
         self.config, self.test_param = self.load_config()
         self.synthesis_sim = None  # Simulation that synthesizes data/model, before performing analysis for different parameter values
-        self.synthesis_complete = False
         self.simulations = self.parametrize_simulations()
         self.error = False  # Flag to indicate if any simulation failed
         self.running_sims = set()  # Set of simulations running concurrently
@@ -94,6 +97,8 @@ class Trial():  # pylint: disable = too-many-instance-attributes
             synthesis_dir = f"{self.output_dir}/synthesis"
             cmd = base_cmd + f" -num_instances {max_instance_count} -output_dir {synthesis_dir} -synthesis_dir {synthesis_dir} -synthesize_only 1"
             self.synthesis_sim = Simulation(cmd, dir, f"{max_instance_count}-synthesis")
+            if os.path.isfile(f"{synthesis_dir}/{constants.SIMULATION_SUMMARY_FILENAME}"):
+                self.synthesis_sim.complete = True
         for value in values:
             output_dir = f"{self.output_dir}/{self.type}_{value}"
             cmd = base_cmd + f" -output_dir {output_dir}"
@@ -101,45 +106,59 @@ class Trial():  # pylint: disable = too-many-instance-attributes
             if synthesis_dir:
                 cmd += f" -synthesis_dir {synthesis_dir} -analyze_only 1"
             sims.append(Simulation(cmd, output_dir, value))
+            if os.path.isfile(f"{output_dir}/{constants.SIMULATION_SUMMARY_FILENAME}"):
+                sims[-1].complete = True
         return sims
 
     def run_simulations(self):
         """Runs simulations in parallel"""
         if self.summarize_only and not self.reevaluate:
             return  # Skip running the simulations and proceed to analysis (assuming the results are already generated)
-        if self.synthesis_sim and not self.synthesis_complete:
+        if self.synthesis_sim and not self.synthesis_sim.complete:
             self.logger.info(f"Running synthesis simulation: '{self.synthesis_sim.cmd}'")
             self.synthesis_sim.popen = subprocess.Popen(self.synthesis_sim.cmd, shell=True)
             self.running_sims.add(self.synthesis_sim)
         else:
             for sim in self.simulations:
                 # TODO: Write this in a log file inside the trial directory instead of global log
-                self.logger.info(f"Running simulation: '{sim.cmd}'")
                 if self.reevaluate:
                     # Run serially
                     subprocess.run(sim.cmd, shell=True, check=True)
-                else:
+                elif not sim.complete:
+                    self.logger.info(f"Running simulation: '{sim.cmd}'")
                     sim.popen = subprocess.Popen(sim.cmd, shell=True)
                     self.running_sims.add(sim)
 
-    def monitor_simulations(self):
+    def monitor_simulations(self, concurrent_simulation_count):
         """Monitor simulation progress and returns completion status"""
+        sim_count = len(self.running_sims)
         for sim in copy(self.running_sims):
             returncode = sim.popen.poll()
             if returncode is not None:
-                self.running_sims.remove(sim)
                 if returncode != 0:
-                    self.logger.error(f"Simulation {sim.cmd} failed; see logs in {sim.output_dir}")
+                    assert not os.path.isfile(f"{sim.output_dir}/{constants.SIMULATION_SUMMARY_FILENAME}")
+                    if sim.attempt < constants.MAX_ATTEMPTS:
+                        sim.attempt += 1
+                        self.logger.warning(f"Simulation {sim.cmd} failed; re-attempting ({sim.attempt} of {constants.MAX_ATTEMPTS})")
+                        sim.popen = subprocess.Popen(sim.cmd, shell=True)
+                        continue
+                    self.logger.error(f"Simulation {sim.cmd} failed; reached max attempts ({constants.MAX_ATTEMPTS}); see logs in {sim.output_dir}")
                     self.error = True
+                self.running_sims.remove(sim)
+                sim_count -= 1
         if not self.running_sims:
-            assert not self.error, f"run_simulations.py failed, see log at {self.output_dir}"
-            if self.synthesis_sim and not self.synthesis_complete:
-                self.synthesis_complete = True
-                self.run_simulations()
+            if self.error:
+                self.logger.error(f"run_simulations.py failed, see log at {self.output_dir}")
+                return True, 0
+            if self.synthesis_sim and not self.synthesis_sim.complete:
+                if concurrent_simulation_count < self.max_simulation_count:
+                    self.synthesis_sim.complete = True
+                    self.run_simulations()
+                    sim_count = len(self.running_sims)
             else:
                 self.analyze_simulations()
-                return True
-        return False
+                return True, 0
+        return False, sim_count
 
     def analyze_simulations(self):
         """Collate and analyze simulation results"""
@@ -217,7 +236,8 @@ def gen_trials(args):
     trials = set()
     for seed in range(args.start_seed, args.start_seed + args.num_trials):
         output_dir = "%s/trial_%s_%d" % (args.output_dir, args.type, seed)
-        trials.add(Trial(seed, args.type, args.analysis_type, output_dir, args.summarize_only, args.reevaluate, args.pass_args))
+        trials.add(Trial(seed, args.type, args.analysis_type, output_dir, args.summarize_only,
+                         args.reevaluate, args.max_concurrent_simulations, args.pass_args))
     return trials
 
 
@@ -228,11 +248,12 @@ def run_trials(args, trials):
     waiting_trials = copy(trials)  # Trials that haven't yet started
     unfinished_trials = copy(trials)  # Trials that haven't finished for whatever reason
     while unfinished_trials:
-        concurrent_simulation_count = 0
+        concurrent_simulation_count = sum([len(trial.running_sims) for trial in running_trials])
         # Monitor running trials and determine available slots
         for trial in copy(running_trials):
-            concurrent_simulation_count += len(trial.simulations)
-            completed = trial.monitor_simulations()
+            concurrent_simulation_count -= len(trial.running_sims)
+            completed, sim_count = trial.monitor_simulations(concurrent_simulation_count)
+            concurrent_simulation_count += sim_count
             if completed:
                 running_trials.remove(trial)
                 unfinished_trials.remove(trial)
@@ -242,7 +263,7 @@ def run_trials(args, trials):
                 trial.run_simulations()
                 waiting_trials.remove(trial)
                 running_trials.add(trial)
-                concurrent_simulation_count += len(trial.simulations)
+                concurrent_simulation_count += len(trial.running_sims)
         if not unfinished_trials:
             break  # All trials completed, don't need to wait
         time.sleep(args.trial_wait_period)  # Wait before resuming monitoring/launching trials
@@ -250,7 +271,7 @@ def run_trials(args, trials):
     error = False
     for trial in trials:
         if trial.error:
-            args.logger.error(f"Trial {trial.cmd} failed; see logs in {trial.output_dir}")
+            args.logger.error(f"Trial with seed {trial.seed} failed; see logs in {trial.output_dir}")
             error = True
     assert not error, f"run_trials.py failed, see log at {args.output_dir}"
 

@@ -56,8 +56,6 @@ def main():
     common.add_argument("-retry_arbitrary_failures", type=strtobool, default=True)
     common.add_argument("-synthesis_dir", help="Directory for synthesized data. If none provided, will be set as {output_dir}/synthesis")
     common.add_argument("-synthesize_only", type=strtobool, default=False, help="Synthesize data and stop (skip analysis/evaluation)")
-    common.add_argument("-analyze_only", type=strtobool, default=False,
-                        help="Skip synthesis assuming already done and proceed with analysis/evaluation")
     common.add_argument("-evaluate_only", type=strtobool, default=False, help="Assume results already exist and rerun evaluation")
     # Hierarchical feature importance analysis arguments
     hierarchical = parser.add_argument_group("Hierarchical feature analysis arguments")
@@ -82,8 +80,8 @@ def main():
 
     args, pass_args = parser.parse_known_args()
     validate_args(args)
-    if args.analyze_only or args.evaluate_only:
-        assert args.analysis_type != constants.HIERARCHICAL, "-analyze_only and -evaluate_only not currently supported with hierarchical analysis"
+    if args.evaluate_only:
+        assert args.analysis_type != constants.HIERARCHICAL, "-evaluate_only not currently supported with hierarchical analysis"
     if not args.output_dir:
         args.output_dir = ("sim_outputs_inst_%d_feat_%d_noise_%.3f_relfraction_%.3f_pert_%s_shufftrials_%d" %
                            (args.num_instances, args.num_features, args.noise_multiplier,
@@ -102,7 +100,7 @@ def pipeline(args, pass_args):
     args.logger.info("Begin anamod simulation with args: %s" % args)
     synthesized_features, data, model_wrapper, targets = synthesize(args)
     analyzed_features, hierarchy_root, feature_id_map = analyze(args, pass_args, synthesized_features, data, model_wrapper, targets)
-    results = evaluate(args, synthesized_features, model_wrapper, analyzed_features, hierarchy_root, feature_id_map)
+    results, model_wrapper = evaluate(args, synthesized_features, model_wrapper, analyzed_features, hierarchy_root, feature_id_map)
     summary = write_summary(args, model_wrapper, results)
     args.logger.info("End anamod simulation")
     return summary
@@ -112,11 +110,12 @@ def synthesize(args):
     """Synthesize data and model"""
     if args.evaluate_only:
         return (None, None, None, None)
-    if args.analyze_only:
-        # Synthesized/intermediate files already generated
+    try:
+        # Load synthesized/intermediate files if already generated
+        # TODO: maybe add option to toggle reusing old generated files
         synthesized_features, data, _ = read_synthesized_inputs(args.synthesis_dir)
         model_wrapper, targets = read_intermediate_inputs(args.synthesis_dir)
-    else:
+    except FileNotFoundError:
         synthesized_features, data, model = run_synmod(args)
         targets = model.predict(data, labels=True) if args.loss_target_values == constants.LABELS else model.predict(data)
         noise_multiplier = noise_selection(args, data, targets, model)
@@ -175,7 +174,7 @@ def evaluate(args, synthesized_features, model_wrapper, analyzed_features, hiera
     """Evaluate results of analysis"""
     # pylint: disable = too-many-arguments
     if args.synthesize_only:
-        return None
+        return (None, model_wrapper)
     if args.evaluate_only:
         synthesized_features, model_wrapper, analyzed_features = read_outputs(args.output_dir)
     else:
@@ -188,7 +187,7 @@ def evaluate(args, synthesized_features, model_wrapper, analyzed_features, hiera
     else:
         # TODO: should have similar mode of parsing outputs for both analyses
         results = evaluation.evaluate_temporal(args, synthesized_features, analyzed_features)
-    return results
+    return results, model_wrapper
 
 
 def read_outputs(output_dir):
@@ -253,9 +252,7 @@ def configure_synthesis_args(oargs):
         args.synthesis_type = constants.STATIC
     else:
         args.synthesis_type = constants.TEMPORAL
-    if args.noise_multiplier == constants.AUTO:
-        assert args.model_type == REGRESSOR, "Auto-selection of noise only available for regressor models"
-    else:
+    if args.noise_multiplier != constants.AUTO:
         try:
             args.noise_multiplier = float(args.noise_multiplier)
         except ValueError:
@@ -266,14 +263,28 @@ def configure_synthesis_args(oargs):
 
 def noise_selection(args, data, targets, model):
     """Select noise multiplier based on desired regressor performance if auto-selection invoked"""
+    # pylint: disable = protected-access
     if args.noise_multiplier != constants.AUTO:
         return float(args.noise_multiplier)
-    targets_mean = np.mean(targets)
-    sum_of_squares_total = sum((targets - targets_mean)**2)
-    sum_of_residuals_scaled = sum((targets - model.predict(data, noise=1))**2)
-    args.noise_multiplier = np.sqrt(sum_of_squares_total * (1 - constants.AUTO_R2) / sum_of_residuals_scaled)
-    args.logger.info(f"Auto-selected noise multiplier {args.noise_multiplier} "
-                     f"to yield R2 score {r2_score(targets, model.predict(data, noise=args.noise_multiplier))}")
+    if args.model_type == REGRESSOR:
+        targets_mean = np.mean(targets)
+        sum_of_squares_total = sum((targets - targets_mean)**2)
+        sum_of_residuals_scaled = sum((targets - model.predict(data, noise=1))**2)
+        args.noise_multiplier = np.sqrt(sum_of_squares_total * (1 - constants.AUTO_R2) / sum_of_residuals_scaled)
+        args.logger.info(f"Auto-selected noise multiplier {args.noise_multiplier} "
+                         f"to yield R2 score {r2_score(targets, model.predict(data, noise=args.noise_multiplier))}")
+    else:
+        agg_data_t = model._aggregator.operate(data).transpose()
+        targets = model.predict(data, labels=True) if args.loss_target_values != constants.LABELS else targets
+        noise_multipliers = np.arange(0.01, 1, 0.01)
+        accuracies = np.zeros(noise_multipliers.shape[0])
+        for idx, noise_multiplier in enumerate(noise_multipliers):
+            accuracies[idx] = sum(targets == (model._polynomial_fn(agg_data_t, noise_multiplier) - model._threshold > 0)) / args.num_instances
+        acc_diff = np.abs(accuracies - constants.AUTO_R2)
+        best_idx = np.argmin(acc_diff)
+        args.noise_multiplier = noise_multipliers[best_idx]
+        args.logger.info(f"Auto-selected noise multiplier {args.noise_multiplier} "
+                         f"to yield accuracy {accuracies[best_idx]}")
     return args.noise_multiplier
 
 
