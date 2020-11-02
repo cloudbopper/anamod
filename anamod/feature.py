@@ -18,7 +18,7 @@ class Feature(anytree.Node):
         self.perturbable = kwargs.get("perturbable", True)  # TODO: Use or discard
         # TODO: (Verify) Could initialize the RNG right away, since cloudpickle should still be able to pickle it
         self._rng_seed = xxhash.xxh32_intdigest(name)
-        self.rng = None  # RNG used for shuffling this feature - see perturbations.py: 'feature.rng'
+        self.rng = None  # RNG used for permuting this feature - see perturbations.py: 'feature.rng'
         # p-value attributes
         self.overall_pvalue = 1.
         self.ordering_pvalue = 1.
@@ -46,7 +46,7 @@ class Feature(anytree.Node):
         self._rng_seed = seed
 
     def initialize_rng(self):
-        """Initialize random number generator for feature (used for shuffling perturbations)"""
+        """Initialize random number generator for feature (used for permutations)"""
         self.rng = np.random.default_rng(self._rng_seed)
 
     def uniquify(self, uniquifier):

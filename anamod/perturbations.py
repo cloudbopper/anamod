@@ -35,7 +35,7 @@ class Permutation(PerturbationFunction):
         self.pool = None
         if num_permutations >= num_elements:
             total_permutations = factorial(num_elements)
-            # TODO: Probability of collisions is ~sqrt(num_elements) with shuffling, so ideally we may want to
+            # TODO: Probability of collisions is ~sqrt(num_elements) with permutations, so ideally we may want to
             # enumerate permutations even if the number of possible permutations is greater than the sample count
             if num_permutations >= total_permutations:
                 self.pool = permutations(range(num_elements))
@@ -94,7 +94,7 @@ class PerturbTensor(PerturbationMechanism):
         axis2 = timesteps  # timesteps to be perturbed
         if self._perturbation_type == constants.WITHIN_INSTANCE:
             X_hat = np.transpose(X_hat)
-            axis0, axis2 = axis2, axis0  # swap sequence and timestep axis for within-instance shuffling
+            axis0, axis2 = axis2, axis0  # swap sequence and timestep axis for within-instance permutation
         perturbed_slice = self._perturbation_fn.operate(X_hat[axis0, axis1, axis2])
         if self._perturbation_type == constants.WITHIN_INSTANCE and timesteps == ... and np.isscalar(idx):
             # Basic indexing - view was perturbed, so no assignment needed
@@ -105,6 +105,6 @@ class PerturbTensor(PerturbationMechanism):
         return np.transpose(X_hat) if self._perturbation_type == constants.WITHIN_INSTANCE else X_hat
 
 
-PERTURBATION_FUNCTIONS = {constants.ACROSS_INSTANCES: {constants.ZEROING: Zeroing, constants.SHUFFLING: Permutation},
-                          constants.WITHIN_INSTANCE: {constants.ZEROING: Zeroing, constants.SHUFFLING: Permutation}}
+PERTURBATION_FUNCTIONS = {constants.ACROSS_INSTANCES: {constants.ZEROING: Zeroing, constants.PERMUTATION: Permutation},
+                          constants.WITHIN_INSTANCE: {constants.ZEROING: Zeroing, constants.PERMUTATION: Permutation}}
 PERTURBATION_MECHANISMS = {constants.HIERARCHICAL: PerturbMatrix, constants.TEMPORAL: PerturbTensor}

@@ -110,7 +110,7 @@ class CondorPipeline(SerialPipeline):
 
     def setup_jobs(self):
         """Setup and run condor jobs"""
-        transfer_args = ["analysis_type", "perturbation", "num_shuffling_trials", "permutation_test_statistic", "loss_function",
+        transfer_args = ["analysis_type", "perturbation", "num_permutations", "permutation_test_statistic", "loss_function",
                          "importance_significance_level", "window_search_algorithm", "window_effect_size_threshold"]
         jobs = [None] * self.num_jobs
         for idx in range(self.num_jobs):

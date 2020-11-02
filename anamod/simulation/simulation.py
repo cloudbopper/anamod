@@ -67,9 +67,9 @@ def main():
     hierarchical.add_argument("-contiguous_node_names", type=strtobool, default=False, help="enable to change node names in hierarchy "
                               "to be contiguous for better visualization (but creating mismatch between node names and features indices)")
     hierarchical.add_argument("-analyze_interactions", help="enable analyzing interactions", type=strtobool, default=False)
-    hierarchical.add_argument("-perturbation", default=constants.SHUFFLING, choices=[constants.SHUFFLING])
-    hierarchical.add_argument("-num_shuffling_trials", type=int, default=constants.DEFAULT_NUM_PERMUTATIONS,
-                              help="Number of shuffling trials to average over, when shuffling perturbations are selected")
+    hierarchical.add_argument("-perturbation", default=constants.PERMUTATION, choices=[constants.PERMUTATION])
+    hierarchical.add_argument("-num_permutations", type=int, default=constants.DEFAULT_NUM_PERMUTATIONS,
+                              help="Number of permutations to perform in permutation test")
     # Temporal model analysis arguments
     temporal = parser.add_argument_group("Temporal model analysis arguments")
     temporal.add_argument("-sequence_length", help="sequence length for temporal models", type=int, default=20)
@@ -85,7 +85,7 @@ def main():
     if not args.output_dir:
         args.output_dir = ("sim_outputs_inst_%d_feat_%d_noise_%.3f_relfraction_%.3f_pert_%s_shufftrials_%d" %
                            (args.num_instances, args.num_features, args.noise_multiplier,
-                            args.fraction_relevant_features, args.perturbation, args.num_shuffling_trials))
+                            args.fraction_relevant_features, args.perturbation, args.num_permutations))
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     if not args.synthesis_dir:
@@ -432,7 +432,7 @@ def run_anamod(args, pass_args, data, model, targets, hierarchy=None):  # pylint
     options["disk_requirement"] = 3 + options["memory_requirement"]
     options["avoid_bad_hosts"] = args.avoid_bad_hosts
     options["retry_arbitrary_failures"] = args.retry_arbitrary_failures
-    options["num_shuffling_trials"] = args.num_shuffling_trials
+    options["num_permutations"] = args.num_permutations
     options["cleanup"] = args.cleanup
     if args.analysis_type == constants.HIERARCHICAL:
         options["perturbation"] = args.perturbation
@@ -475,7 +475,7 @@ def write_summary(args, model_wrapper, results):
                   num_features=args.num_features,
                   sequence_length=args.sequence_length,
                   model_type=model.__class__.__name__,
-                  num_shuffling_trials=args.num_shuffling_trials,
+                  num_permutations=args.num_permutations,
                   noise_multiplier=args.noise_multiplier,
                   sequences_independent_of_windows=args.window_independent)
     # pylint: disable = protected-access

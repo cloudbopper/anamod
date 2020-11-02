@@ -35,7 +35,7 @@ def main():
     parser.add_argument("-model_loader_filename", required=True)
     parser.add_argument("-analysis_type", required=True)
     parser.add_argument("-perturbation", required=True)
-    parser.add_argument("-num_shuffling_trials", required=True, type=int)
+    parser.add_argument("-num_permutations", required=True, type=int)
     parser.add_argument("-worker_idx", required=True, type=int)
     parser.add_argument("-loss_function", required=True, type=str)
     parser.add_argument("-importance_significance_level", required=True, type=float)
@@ -136,13 +136,13 @@ def perturb_feature(args, inputs, feature, loss_fn,
     """Perturb feature"""
     # pylint: disable = too-many-arguments, too-many-locals
     data, _, model = inputs
-    num_permutations = args.num_shuffling_trials
+    num_permutations = args.num_permutations
     num_elements = data.shape[0]
     perturbed_loss = np.zeros((num_elements, num_permutations))
     if perturbation_type == constants.WITHIN_INSTANCE:
         num_elements = data.shape[2] if timesteps == ... else len(timesteps)
     perturbation_mechanism = get_perturbation_mechanism(args, feature.rng, perturbation_type, num_elements, num_permutations)
-    assert args.perturbation == constants.SHUFFLING, "Zeroing deprecated, only permutation-type perturbations currently supported"
+    assert args.perturbation == constants.PERMUTATION, "Zeroing deprecated, only permutation-type perturbations currently supported"
     for kidx in range(num_permutations):
         try:
             data_perturbed = perturbation_mechanism.perturb(data, feature, timesteps=timesteps)

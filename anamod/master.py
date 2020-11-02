@@ -56,7 +56,7 @@ def reorder_features(features, reordered_names):
 
 
 def prepare_features(args, features):
-    """Prepare features for perturbation by shuffling to balance load across workers"""
+    """Reorder features to balance load across workers"""
     reordered_names = [feature.name for feature in features]
     reordered_names.sort()  # For reproducibility across python versions
     args.rng.shuffle(reordered_names)  # To balance load across workers

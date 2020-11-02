@@ -111,7 +111,7 @@ DEFAULT = "DEFAULT"
 INSTANCE_COUNTS = "instance_counts"
 NOISE_LEVELS = "noise_levels"
 FEATURE_COUNTS = "feature_counts"
-SHUFFLING_COUNTS = "shuffling_counts"
+PERMUTATION_COUNTS = "permutation_counts"
 SEQUENCE_LENGTHS = "sequence_lengths"
 WINDOW_SEQUENCE_DEPENDENCE = "window_sequence_dependence"
 MODEL_TYPES = "model_types"
@@ -138,7 +138,7 @@ TREE = "tree"
 
 # Perturbation
 ZEROING = "zeroing"
-SHUFFLING = "shuffling"
+PERMUTATION = "permutation"
 RNG_SEED = "rng_seed"
 ACROSS_INSTANCES = "across"
 WITHIN_INSTANCE = "within"  # TODO: rename to ACROSS_TIMESTEPS

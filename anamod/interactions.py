@@ -65,7 +65,7 @@ def compute_p_values(args, interaction_groups, interaction_predictions, cached_p
     writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.DESCRIPTION, constants.EFFECT_SIZE, constants.PVALUE])
     writer.writerow([constants.DUMMY_ROOT, "", "", "", 0.])
     baseline_prediction = interaction_predictions[constants.BASELINE]
-    redo_predictions = interaction_predictions if args.perturbation == constants.SHUFFLING else cached_predictions
+    redo_predictions = interaction_predictions if args.perturbation == constants.PERMUTATION else cached_predictions
     for cached_node, redo_node, parent_node in interaction_groups:
         lhs = round_value(interaction_predictions[parent_node.name])
         rhs = round_value(cached_predictions[cached_node.name] + redo_predictions[redo_node.name] - baseline_prediction)
@@ -82,7 +82,7 @@ def perturb_interactions(args, interaction_groups):
     interaction_nodes = []
     for _, redo_node, parent_node in interaction_groups:
         interaction_nodes.append(parent_node)
-        if args.perturbation == constants.SHUFFLING:
+        if args.perturbation == constants.PERMUTATION:
             interaction_nodes.append(redo_node)
 
     # Need to recompute baseline since it's not one of the features and so not included in worker results
@@ -107,7 +107,7 @@ def get_interaction_groups(args, potential_interactions):
         else:
             cached_node = right
             redo_node = left
-        if args.perturbation == constants.SHUFFLING:  # Set attributes on redo_node
+        if args.perturbation == constants.PERMUTATION:  # Set attributes on redo_node
             redo_node = copy.deepcopy(redo_node)
             redo_node.uniquify(parent_node.name)
             redo_node.rng_seed = cached_node.rng_seed

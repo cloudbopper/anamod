@@ -39,8 +39,8 @@ class ModelAnalyzer(ABC):
             output_dir: str, default: '{constants.DEFAULT_OUTPUT_DIR}'
                 Directory to write logs, intermediate files, and outputs to.
 
-            num_shuffling_trials: int, default: {constants.DEFAULT_NUM_PERMUTATIONS}
-                Number of permutations to average over when using shuffling perturbations.
+            num_permutations: int, default: {constants.DEFAULT_NUM_PERMUTATIONS}
+                Number of permutations to perform in permutation test.
 
             permutation_test_statistic: str, choices: {constants.CHOICES_TEST_STATISTICS}, default: {constants.MEAN_LOSS}
                 Test statistic to use for computing empirical p-values
@@ -139,8 +139,8 @@ class ModelAnalyzer(ABC):
         self.kwargs = kwargs
         # Common optional parameters
         self.output_dir = self.process_keyword_arg("output_dir", constants.DEFAULT_OUTPUT_DIR)
-        self.perturbation = constants.SHUFFLING  # Zeroing deprecated, possibly remove option
-        self.num_shuffling_trials = self.process_keyword_arg("num_shuffling_trials", constants.DEFAULT_NUM_PERMUTATIONS)
+        self.perturbation = constants.PERMUTATION  # Zeroing deprecated, removed option
+        self.num_permutations = self.process_keyword_arg("num_permutations", constants.DEFAULT_NUM_PERMUTATIONS)
         self.permutation_test_statistic = self.process_keyword_arg("permutation_test_statistic", constants.MEAN_LOSS)
         self.feature_names = self.process_keyword_arg("feature_names", None)
         self.seed = self.process_keyword_arg("seed", constants.SEED)
