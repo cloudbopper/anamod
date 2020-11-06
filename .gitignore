@@ -107,3 +107,4 @@ ENV/
 # Ignored directories
 logs/
 archive/
+anamod_env/

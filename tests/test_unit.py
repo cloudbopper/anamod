@@ -2,7 +2,11 @@
 
 import random
 
+import numpy as np
+import pytest
+
 from anamod.fdr.fdr_algorithms import bh_procedure
+from anamod import ModelAnalyzer
 
 
 def test_bh_procedure1():
@@ -18,3 +22,10 @@ def test_bh_procedure1():
     _, adjusted_pvalues, rejected_hypotheses = zip(*zipped)
     assert rejected_hypotheses == tuple([True] * 5 + [False] * 20)
     assert adjusted_pvalues[:5] == (0.001 * 25, 0.008 * 25/2, 0.042 * 25/5, 0.042 * 25/5, 0.042 * 25/5)  # noqa: E226
+
+
+def test_loss_function_processing():
+    """Test loss function processing"""
+    targets = np.random.default_rng(0).integers(3, size=100)
+    with pytest.raises(ValueError):
+        ModelAnalyzer(None, None, targets)

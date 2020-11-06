@@ -6,6 +6,7 @@ import sys
 
 import anytree
 import h5py
+import numpy as np
 
 from anamod import master, constants, model_loader
 from anamod.feature import Feature
@@ -145,6 +146,7 @@ class ModelAnalyzer(ABC):
         self.feature_names = self.process_keyword_arg("feature_names", None)
         self.seed = self.process_keyword_arg("seed", constants.SEED)
         self.loss_function = self.process_keyword_arg("loss_function", None, constants.CHOICES_LOSS_FUNCTIONS)
+        self.set_loss_function(targets)
         self.compile_results_only = self.process_keyword_arg("compile_results_only", False)
         # Hierarchical feature analysis parameters
         self.feature_hierarchy = self.process_keyword_arg("feature_hierarchy", None)
@@ -171,7 +173,6 @@ class ModelAnalyzer(ABC):
         self.retry_arbitrary_failures = self.process_keyword_arg("retry_arbitrary_failures", False)
         # Required parameters
         self.model_filename = self.gen_model_file(model)
-        # TODO: targets are not needed when using baseline predictions to compute losses
         self.data_filename = self.gen_data_file(data, targets)
         # TODO: this method of identifying analysis type may fail unexpectedly if user forgets to provide hierarchy with non-temporal data
         self.analysis_type = constants.HIERARCHICAL if self.feature_hierarchy else constants.TEMPORAL
@@ -279,3 +280,16 @@ class ModelAnalyzer(ABC):
                 for child in node.children:
                     feature_node.idx += feature_nodes[child.name].idx
             self.feature_hierarchy = feature_node  # root
+
+    def set_loss_function(self, targets):
+        """Set loss function if not provided based on inferred model type"""
+        if self.loss_function is not None:
+            return
+        num_unique_targets = np.unique(targets).shape[0]
+        if num_unique_targets == 2:
+            self.loss_function = constants.BINARY_CROSS_ENTROPY
+        elif num_unique_targets > len(targets) / 10:
+            self.loss_function = constants.QUADRATIC_LOSS
+        else:
+            raise ValueError(f"Unable to infer loss function automatically; number of unique targets: {num_unique_targets}; "
+                             f"set loss_function to one of '{constants.CHOICES_LOSS_FUNCTIONS}'")
