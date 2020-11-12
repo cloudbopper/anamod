@@ -10,9 +10,9 @@ import shutil
 
 import cloudpickle
 
-from anamod import constants, worker
+from anamod.core import constants, worker
+from anamod.core.utils import CondorJobWrapper
 from anamod.fdr.fdr_algorithms import bh_procedure
-from anamod.utils import CondorJobWrapper
 
 
 class SerialPipeline():
@@ -118,7 +118,7 @@ class CondorPipeline(SerialPipeline):
             features_filename = constants.INPUT_FEATURES_FILENAME.format(self.args.output_dir, idx)
             input_files = [features_filename, self.args.model_filename, self.args.model_loader_filename, self.args.data_filename]
             job_dir = f"{self.args.output_dir}/outputs_{idx}"
-            cmd = f"python3 -m anamod.worker -worker_idx {idx}"
+            cmd = f"python3 -m anamod.core.worker -worker_idx {idx}"
             for arg in transfer_args:
                 cmd += f" -{arg} {self.args.__getattribute__(arg)}"
             # Relative file paths for non-shared FS, absolute for shared FS

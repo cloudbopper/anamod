@@ -8,8 +8,8 @@ import anytree
 import h5py
 import numpy as np
 
-from anamod import master, constants, model_loader
-from anamod.feature import Feature
+from anamod.core import master, constants, model_loader
+from anamod.core.feature import Feature
 
 
 class ModelAnalyzer(ABC):
@@ -124,7 +124,7 @@ class ModelAnalyzer(ABC):
                 Required for condor since each job runs in its own environment.
                 If none is provided, cloudpickle will be used - see model_loader_ for a template (TODO: fix ref)
 
-                .. _model_loader: py:mod:anamod.model_loader
+                .. _model_loader: py:mod:anamod.core.model_loader
 
             avoid_bad_hosts: bool, default: False
                 Avoid condor hosts that intermittently give issues.

@@ -6,7 +6,7 @@ from math import factorial
 
 import numpy as np
 
-from anamod import constants
+from anamod.core import constants
 
 
 # pylint: disable = invalid-name

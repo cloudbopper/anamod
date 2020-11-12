@@ -2,7 +2,7 @@
 
 import logging
 
-from anamod import constants
+from anamod.core import constants
 
 
 def setup_logfile(caplog):

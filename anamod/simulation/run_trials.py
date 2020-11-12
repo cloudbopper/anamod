@@ -12,7 +12,7 @@ import subprocess
 import time
 
 import numpy as np
-from anamod import constants, utils
+from anamod.core import constants, utils
 
 TestParam = namedtuple("TestParameter", ["key", "values"])
 

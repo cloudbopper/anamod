@@ -3,7 +3,7 @@
 import pytest
 
 
-from anamod.constants import POLL_BASED_TRACKING, EVENT_LOG_TRACKING
+from anamod.core.constants import POLL_BASED_TRACKING, EVENT_LOG_TRACKING
 
 
 collect_ignore = ['setup.py']

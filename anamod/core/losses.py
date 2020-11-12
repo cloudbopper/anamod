@@ -4,7 +4,7 @@ from abc import ABC
 
 import numpy as np
 
-from anamod import constants
+from anamod.core import constants
 
 TARGET_VALUES = {constants.LABELS, constants.BASELINE_PREDICTIONS}
 

@@ -17,11 +17,11 @@ from sklearn.metrics import r2_score
 import synmod.master
 from synmod.constants import CLASSIFIER, REGRESSOR, FEATURES_FILENAME, MODEL_FILENAME, INSTANCES_FILENAME
 
-from anamod import constants, utils, ModelAnalyzer
-from anamod.master import validate_args
+from anamod.core import constants, utils, ModelAnalyzer
+from anamod.core.master import validate_args
+from anamod.core.utils import CondorJobWrapper
 from anamod.simulation.model_wrapper import ModelWrapper
 from anamod.simulation import evaluation
-from anamod.utils import CondorJobWrapper
 
 
 def main():

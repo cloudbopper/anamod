@@ -1,7 +1,7 @@
 """Test condor functionality"""
 
 import os
-from anamod.utils import CondorJobWrapper
+from anamod.core.utils import CondorJobWrapper
 
 
 # pylint: disable = protected-access, too-many-locals

@@ -3,7 +3,7 @@ import anytree
 import numpy as np
 import xxhash
 
-from anamod import constants
+from anamod.core import constants
 
 
 # pylint: disable = too-many-instance-attributes

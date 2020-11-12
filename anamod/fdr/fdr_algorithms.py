@@ -5,7 +5,7 @@ import sys
 
 import numpy as np
 
-from anamod.constants import POSITIVE
+from anamod.core.constants import POSITIVE
 
 
 def num_rejections(args, F, d, total_rejected):

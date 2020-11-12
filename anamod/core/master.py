@@ -14,10 +14,10 @@ from unittest.mock import patch
 import anytree
 import numpy as np
 
-from anamod import constants, utils
+from anamod.core import constants, utils
+from anamod.core.pipelines import CondorPipeline, SerialPipeline
+from anamod.core.utils import round_value
 from anamod.fdr import hierarchical_fdr_control
-from anamod.pipelines import CondorPipeline, SerialPipeline
-from anamod.utils import round_value
 
 
 def main(args):

@@ -11,12 +11,12 @@ import anytree
 from anytree.importer import JsonImporter
 import numpy as np
 
-from anamod.compute_p_values import compute_p_value
-from anamod import constants
+from anamod.core.compute_p_values import compute_p_value
+from anamod.core import constants
+from anamod.core.feature import Feature
+from anamod.core.pipelines import CondorPipeline, SerialPipeline
+from anamod.core.utils import round_value
 from anamod.fdr import hierarchical_fdr_control
-from anamod.feature import Feature
-from anamod.pipelines import CondorPipeline, SerialPipeline
-from anamod.utils import round_value
 
 
 def analyze_interactions(args, feature_nodes, cached_predictions):

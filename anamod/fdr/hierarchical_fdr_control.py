@@ -12,7 +12,7 @@ from anytree.exporter import DotExporter
 from anytree.exporter import JsonExporter
 import numpy as np
 
-from anamod import constants, utils
+from anamod.core import constants, utils
 from anamod.fdr.fdr_algorithms import hierarchical_fdr_control
 
 # pylint: disable = invalid-name

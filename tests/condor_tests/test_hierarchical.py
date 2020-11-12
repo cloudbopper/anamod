@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from anamod import model_loader
+from anamod.core import model_loader
 from anamod.simulation import simulation
 from tests.utils import pre_test, post_test
 

@@ -4,7 +4,7 @@ import numpy as np
 from numpy import asarray, compress, sqrt
 from scipy.stats import find_repeats, rankdata, norm, ttest_rel
 
-from anamod import constants, utils
+from anamod.core import constants, utils
 
 
 def compute_empirical_p_value(baseline_loss, perturbed_loss, statistic):
