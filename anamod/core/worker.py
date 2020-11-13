@@ -39,9 +39,9 @@ def main():
     parser.add_argument("-worker_idx", required=True, type=int)
     parser.add_argument("-loss_function", required=True, type=str)
     parser.add_argument("-importance_significance_level", required=True, type=float)
-    parser.add_argument("-window_search_algorithm", required=True, type=str)
-    parser.add_argument("-window_effect_size_threshold", required=True, type=float)
     parser.add_argument("-permutation_test_statistic", required=True, type=str)
+    parser.add_argument("-window_search_algorithm", type=str)
+    parser.add_argument("-window_effect_size_threshold", type=float)
     args = parser.parse_args()
     args.logger = get_logger(__name__, "%s/worker_%d.log" % (args.output_dir, args.worker_idx))
     pipeline(args)
@@ -50,6 +50,7 @@ def main():
 def pipeline(args):
     """Worker pipeline"""
     args.logger.info(f"Begin anamod worker pipeline on host {socket.gethostname()}")
+    validate_args(args)
     # Load features to perturb from file
     features = load_features(args.features_filename)
     # Load data
@@ -69,6 +70,13 @@ def pipeline(args):
     # Write outputs
     write_outputs(args, features)
     args.logger.info("End anamod worker pipeline")
+
+
+def validate_args(args):
+    """Validate arguments"""
+    if args.analysis_type == constants.TEMPORAL:
+        assert args.window_search_algorithm is not None
+        assert args.window_effect_size_threshold is not None
 
 
 def load_features(features_filename):

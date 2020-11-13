@@ -5,4 +5,4 @@ __email__ = "sood.iitd@gmail.com"
 __version__ = "0.1.0"
 
 
-from anamod.core.model_analyzer import ModelAnalyzer  # noqa: F401
+from anamod.core.model_analyzer import ModelAnalyzer, TemporalModelAnalyzer  # noqa: F401

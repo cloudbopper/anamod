@@ -17,7 +17,7 @@ from sklearn.metrics import r2_score
 import synmod.master
 from synmod.constants import CLASSIFIER, REGRESSOR, FEATURES_FILENAME, MODEL_FILENAME, INSTANCES_FILENAME
 
-from anamod.core import constants, utils, ModelAnalyzer
+from anamod.core import constants, utils, ModelAnalyzer, TemporalModelAnalyzer
 from anamod.core.master import validate_args
 from anamod.core.utils import CondorJobWrapper
 from anamod.simulation.model_wrapper import ModelWrapper
@@ -441,7 +441,8 @@ def run_anamod(args, pass_args, data, model, targets, hierarchy=None):  # pylint
     pass_args = process_pass_args(pass_args)
     options = {**pass_args, **options}  # Merge dictionaries
     # Create analyzer
-    analyzer = ModelAnalyzer(model, data, targets, **options)
+    analyzer_class = ModelAnalyzer if args.analysis_type == constants.HIERARCHICAL else TemporalModelAnalyzer
+    analyzer = analyzer_class(model, data, targets, **options)
     # Run analyzer
     args.logger.info(f"Analyzing model with options:\n{pprint.pformat(options)}")
     features = analyzer.analyze()

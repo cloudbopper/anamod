@@ -4,7 +4,9 @@
 Usage
 =====
 
-.. autoclass:: anamod.model_analyzer.ModelAnalyzer
+.. autoclass:: anamod.core.model_analyzer.ModelAnalyzer
+   :members: analyze
+.. autoclass:: anamod.core.model_analyzer.TemporalModelAnalyzer
    :members: analyze
 
 ``anamod`` is invoked as follows::

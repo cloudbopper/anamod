@@ -120,7 +120,8 @@ class CondorPipeline(SerialPipeline):
             job_dir = f"{self.args.output_dir}/outputs_{idx}"
             cmd = f"python3 -m anamod.core.worker -worker_idx {idx}"
             for arg in transfer_args:
-                cmd += f" -{arg} {self.args.__getattribute__(arg)}"
+                if hasattr(self.args, arg):
+                    cmd += f" -{arg} {getattr(self.args, arg)}"
             # Relative file paths for non-shared FS, absolute for shared FS
             for name, path in dict(output_dir=job_dir, features_filename=features_filename, model_filename=self.args.model_filename,
                                    model_loader_filename=self.args.model_loader_filename, data_filename=self.args.data_filename).items():

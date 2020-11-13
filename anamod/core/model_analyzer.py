@@ -12,29 +12,8 @@ from anamod.core import master, constants, model_loader
 from anamod.core.feature import Feature
 
 
-class ModelAnalyzer(ABC):
-    """Analyze properties of learned models."""
-    # pylint: disable = too-many-instance-attributes, line-too-long
-    __doc__ += (
-        f"""
-
-        **Required parameters:**
-
-            model: object
-                A model object that provides the required interface (TODO: add/cite interface documentation).
-
-                This may be a simple wrapper around, say, a scikit-learn or Tensorflow model (TODO: example).
-
-            data: 2D/3D numpy array
-                The matrix or tensor containing test data.
-
-                For static models, this must be a matrix of instances **x** features.
-
-                For temporal models, this must be a tensor of instances **x** features **x** sequences.
-
-            targets: 1D numpy array
-                A vector containing the targets/labels for instances contained in the data.
-
+COMMON_DOC = (
+    f"""
         **Common optional parameters:**
 
             output_dir: str, default: '{constants.DEFAULT_OUTPUT_DIR}'
@@ -61,42 +40,17 @@ class ModelAnalyzer(ABC):
                 If no loss function is specified, then quadratic loss is chosen for continuous targets
                 and binary cross-entropy is chosen for binary targets.
 
+            importance_significance_level: float, default: 0.1
+                Significance level and FDR control level used for hypothesis testing to assess feature importance.
+
             compile_results_only: bool, default: False
                 Flag to attempt to compile results only (assuming they already exist), skipping actually launching jobs.
+    """)
 
-        **Hierarchical feature analysis parameters:**
-
-            feature_hierarchy: object, default: None
-                Hierarchy over features, defined as an anytree_ node.
-                anytree_ allows importing trees from multiple formats (Python dict, JSON)
-
-                If no hierarchy is provided, a flat hierarchy will be auto-generated over base features.
-
-                Supersedes :attr:`feature_names` for source of feature names.
-
-                .. _anytree: https://anytree.readthedocs.io/en/2.8.0/
-
-            analyze_interactions: bool, default: False
-                Flag to enable testing of interaction significance. By default,
-                only pairwise interactions between leaf features identified as important by hierarchical FDR.
-                are tested. To enable testing of all pairwise interactions, also use -analyze_all_pairwise_interactions.
-
-            analyze_all_pairwise_interactions: bool, default: False
-                Analyze all pairwise interactions between leaf features,
-                instead of just pairwise interactions of leaf features identified by hierarchical FDR.
-
-        **Temporal model analysis parameters:**
-
-            importance_significance_level: float, default: 0.1
-                Significance level used to assess feature importance while testing for overall/window/ordering relevance
-
-            window_search_algorithm: str, choices: {constants.CHOICES_WINDOW_SEARCH_ALGORITHM}, default: '{constants.EFFECT_SIZE}'
-                Search algorithm to use to search for relevant window (TODO: document)
-
-            window_effect_size_threshold: float, default: 0.01
-                Fraction of total feature importance (effect size) permitted outside window while searching for relevant window
-
+CONDOR_DOC = (
+    f"""
         **HTCondor parameters:**
+
             condor: bool, default: False
                 Flag to enable parallelization using HTCondor.
                 Requires package htcondor to be installed (TODO: ref).
@@ -134,6 +88,52 @@ class ModelAnalyzer(ABC):
             retry_arbitrary_failures: bool, default: False
                 Retry failing jobs due to any reason, up to a maximum of {constants.CONDOR_MAX_RETRIES} attempts per job.
                 Use with caution - enable if failures stem from condor issues.
+    """)
+
+
+class ModelAnalyzer(ABC):
+    """Analyzes properties of learned models."""
+    # pylint: disable = too-many-instance-attributes, line-too-long
+    __doc__ += (
+        f"""
+
+        **Required parameters:**
+
+            model: object
+                A model object that provides the required interface (TODO: add/cite interface documentation).
+
+                This may be a simple wrapper around, say, a scikit-learn or Tensorflow model (TODO: example).
+
+            data: 2D numpy array
+                Test data matrix of instances **x** features.
+
+            targets: 1D numpy array
+                A vector containing targets for each instance in the test data.
+
+        **Hierarchical feature analysis parameters:**
+
+            feature_hierarchy: object, default: None
+                Hierarchy over features, defined as an anytree_ node.
+                anytree_ allows importing trees from multiple formats (Python dict, JSON)
+
+                If no hierarchy is provided, a flat hierarchy will be auto-generated over base features.
+
+                Supersedes :attr:`feature_names` for source of feature names.
+
+                .. _anytree: https://anytree.readthedocs.io/en/2.8.0/
+
+            analyze_interactions: bool, default: False
+                Flag to enable testing of interaction significance. By default,
+                only pairwise interactions between leaf features identified as important by hierarchical FDR.
+                are tested. To enable testing of all pairwise interactions, also use -analyze_all_pairwise_interactions.
+
+            analyze_all_pairwise_interactions: bool, default: False
+                Analyze all pairwise interactions between leaf features,
+                instead of just pairwise interactions of leaf features identified by hierarchical FDR.
+
+        {COMMON_DOC}
+
+        {CONDOR_DOC}
         """)
 
     def __init__(self, model, data, targets, **kwargs):
@@ -147,20 +147,14 @@ class ModelAnalyzer(ABC):
         self.seed = self.process_keyword_arg("seed", constants.SEED)
         self.loss_function = self.process_keyword_arg("loss_function", None, constants.CHOICES_LOSS_FUNCTIONS)
         self.set_loss_function(targets)
+        self.importance_significance_level = self.process_keyword_arg("importance_significance_level", 0.1)
         self.compile_results_only = self.process_keyword_arg("compile_results_only", False)
         # Hierarchical feature analysis parameters
         self.feature_hierarchy = self.process_keyword_arg("feature_hierarchy", None)
         self.analyze_interactions = self.process_keyword_arg("analyze_interactions", False)
         if self.analyze_interactions:
             raise NotImplementedError("Interaction analysis currently disabled pending updated theoretical analysis")
-        # Temporal model analysis parameters
-        self.importance_significance_level = self.process_keyword_arg("importance_significance_level", 0.1)
-        self.window_search_algorithm = self.process_keyword_arg("window_search_algorithm", constants.EFFECT_SIZE,
-                                                                constants.CHOICES_WINDOW_SEARCH_ALGORITHM)
-        # TODO: Automatic proportional selection of window effect size threshold w.r.t. sequence length
-        self.window_effect_size_threshold = self.process_keyword_arg("window_effect_size_threshold", 0.01)
-        # pylint: disable = invalid-name
-        self.analyze_all_pairwise_interactions = self.process_keyword_arg("analyze_all_pairwise_interactions", False)
+        self.analyze_all_pairwise_interactions = self.process_keyword_arg("analyze_all_pairwise_interactions", False)  # pylint: disable = invalid-name
         # HTCondor parameters
         self.condor = self.process_keyword_arg("condor", False)
         self.shared_filesystem = self.process_keyword_arg("shared_filesystem", False)
@@ -174,8 +168,7 @@ class ModelAnalyzer(ABC):
         # Required parameters
         self.model_filename = self.gen_model_file(model)
         self.data_filename = self.gen_data_file(data, targets)
-        # TODO: this method of identifying analysis type may fail unexpectedly if user forgets to provide hierarchy with non-temporal data
-        self.analysis_type = constants.HIERARCHICAL if self.feature_hierarchy else constants.TEMPORAL
+        self.analysis_type = constants.HIERARCHICAL
         self.gen_hierarchy(data)
 
     def process_keyword_arg(self, argname, default_value, choices=None):
@@ -293,3 +286,47 @@ class ModelAnalyzer(ABC):
         else:
             raise ValueError(f"Unable to infer loss function automatically; number of unique targets: {num_unique_targets}; "
                              f"set loss_function to one of '{constants.CHOICES_LOSS_FUNCTIONS}'")
+
+
+class TemporalModelAnalyzer(ModelAnalyzer):
+    """Analyzes properties of learned temporal models."""
+    __doc__ += (
+        f"""
+
+        **Required parameters:**
+
+            model: object
+                A model object that provides the required interface (TODO: add/cite interface documentation).
+
+                This may be a simple wrapper around, say, a scikit-learn or Tensorflow model (TODO: example).
+
+            data: 3D numpy array
+                Test data tensor of instances **x** features **x** sequences.
+
+            targets: 1D numpy array
+                A vector containing targets for each instance in the test data.
+
+        **Temporal model analysis parameters:**
+
+            window_search_algorithm: str, choices: {constants.CHOICES_WINDOW_SEARCH_ALGORITHM}, default: '{constants.EFFECT_SIZE}'
+                Search algorithm to use to search for relevant window (TODO: document).
+
+            window_effect_size_threshold: float, default: 0.01
+                Fraction of total feature importance (effect size) permitted outside window while searching for relevant window.
+
+        {COMMON_DOC}
+
+        {CONDOR_DOC}
+        """)
+
+    def __init__(self, model, data, targets, **kwargs):
+        super().__init__(model, data, targets, **kwargs)
+        if self.feature_hierarchy.name != constants.DUMMY_ROOT:
+            raise NotImplementedError("Hierarchical/feature group analysis is not currently supported for temporal models;"
+                                      " unset attribute 'feature_hierarchy'")
+        self.analysis_type = constants.TEMPORAL
+        # Temporal model analysis parameters
+        self.window_search_algorithm = self.process_keyword_arg("window_search_algorithm", constants.EFFECT_SIZE,
+                                                                constants.CHOICES_WINDOW_SEARCH_ALGORITHM)
+        # TODO: Automatic proportional selection of window effect size threshold w.r.t. sequence length
+        self.window_effect_size_threshold = self.process_keyword_arg("window_effect_size_threshold", 0.01)
