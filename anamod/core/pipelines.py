@@ -1,6 +1,6 @@
 """Serial and distributed (condor) perturbation pipelines"""
 
-from collections import OrderedDict
+from collections import deque, OrderedDict
 import copy
 import glob
 import math
@@ -8,7 +8,9 @@ import os
 import pickle
 import shutil
 
+import anytree
 import cloudpickle
+import numpy as np
 
 from anamod.core import constants, worker
 from anamod.core.utils import CondorJobWrapper
@@ -42,27 +44,7 @@ class SerialPipeline():
             with open(features_filename, "rb") as features_file:
                 features.extend(cloudpickle.load(features_file))
 
-        self.fdr_control(features)
         return features
-
-    def fdr_control(self, features):
-        """Apply FDR control to features"""
-        # TODO: better solution to unify hierarchical/temporal analysis FDR control
-        if self.args.analysis_type == constants.HIERARCHICAL:
-            return  # Hierarchical FDR control performed separately
-        pvalues = [feature.overall_pvalue for feature in features]
-        adjusted_pvalues, rejected_hypotheses = bh_procedure(pvalues, self.args.importance_significance_level)
-        for idx, feature in enumerate(features):
-            feature.overall_pvalue = adjusted_pvalues[idx]
-            if not rejected_hypotheses[idx]:
-                feature.important = False
-            else:
-                # Feature important overall; apply FDR control to tests for sequence ordering and window importance
-                adjusted_pvalues2, rejected_hypotheses2 = bh_procedure([feature.ordering_pvalue, feature.window_pvalue],
-                                                                        self.args.importance_significance_level)
-                feature.ordering_pvalue, feature.window_pvalue = adjusted_pvalues2
-                feature.ordering_important, feature.window_important = rejected_hypotheses2
-                feature.window_ordering_important &= feature.window_important
 
     def cleanup(self, job_dirs=None):
         """Clean intermediate files after completing pipeline"""
@@ -95,6 +77,7 @@ class SerialPipeline():
             self.write_features()
             # Run worker pipeline
             self.args.worker_idx = 0
+            self.args.fdr_control = True
             self.args.features_filename = constants.INPUT_FEATURES_FILENAME.format(self.args.output_dir, 0)
             worker.pipeline(self.args)
         results = self.compile_results([self.args.output_dir])
@@ -151,6 +134,40 @@ class CondorPipeline(SerialPipeline):
             CondorJobWrapper.monitor(list(running_jobs.keys()), cleanup=self.args.cleanup)
         job_dirs = [job.job_dir for job in jobs]
         results = self.compile_results(job_dirs)
+        self.fdr_control(results)
         self.cleanup(job_dirs)
         self.args.logger.info("End condor pipeline")
         return results
+
+    def fdr_control(self, output_features):
+        """Apply hierarchical FDR control to aggregated feature importance results"""
+        # Map feature names
+        output_feature_map = {output_feature.name: output_feature for output_feature in output_features}
+        # Use stored hierarchy to apply FDR control to flattened output features
+        # TODO: maybe reconstruct hierarchy over output features - each worker's hierarchy is separate, even though feature names are same across them
+        queue = deque()
+        root = self.features[0].root
+        root = anytree.Node(constants.DUMMY_ROOT, children=[root]) if self.args.analysis_type == constants.HIERARCHICAL else root
+        queue.append(root)
+        while queue:
+            parent = queue.popleft()
+            parent_important = output_feature_map[parent.name].important if parent.parent else True
+            if not parent.children:
+                continue
+            pvalues = np.ones(len(parent.children))
+            for idx, child in enumerate(parent.children):
+                output_feature = output_feature_map[child.name]
+                pvalues[idx] = output_feature.overall_pvalue
+            adjusted_pvalues, rejected_hypotheses = bh_procedure(pvalues, self.args.importance_significance_level)
+            for idx, child in enumerate(parent.children):
+                output_feature = output_feature_map[child.name]
+                output_feature.overall_pvalue = adjusted_pvalues[idx]
+                output_feature.important = rejected_hypotheses[idx] and parent_important
+                queue.append(child)
+        root.children[0].parent = None if self.args.analysis_type == constants.HIERARCHICAL else root
+        # Re-tag temporal importances
+        if self.args.analysis_type == constants.TEMPORAL:
+            for output_feature in output_features:
+                output_feature.window_important &= output_feature.important
+                output_feature.ordering_important &= output_feature.important
+                output_feature.window_ordering_important &= output_feature.important

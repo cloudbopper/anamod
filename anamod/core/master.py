@@ -85,8 +85,8 @@ def hierarchical_fdr(args, features):
                              round_value(node.overall_effect_size), round_value(node.overall_pvalue)])
     # Run FDR control
     output_dir = "%s/%s" % (args.output_dir, constants.HIERARCHICAL_FDR_DIR)
-    cmd = ("python -m anamod.fdr.hierarchical_fdr_control -output_dir %s -procedure yekutieli "
-           "-rectangle_leaves 1 %s" % (output_dir, input_filename))
+    cmd = (f"python -m anamod.fdr.hierarchical_fdr_control -output_dir {output_dir} -procedure yekutieli "
+           f"-rectangle_leaves 1 -alpha {args.importance_significance_level} {input_filename}")
     args.logger.info("Running cmd: %s" % cmd)
     pass_args = cmd.split()[2:]
     with patch.object(sys, 'argv', pass_args):

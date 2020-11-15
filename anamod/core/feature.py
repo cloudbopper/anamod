@@ -12,7 +12,6 @@ class Feature(anytree.Node):
     # TODO: add function to visualize fields nicely
     def __init__(self, name, **kwargs):
         super().__init__(name, **kwargs)
-        self.parent_name = kwargs.get(constants.PARENT_NAME, "")
         self.description = kwargs.get(constants.DESCRIPTION, "")
         self.idx = kwargs.get("idx", [])
         self.perturbable = kwargs.get("perturbable", True)  # TODO: Use or discard

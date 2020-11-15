@@ -5,13 +5,14 @@ computes the effect on the model's output loss
 """
 
 import argparse
-from collections import namedtuple
+from collections import deque, namedtuple
 import importlib
 import os
 import pickle
 import socket
 import sys
 
+import anytree
 import cloudpickle
 import h5py
 import numpy as np
@@ -21,6 +22,7 @@ from anamod.core.compute_p_values import compute_empirical_p_value
 from anamod.core.losses import Loss
 from anamod.core.perturbations import PERTURBATION_FUNCTIONS, PERTURBATION_MECHANISMS
 from anamod.core.utils import get_logger
+from anamod.fdr.fdr_algorithms import bh_procedure
 
 Inputs = namedtuple("Inputs", ["data", "targets", "model"])
 
@@ -40,6 +42,7 @@ def main():
     parser.add_argument("-loss_function", required=True, type=str)
     parser.add_argument("-importance_significance_level", required=True, type=float)
     parser.add_argument("-permutation_test_statistic", required=True, type=str)
+    parser.add_argument("-fdr_control", action="store_true")
     parser.add_argument("-window_search_algorithm", type=str)
     parser.add_argument("-window_effect_size_threshold", type=float)
     args = parser.parse_args()
@@ -61,9 +64,13 @@ def pipeline(args):
     # Baseline predictions/losses
     # FIXME: baseline may be computed in master and provided to all workers
     baseline_loss, loss_fn = compute_baseline(args, inputs)
-    # Perturb features
-    perturbed_losses = perturb_features(args, inputs, features, loss_fn)
-    compute_importances(args, features, perturbed_losses, baseline_loss)
+    if args.fdr_control:
+        # Perturb entire hierarchy and use FDR control to prune efficiently
+        perturb_feature_hierarchy(args, inputs, features, baseline_loss, loss_fn)
+    else:
+        # Perturb features in file
+        perturbed_losses = perturb_features(args, inputs, features, loss_fn)
+        compute_importances(args, features, perturbed_losses, baseline_loss)
     # For important features, proceed with further analysis (temporal model analysis):
     if args.analysis_type == constants.TEMPORAL:
         temporal_analysis(args, inputs, features, baseline_loss, loss_fn)
@@ -136,6 +143,36 @@ def perturb_features(args, inputs, features, loss_fn):
     return perturbed_losses
 
 
+def perturb_feature_hierarchy(args, inputs, features, baseline_loss, loss_fn):
+    """Perturb all features in hierarchy, while pruning efficiently using FDR control"""
+    # pylint: disable = too-many-locals
+    args.logger.info("Begin perturbing features")
+    baseline_mean_loss = np.mean(baseline_loss)
+    queue = deque()
+    root = features[0].root
+    root = anytree.Node(constants.DUMMY_ROOT, children=[root]) if args.analysis_type == constants.HIERARCHICAL else root
+    queue.append(root)
+    while queue:
+        feature = queue.popleft()
+        parent_important = feature.important if feature.parent else True
+        if not feature.children:
+            continue
+        num_children = len(feature.children)
+        pvalues = np.ones(num_children)
+        for idx, child in enumerate(feature.children):
+            perturbed_loss = perturb_feature(args, inputs, child, loss_fn)
+            compute_importance(args, child, perturbed_loss, baseline_loss, baseline_mean_loss)
+            pvalues[idx] = child.overall_pvalue
+        adjusted_pvalues, rejected_hypotheses = bh_procedure(pvalues, args.importance_significance_level)
+        for idx, child in enumerate(feature.children):
+            child.overall_pvalue = adjusted_pvalues[idx]
+            child.important = rejected_hypotheses[idx] and parent_important
+            if child.important:
+                queue.append(child)
+    root.children[0].parent = None if args.analysis_type == constants.HIERARCHICAL else root
+    args.logger.info("End perturbing features")
+
+
 def perturb_feature(args, inputs, feature, loss_fn,
                     timesteps=..., perturbation_type=constants.ACROSS_INSTANCES):
     """Perturb feature"""
@@ -157,6 +194,23 @@ def perturb_feature(args, inputs, feature, loss_fn,
         pred = model.predict(data_perturbed)
         perturbed_loss[:, kidx] = loss_fn(pred)
     return perturbed_loss[:, :num_permutations]
+
+
+def compute_importance(args, feature, perturbed_loss, baseline_loss, baseline_mean_loss):
+    """Computes p-value indicating feature importance"""
+    feature.overall_pvalue = compute_empirical_p_value(baseline_loss, perturbed_loss, args.permutation_test_statistic)
+    feature.overall_effect_size = np.mean(perturbed_loss) - baseline_mean_loss
+    feature.important = feature.overall_pvalue < args.importance_significance_level
+
+
+def compute_importances(args, features, perturbed_losses, baseline_loss):
+    """Computes p-values indicating feature importances"""
+    baseline_mean_loss = np.mean(baseline_loss)
+    for feature in features:
+        perturbed_loss = perturbed_losses[feature.name]
+        feature.overall_pvalue = compute_empirical_p_value(baseline_loss, perturbed_loss, args.permutation_test_statistic)
+        feature.overall_effect_size = np.mean(perturbed_loss) - baseline_mean_loss
+        feature.important = feature.overall_pvalue < args.importance_significance_level
 
 
 def search_window(args, inputs, feature, baseline_loss, loss_fn):
@@ -219,16 +273,6 @@ def search_window(args, inputs, feature, baseline_loss, loss_fn):
     return left, right
 
 
-def compute_importances(args, features, perturbed_losses, baseline_loss):
-    """Computes p-values indicating feature importances"""
-    baseline_mean_loss = np.mean(baseline_loss)
-    for feature in features:
-        perturbed_loss = perturbed_losses[feature.name]
-        feature.overall_pvalue = compute_empirical_p_value(baseline_loss, perturbed_loss, args.permutation_test_statistic)
-        feature.overall_effect_size = np.mean(perturbed_loss) - baseline_mean_loss
-        feature.important = feature.overall_pvalue < args.importance_significance_level
-
-
 def temporal_analysis(args, inputs, features, baseline_loss, loss_fn):
     """Perform temporal analysis of important features"""
     features = [feature for feature in features if feature.important]
@@ -241,11 +285,17 @@ def temporal_analysis(args, inputs, features, baseline_loss, loss_fn):
         args.logger.info(f"Feature {feature.name}: ordering important: {feature.ordering_important}")
         # Test feature temporal localization
         left, right = search_window(args, inputs, feature, baseline_loss, loss_fn)
-        # Test importance of feature ordering across window
-        perturbed_loss = perturb_feature(args, inputs, feature, loss_fn, range(left, right + 1), perturbation_type=constants.WITHIN_INSTANCE)
-        feature.window_ordering_pvalue = compute_empirical_p_value(baseline_loss, perturbed_loss, args.permutation_test_statistic)
-        feature.window_ordering_important = feature.window_ordering_pvalue < args.importance_significance_level
-        args.logger.info(f"(Prior to FDR control) Found window for feature {feature.name}: ({left}, {right});"
+        # FDR control
+        adjusted_pvalues, rejected_hypotheses = bh_procedure([feature.ordering_pvalue, feature.window_pvalue], args.importance_significance_level)
+        feature.ordering_pvalue, feature.window_pvalue = adjusted_pvalues
+        feature.ordering_important, feature.window_important = rejected_hypotheses
+        feature.window_ordering_important &= feature.window_important
+        if feature.window_important:
+            # Test importance of feature ordering across window
+            perturbed_loss = perturb_feature(args, inputs, feature, loss_fn, range(left, right + 1), perturbation_type=constants.WITHIN_INSTANCE)
+            feature.window_ordering_pvalue = compute_empirical_p_value(baseline_loss, perturbed_loss, args.permutation_test_statistic)
+            feature.window_ordering_important = feature.window_ordering_pvalue < args.importance_significance_level
+        args.logger.info(f"Found window for feature {feature.name}: ({left}, {right});"
                          f" significant: {feature.window_important}; ordering important: {feature.window_ordering_important}")
 
 
