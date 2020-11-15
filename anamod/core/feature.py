@@ -5,34 +5,60 @@ import xxhash
 
 from anamod.core import constants
 
+ATTRIBUTES = dict(
+    # p-value attributes
+    pvalue=1.,
+    ordering_pvalue=1.,
+    window_pvalue=1.,
+    window_ordering_pvalue=1.,
+    # effect size attributes
+    effect_size=0.,
+    window_effect_size=0.,
+    # importance attributes
+    important=False,
+    ordering_important=False,
+    window_important=False,
+    window_ordering_important=False,
+    # misc attributes
+    temporal_window=None
+)
+
 
 # pylint: disable = too-many-instance-attributes
 class Feature(anytree.Node):
     """Class representing feature/feature group"""
-    # TODO: add function to visualize fields nicely
+    aliases = dict(
+        overall_pvalue="pvalue",
+        overall_important="important",
+        overall_effect_size="effect_size"
+    )
+
+    def __setattr__(self, name, value):
+        name = self.aliases.get(name, name)
+        object.__setattr__(self, name, value)
+
+    def __getattr__(self, name):
+        if name == "aliases":
+            raise AttributeError  # http://nedbatchelder.com/blog/201010/surprising_getattr_recursion.html
+        name = self.aliases.get(name, name)
+        return object.__getattribute__(self, name)
+
+    def __str__(self):
+        out = f"Name: {self.name}\nDescription: {self.description}\nIndices: {self.idx}"
+        for key, value in ATTRIBUTES.items():
+            out += f"\n{key.replace('_', ' ').title()}: {value}"
+        return out
+
     def __init__(self, name, **kwargs):
         super().__init__(name, **kwargs)
         self.description = kwargs.get(constants.DESCRIPTION, "")
         self.idx = kwargs.get("idx", [])
-        self.perturbable = kwargs.get("perturbable", True)  # TODO: Use or discard
+        self.perturbable = kwargs.get("perturbable", True)
         # TODO: (Verify) Could initialize the RNG right away, since cloudpickle should still be able to pickle it
         self._rng_seed = xxhash.xxh32_intdigest(name)
         self.rng = None  # RNG used for permuting this feature - see perturbations.py: 'feature.rng'
-        # p-value attributes
-        self.overall_pvalue = 1.
-        self.ordering_pvalue = 1.
-        self.window_pvalue = 1.
-        self.window_ordering_pvalue = 1.
-        # Effect size attributes
-        self.overall_effect_size = 0.
-        self.window_effect_size = 0.
-        # Importance attributes
-        self.important = False
-        self.ordering_important = False
-        self.window_important = False
-        self.window_ordering_important = False
-        # Miscellaneous attributes
-        self.temporal_window = None
+        for key, value in ATTRIBUTES.items():
+            setattr(self, key, value)
 
     @property
     def rng_seed(self):
@@ -57,3 +83,8 @@ class Feature(anytree.Node):
     def size(self):
         """Return size"""
         return len(self.idx)
+
+    def copy_attributes(self, other):
+        """Copy attributes from other feature"""
+        for key in ATTRIBUTES:
+            setattr(self, key, getattr(other, key))

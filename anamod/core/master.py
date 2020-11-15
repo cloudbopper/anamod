@@ -11,7 +11,6 @@ import os
 import sys
 from unittest.mock import patch
 
-import anytree
 import numpy as np
 
 from anamod.core import constants, utils
@@ -35,40 +34,14 @@ def pipeline(args):
     # FIXME: some outputs returned via return value (temporal analysis), other via output file (hierarchical analysis)
     # TODO: 'args' is now an object. Change to reflect that and figure out way to print object attributes
     args.logger.info("Begin anamod master pipeline with args: %s" % args)
-    features = list(filter(lambda node: node.perturbable, anytree.PreOrderIter(args.feature_hierarchy)))  # flatten hierarchy
     # Perturb features
-    analyzed_features = perturb_features(args, features)
-    # TODO: Run these only for hierarchical feature importance analysis
+    worker_pipeline = CondorPipeline(args) if args.condor else SerialPipeline(args)
+    analyzed_features = worker_pipeline.run()
     if args.analysis_type == constants.HIERARCHICAL:
         hierarchical_fdr(args, analyzed_features)
     # TODO: Analyze pairwise interactions
     args.logger.info("End anamod master pipeline")
-    return reorder_features(analyzed_features, [feature.name for feature in features])  # Re-order analyzed features to match original order
-
-
-def reorder_features(features, reordered_names):
-    """Reorder features according to specified list of names"""
-    reordered_features = [None] * len(features)
-    name_to_feature_map = {feature.name: feature for feature in features}
-    for idx, name in enumerate(reordered_names):
-        reordered_features[idx] = name_to_feature_map[name]
-    return reordered_features
-
-
-def prepare_features(args, features):
-    """Reorder features to balance load across workers"""
-    reordered_names = [feature.name for feature in features]
-    reordered_names.sort()  # For reproducibility across python versions
-    args.rng.shuffle(reordered_names)  # To balance load across workers
-    return reorder_features(features, reordered_names)
-
-
-def perturb_features(args, features):
-    """Perturb features, observe effect on model loss and aggregate results"""
-    features = prepare_features(args, features)
-    # Partition features, Launch workers, Aggregate results
-    worker_pipeline = CondorPipeline(args, features) if args.condor else SerialPipeline(args, features)
-    return worker_pipeline.run()
+    return analyzed_features
 
 
 def hierarchical_fdr(args, features):

@@ -154,7 +154,6 @@ def perturb_feature_hierarchy(args, inputs, features, baseline_loss, loss_fn):
     queue.append(root)
     while queue:
         feature = queue.popleft()
-        parent_important = feature.important if feature.parent else True
         if not feature.children:
             continue
         num_children = len(feature.children)
@@ -166,7 +165,7 @@ def perturb_feature_hierarchy(args, inputs, features, baseline_loss, loss_fn):
         adjusted_pvalues, rejected_hypotheses = bh_procedure(pvalues, args.importance_significance_level)
         for idx, child in enumerate(feature.children):
             child.overall_pvalue = adjusted_pvalues[idx]
-            child.important = rejected_hypotheses[idx] and parent_important
+            child.important = rejected_hypotheses[idx]
             if child.important:
                 queue.append(child)
     root.children[0].parent = None if args.analysis_type == constants.HIERARCHICAL else root

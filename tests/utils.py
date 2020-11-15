@@ -39,5 +39,5 @@ def post_test(file_regression, caplog, output_dir, interactions=False):
     if interactions:
         fdr_filename = "%s/%s/%s.csv" % (output_dir, constants.INTERACTIONS_FDR_DIR, constants.HIERARCHICAL_FDR_OUTPUTS)
     with open(fdr_filename, "r") as fdr_file:
-        fdr = "".join(fdr_file.readlines())
+        fdr = "".join(sorted(fdr_file.readlines()))
     file_regression.check(fdr, extension="_fdr.csv")
