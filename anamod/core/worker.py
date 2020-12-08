@@ -29,11 +29,11 @@ Inputs = namedtuple("Inputs", ["data", "targets", "model"])
 def main():
     """Main"""
     parser = argparse.ArgumentParser()
-    parser.add_argument("-features_filename", required=True)
-    parser.add_argument("-model_filename", required=True)
-    parser.add_argument("-data_filename", required=True)
     parser.add_argument("-output_dir", required=True)
-    parser.add_argument("-model_loader_filename", required=True)
+    parser.add_argument("-features_filename", required=True)
+    parser.add_argument("-model_filename")
+    parser.add_argument("-model_loader_filename")
+    parser.add_argument("-data_filename")
     parser.add_argument("-analysis_type", required=True)
     parser.add_argument("-perturbation", required=True)
     parser.add_argument("-num_permutations", required=True, type=int)
@@ -56,7 +56,7 @@ def pipeline(args):
     # Load features to perturb from file
     features = load_features(args.features_filename)
     # Load data
-    data, targets = load_data(args.data_filename)
+    data, targets = load_data(args)
     # Load model
     model = load_model(args)
     inputs = Inputs(data, targets, model)
@@ -94,16 +94,20 @@ def load_features(features_filename):
     return features
 
 
-def load_data(data_filename):
-    """Load data from HDF5 file"""
-    data_root = h5py.File(data_filename, "r")
+def load_data(args):
+    """Load data from HDF5 file if required"""
+    if hasattr(args, "data"):
+        return args.data, args.targets
+    data_root = h5py.File(args.data_filename, "r")
     data = data_root[constants.DATA][...]
     targets = data_root[constants.TARGETS][...]
     return data, targets
 
 
 def load_model(args):
-    """Load model object from model-generating python file"""
+    """Load model object from model-generating python file if required"""
+    if hasattr(args, "model"):
+        return args.model
     args.logger.info("Begin loading model")
     dirname, filename = os.path.split(os.path.abspath(args.model_loader_filename))
     sys.path.insert(1, dirname)

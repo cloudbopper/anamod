@@ -166,8 +166,14 @@ class ModelAnalyzer(ABC):
         self.avoid_bad_hosts = self.process_keyword_arg("avoid_bad_hosts", True)
         self.retry_arbitrary_failures = self.process_keyword_arg("retry_arbitrary_failures", False)
         # Required parameters
-        self.model_filename = self.gen_model_file(model)
-        self.data_filename = self.gen_data_file(data, targets)
+        self.model = model
+        self.data = data
+        self.targets = targets
+        self.model_filename = ""
+        self.data_filename = ""
+        if self.condor:
+            self.model_filename = self.gen_model_file(model)
+            self.data_filename = self.gen_data_file(data, targets)
         self.analysis_type = constants.HIERARCHICAL
         self.gen_hierarchy(data)
 
