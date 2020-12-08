@@ -46,9 +46,48 @@ models. At a high level, ``anamod`` implements the following algorithms:
 Usage
 -----
 
-[TODO]
+See detailed API documentation at https://anamod.readthedocs.io/en/latest/usage.html. Basic usage:
 
-See the complete documentation at https://anamod.readthedocs.io
+To analyze a scikit-learn binary classification model::
+
+    # Train a model
+    from sklearn.linear_model import LogisticRegression
+    from sklearn import datasets
+    model = LogisticRegression()
+    dataset = datasets.load_breast_cancer()
+    X, y, feature_names = (dataset.data, dataset.target, dataset.feature_names)
+    model.fit(X, y)
+
+    # Analyze the model
+    import anamod
+    model.predict = lambda X: model.predict_proba(X)[:, 1]  # To return a vector of probabilities when model.predict is called
+    analyzer = anamod.ModelAnalyzer(model, X, y, feature_names=feature_names)
+    features = analyzer.analyze()
+
+    # Show list of important features sorted in decreasing order of importance score, along with importance score and model coefficient
+    from pprint import pprint
+    important_features = sorted([feature for feature in features if feature.important], key=lambda feature: feature.effect_size, reverse=True)
+    pprint([(feature.name, feature.effect_size, model.coef_[0][feature.idx[0]]) for feature in important_features])
+
+To analyze a scikit-learn regression model::
+
+    # Train a model
+    from sklearn.linear_model import Ridge
+    from sklearn import datasets
+    model = Ridge(alpha=1e-2)
+    dataset = datasets.load_diabetes()
+    X, y, feature_names = (dataset.data, dataset.target, dataset.feature_names)
+    model.fit(X, y)
+
+    # Analyze the model
+    import anamod
+    analyzer = anamod.ModelAnalyzer(model, X, y, feature_names=feature_names)
+    features = analyzer.analyze()
+
+    # Show list of important features sorted in decreasing order of importance score, along with importance score and model coefficient
+    from pprint import pprint
+    important_features = sorted([feature for feature in features if feature.important], key=lambda feature: feature.effect_size, reverse=True)
+    pprint([(feature.name, feature.effect_size, model.coef_[feature.idx[0]]) for feature in important_features])
 
 ------------
 Installation
