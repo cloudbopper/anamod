@@ -154,7 +154,6 @@ class CondorPipeline(SerialPipeline):
         # Update saved hierarchy with FDR-controlled results
         queue = deque()
         root = self.features[0].root
-        root = anytree.Node(constants.DUMMY_ROOT, children=[root]) if self.args.analysis_type == constants.HIERARCHICAL else root
         queue.append(root)
         while queue:
             parent = queue.popleft()
@@ -174,4 +173,3 @@ class CondorPipeline(SerialPipeline):
                     child.window_important = False
                     child.ordering_important = False
                     child.window_ordering_important = False
-        root.children[0].parent = None if self.args.analysis_type == constants.HIERARCHICAL else root  # Restore hierarchy

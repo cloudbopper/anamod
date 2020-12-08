@@ -75,7 +75,7 @@ def evaluate_hierarchical(args, relevant_feature_map, feature_id_map):
     tree_filename = "%s/%s/%s.json" % (args.output_dir, constants.HIERARCHICAL_FDR_DIR, constants.HIERARCHICAL_FDR_OUTPUTS)
     with open(tree_filename, "r") as tree_file:
         tree = JsonImporter().read(tree_file)
-        nodes = list(anytree.PreOrderIter(tree))
+        nodes = list(filter(lambda node: node.name != constants.DUMMY_ROOT, anytree.PreOrderIter(tree)))
         # All nodes FDR/power
         relevant, rejected = get_relevant_rejected(nodes)
         precision, recall, _, _ = precision_recall_fscore_support(relevant, rejected, average="binary", zero_division=1)

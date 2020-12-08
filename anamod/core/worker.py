@@ -12,7 +12,6 @@ import pickle
 import socket
 import sys
 
-import anytree
 import cloudpickle
 import h5py
 import numpy as np
@@ -150,7 +149,6 @@ def perturb_feature_hierarchy(args, inputs, features, baseline_loss, loss_fn):
     baseline_mean_loss = np.mean(baseline_loss)
     queue = deque()
     root = features[0].root
-    root = anytree.Node(constants.DUMMY_ROOT, children=[root]) if args.analysis_type == constants.HIERARCHICAL else root
     queue.append(root)
     while queue:
         feature = queue.popleft()
@@ -168,7 +166,6 @@ def perturb_feature_hierarchy(args, inputs, features, baseline_loss, loss_fn):
             child.important = rejected_hypotheses[idx]
             if child.important:
                 queue.append(child)
-    root.children[0].parent = None if args.analysis_type == constants.HIERARCHICAL else root
     args.logger.info("End perturbing features")
 
 

@@ -11,6 +11,7 @@ import os
 import sys
 from unittest.mock import patch
 
+import anytree
 import numpy as np
 
 from anamod.core import constants, utils
@@ -46,11 +47,13 @@ def pipeline(args):
 
 def hierarchical_fdr(args, features):
     """Performs hierarchical FDR control on results"""
+    # FIXME: This function is currently only being used for visualization and to support legacy workflow
     # Write FDR control input file
     input_filename = "%s/%s" % (args.output_dir, constants.PVALUES_FILENAME)
     with open(input_filename, "w", newline="") as outfile:
         writer = csv.writer(outfile, delimiter=",")
         writer.writerow([constants.NODE_NAME, constants.PARENT_NAME, constants.DESCRIPTION, constants.EFFECT_SIZE, constants.PVALUE])
+        features = list(anytree.PreOrderIter(features[0].root))  # Include all features, including dummy root
         for node in features:
             name = node.name
             parent_name = node.parent.name if node.parent else ""

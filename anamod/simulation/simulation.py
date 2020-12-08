@@ -62,8 +62,8 @@ def main():
     hierarchical.add_argument("-noise_multiplier", default=0.,
                               help=("Multiplicative factor for noise added to polynomial computation for irrelevant features; "
                                     f"if '{constants.AUTO}', selected automatically to get R^2 value of 0.9 (regressor only)"))
-    hierarchical.add_argument("-hierarchy_type", help="Choice of hierarchy to generate", default=constants.CLUSTER_FROM_DATA,
-                              choices=[constants.CLUSTER_FROM_DATA, constants.RANDOM])
+    hierarchical.add_argument("-hierarchy_type", help="Choice of hierarchy to generate", default=constants.FLAT,
+                              choices=[constants.CLUSTER_FROM_DATA, constants.RANDOM, constants.FLAT])
     hierarchical.add_argument("-contiguous_node_names", type=strtobool, default=False, help="enable to change node names in hierarchy "
                               "to be contiguous for better visualization (but creating mismatch between node names and features indices)")
     hierarchical.add_argument("-analyze_interactions", help="enable analyzing interactions", type=strtobool, default=False)
@@ -158,15 +158,13 @@ def analyze(args, pass_args, synthesized_features, data, model_wrapper, targets)
         return (None, None, None)
     hierarchy_root, feature_id_map = (None, None)
     if args.analysis_type == constants.HIERARCHICAL:
-        # Generate hierarchy using clustering (test data also used for clustering)
+        # Generate hierarchy if required
         hierarchy_root, feature_id_map = gen_hierarchy(args, data)
-        # Update hierarchy descriptions for future visualization
-        update_hierarchy_relevance(hierarchy_root, model_wrapper.ground_truth_model.relevant_feature_map, synthesized_features)
-        # Invoke feature importance algorithm
-        analyzed_features = run_anamod(args, pass_args, data, model_wrapper, targets, hierarchy_root)
-    else:
-        # Temporal model analysis
-        analyzed_features = run_anamod(args, pass_args, data, model_wrapper, targets)
+        if hierarchy_root:
+            # Update hierarchy descriptions for future visualization
+            update_hierarchy_relevance(hierarchy_root, model_wrapper.ground_truth_model.relevant_feature_map, synthesized_features)
+    # Invoke feature importance algorithm
+    analyzed_features = run_anamod(args, pass_args, data, model_wrapper, targets, hierarchy_root)
     return analyzed_features, hierarchy_root, feature_id_map
 
 
@@ -181,7 +179,9 @@ def evaluate(args, synthesized_features, model_wrapper, analyzed_features, hiera
         write_outputs(args.output_dir, synthesized_features, model_wrapper, analyzed_features)
     if args.analysis_type == constants.HIERARCHICAL:
         # Compare anamod outputs with ground truth outputs
-        evaluation.compare_with_ground_truth(args, hierarchy_root)
+        if hierarchy_root:
+            # TODO: Only works for non-flat hierarchy
+            evaluation.compare_with_ground_truth(args, hierarchy_root)
         # Evaluate anamod outputs - power/FDR for all nodes/outer nodes/base features
         results = evaluation.evaluate_hierarchical(args, model_wrapper.ground_truth_model.relevant_feature_map, feature_id_map)
     else:
@@ -303,7 +303,9 @@ def gen_hierarchy(args, clustering_data):
     # TODO: Get rid of possibly redundant hierarchy attributes e.g. vidx
     # Generate hierarchy
     hierarchy_root = None
-    if args.hierarchy_type == constants.CLUSTER_FROM_DATA:
+    if args.hierarchy_type == constants.FLAT:
+        args.contiguous_node_names = False  # Flat hierarchy should be automatically created; do not re-index hierarchy
+    elif args.hierarchy_type == constants.CLUSTER_FROM_DATA:
         clusters = cluster_data(args, clustering_data)
         hierarchy_root = gen_hierarchy_from_clusters(args, clusters)
     elif args.hierarchy_type == constants.RANDOM:

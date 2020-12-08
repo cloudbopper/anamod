@@ -11,6 +11,7 @@ PARENT_NAME = "parent_name"
 DESCRIPTION = "description"
 CLUSTER_FROM_DATA = "cluster_from_data"
 RANDOM = "random"
+FLAT = "flat"
 
 # Temporal analysis
 EFFECT_SIZE = "effect_size"

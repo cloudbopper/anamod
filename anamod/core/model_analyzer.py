@@ -176,8 +176,8 @@ class ModelAnalyzer(ABC):
         value = self.kwargs.get(argname, default_value)
         dtype = type(default_value)
         try:
-            value = bool(value) if dtype == bool else value
-            assert default_value is None or isinstance(value, dtype)
+            if default_value is not None:
+                value = dtype(value)
             assert choices is None or value in choices
         except Exception as exc:
             print(f"Usage:\n\n{self.__doc__}", file=sys.stderr)
@@ -235,7 +235,7 @@ class ModelAnalyzer(ABC):
             if self.feature_names is None:
                 # Generate feature names if not available
                 self.feature_names = [f"{idx}" for idx in range(num_features)]
-            root = Feature(constants.DUMMY_ROOT, description=constants.DUMMY_ROOT, perturbable=False)  # Dummy node, shouldn't be perturbed
+            root = Feature(constants.DUMMY_ROOT, description=constants.DUMMY_ROOT, perturbable=False)  # Dummy root node, shouldn't be perturbed
             for idx, feature_name in enumerate(self.feature_names):
                 Feature(feature_name, parent=root, idx=[idx])
             self.feature_hierarchy = root
@@ -261,7 +261,8 @@ class ModelAnalyzer(ABC):
                     # Ensure internal nodes have empty initial indices
                     valid = not hasattr(node, "idx") or not node.idx
                     assert valid, f"Internal node {node.name} must have empty initial indices under attribute 'idx'"
-                feature_nodes[node.name] = Feature(node.name, description=node.description, idx=idx)
+                description = getattr(node, "description", "")
+                feature_nodes[node.name] = Feature(node.name, description=description, idx=idx)
             # Update feature group (internal node) indices and tree connections
             assert min(all_idx) >= 0 and max(all_idx) < num_features, "Feature indices in hierarchy must be in range [0, num_features - 1]"
             feature_node = None
@@ -272,7 +273,7 @@ class ModelAnalyzer(ABC):
                     feature_node.parent = feature_nodes[parent.name]
                 for child in node.children:
                     feature_node.idx += feature_nodes[child.name].idx
-            self.feature_hierarchy = feature_node  # root
+            self.feature_hierarchy = Feature(constants.DUMMY_ROOT, children=[feature_node], perturbable=False)  # Dummy root node for consistency with flat hierarchy; last feature_node is original root
 
     def set_loss_function(self, targets):
         """Set loss function if not provided based on inferred model type"""
