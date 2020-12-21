@@ -5,7 +5,7 @@ from distutils.util import strtobool
 import os
 import re
 import shutil
-from anamod.constants import HIERARCHICAL, TEMPORAL
+from anamod.core.constants import HIERARCHICAL, TEMPORAL
 
 TESTS = {HIERARCHICAL: "test_hierarchical.py", TEMPORAL: "test_temporal.py"}
 GOLDS = {HIERARCHICAL: "test_hierarchical", TEMPORAL: "test_temporal"}

@@ -6,7 +6,7 @@ import os
 import sys
 from unittest.mock import patch
 
-from anamod import model_loader
+from anamod.core import model_loader
 from anamod.simulation import simulation, run_trials
 from tests.utils import pre_test, write_logfile
 

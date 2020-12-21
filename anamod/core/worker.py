@@ -5,7 +5,7 @@ computes the effect on the model's output loss
 """
 
 import argparse
-from collections import namedtuple
+from collections import deque, namedtuple
 import importlib
 import os
 import pickle
@@ -16,11 +16,12 @@ import cloudpickle
 import h5py
 import numpy as np
 
-from anamod import constants
-from anamod.compute_p_values import compute_empirical_p_value
-from anamod.losses import Loss
-from anamod.perturbations import PERTURBATION_FUNCTIONS, PERTURBATION_MECHANISMS
-from anamod.utils import get_logger
+from anamod.core import constants
+from anamod.core.compute_p_values import compute_empirical_p_value
+from anamod.core.losses import Loss
+from anamod.core.perturbations import PERTURBATION_FUNCTIONS, PERTURBATION_MECHANISMS
+from anamod.core.utils import get_logger
+from anamod.fdr.fdr_algorithms import bh_procedure
 
 Inputs = namedtuple("Inputs", ["data", "targets", "model"])
 
@@ -28,20 +29,21 @@ Inputs = namedtuple("Inputs", ["data", "targets", "model"])
 def main():
     """Main"""
     parser = argparse.ArgumentParser()
-    parser.add_argument("-features_filename", required=True)
-    parser.add_argument("-model_filename", required=True)
-    parser.add_argument("-data_filename", required=True)
     parser.add_argument("-output_dir", required=True)
-    parser.add_argument("-model_loader_filename", required=True)
+    parser.add_argument("-features_filename", required=True)
+    parser.add_argument("-model_filename")
+    parser.add_argument("-model_loader_filename")
+    parser.add_argument("-data_filename")
     parser.add_argument("-analysis_type", required=True)
     parser.add_argument("-perturbation", required=True)
-    parser.add_argument("-num_shuffling_trials", required=True, type=int)
+    parser.add_argument("-num_permutations", required=True, type=int)
     parser.add_argument("-worker_idx", required=True, type=int)
     parser.add_argument("-loss_function", required=True, type=str)
     parser.add_argument("-importance_significance_level", required=True, type=float)
-    parser.add_argument("-window_search_algorithm", required=True, type=str)
-    parser.add_argument("-window_effect_size_threshold", required=True, type=float)
     parser.add_argument("-permutation_test_statistic", required=True, type=str)
+    parser.add_argument("-fdr_control", action="store_true")
+    parser.add_argument("-window_search_algorithm", type=str)
+    parser.add_argument("-window_effect_size_threshold", type=float)
     args = parser.parse_args()
     args.logger = get_logger(__name__, "%s/worker_%d.log" % (args.output_dir, args.worker_idx))
     pipeline(args)
@@ -50,25 +52,37 @@ def main():
 def pipeline(args):
     """Worker pipeline"""
     args.logger.info(f"Begin anamod worker pipeline on host {socket.gethostname()}")
+    validate_args(args)
     # Load features to perturb from file
     features = load_features(args.features_filename)
     # Load data
-    data, targets = load_data(args.data_filename)
+    data, targets = load_data(args)
     # Load model
     model = load_model(args)
     inputs = Inputs(data, targets, model)
     # Baseline predictions/losses
     # FIXME: baseline may be computed in master and provided to all workers
     baseline_loss, loss_fn = compute_baseline(args, inputs)
-    # Perturb features
-    perturbed_losses = perturb_features(args, inputs, features, loss_fn)
-    compute_importances(args, features, perturbed_losses, baseline_loss)
+    if args.fdr_control:
+        # Perturb entire hierarchy and use FDR control to prune efficiently
+        perturb_feature_hierarchy(args, inputs, features, baseline_loss, loss_fn)
+    else:
+        # Perturb features in file
+        perturbed_losses = perturb_features(args, inputs, features, loss_fn)
+        compute_importances(args, features, perturbed_losses, baseline_loss)
     # For important features, proceed with further analysis (temporal model analysis):
     if args.analysis_type == constants.TEMPORAL:
         temporal_analysis(args, inputs, features, baseline_loss, loss_fn)
     # Write outputs
     write_outputs(args, features)
     args.logger.info("End anamod worker pipeline")
+
+
+def validate_args(args):
+    """Validate arguments"""
+    if args.analysis_type == constants.TEMPORAL:
+        assert args.window_search_algorithm is not None
+        assert args.window_effect_size_threshold is not None
 
 
 def load_features(features_filename):
@@ -80,16 +94,20 @@ def load_features(features_filename):
     return features
 
 
-def load_data(data_filename):
-    """Load data from HDF5 file"""
-    data_root = h5py.File(data_filename, "r")
+def load_data(args):
+    """Load data from HDF5 file if required"""
+    if hasattr(args, "data"):
+        return args.data, args.targets
+    data_root = h5py.File(args.data_filename, "r")
     data = data_root[constants.DATA][...]
     targets = data_root[constants.TARGETS][...]
     return data, targets
 
 
 def load_model(args):
-    """Load model object from model-generating python file"""
+    """Load model object from model-generating python file if required"""
+    if hasattr(args, "model"):
+        return args.model
     args.logger.info("Begin loading model")
     dirname, filename = os.path.split(os.path.abspath(args.model_loader_filename))
     sys.path.insert(1, dirname)
@@ -103,9 +121,6 @@ def compute_baseline(args, inputs):
     """Compute baseline prediction/loss"""
     data, targets, model = inputs
     pred = model.predict(data)
-    if args.loss_function in {None, str(None)}:
-        is_classifier = np.unique(targets).shape[0] <= 2
-        args.loss_function = constants.BINARY_CROSS_ENTROPY if is_classifier else constants.QUADRATIC_LOSS
     loss_fn = Loss(args.loss_function, targets).loss_fn
     baseline_loss = loss_fn(pred)
     args.logger.info(f"Baseline mean loss: {np.mean(baseline_loss)}")
@@ -131,18 +146,45 @@ def perturb_features(args, inputs, features, loss_fn):
     return perturbed_losses
 
 
+def perturb_feature_hierarchy(args, inputs, features, baseline_loss, loss_fn):
+    """Perturb all features in hierarchy, while pruning efficiently using FDR control"""
+    # pylint: disable = too-many-locals
+    args.logger.info("Begin perturbing features")
+    baseline_mean_loss = np.mean(baseline_loss)
+    queue = deque()
+    root = features[0].root
+    queue.append(root)
+    while queue:
+        feature = queue.popleft()
+        if not feature.children:
+            continue
+        num_children = len(feature.children)
+        pvalues = np.ones(num_children)
+        for idx, child in enumerate(feature.children):
+            perturbed_loss = perturb_feature(args, inputs, child, loss_fn)
+            compute_importance(args, child, perturbed_loss, baseline_loss, baseline_mean_loss)
+            pvalues[idx] = child.overall_pvalue
+        adjusted_pvalues, rejected_hypotheses = bh_procedure(pvalues, args.importance_significance_level)
+        for idx, child in enumerate(feature.children):
+            child.overall_pvalue = adjusted_pvalues[idx]
+            child.important = rejected_hypotheses[idx]
+            if child.important:
+                queue.append(child)
+    args.logger.info("End perturbing features")
+
+
 def perturb_feature(args, inputs, feature, loss_fn,
                     timesteps=..., perturbation_type=constants.ACROSS_INSTANCES):
     """Perturb feature"""
     # pylint: disable = too-many-arguments, too-many-locals
     data, _, model = inputs
-    num_permutations = args.num_shuffling_trials
+    num_permutations = args.num_permutations
     num_elements = data.shape[0]
     perturbed_loss = np.zeros((num_elements, num_permutations))
     if perturbation_type == constants.WITHIN_INSTANCE:
         num_elements = data.shape[2] if timesteps == ... else len(timesteps)
     perturbation_mechanism = get_perturbation_mechanism(args, feature.rng, perturbation_type, num_elements, num_permutations)
-    assert args.perturbation == constants.SHUFFLING, "Zeroing deprecated, only permutation-type perturbations currently supported"
+    assert args.perturbation == constants.PERMUTATION, "Zeroing deprecated, only permutation-type perturbations currently supported"
     for kidx in range(num_permutations):
         try:
             data_perturbed = perturbation_mechanism.perturb(data, feature, timesteps=timesteps)
@@ -152,6 +194,23 @@ def perturb_feature(args, inputs, feature, loss_fn,
         pred = model.predict(data_perturbed)
         perturbed_loss[:, kidx] = loss_fn(pred)
     return perturbed_loss[:, :num_permutations]
+
+
+def compute_importance(args, feature, perturbed_loss, baseline_loss, baseline_mean_loss):
+    """Computes p-value indicating feature importance"""
+    feature.overall_pvalue = compute_empirical_p_value(baseline_loss, perturbed_loss, args.permutation_test_statistic)
+    feature.overall_effect_size = np.mean(perturbed_loss) - baseline_mean_loss
+    feature.important = feature.overall_pvalue < args.importance_significance_level
+
+
+def compute_importances(args, features, perturbed_losses, baseline_loss):
+    """Computes p-values indicating feature importances"""
+    baseline_mean_loss = np.mean(baseline_loss)
+    for feature in features:
+        perturbed_loss = perturbed_losses[feature.name]
+        feature.overall_pvalue = compute_empirical_p_value(baseline_loss, perturbed_loss, args.permutation_test_statistic)
+        feature.overall_effect_size = np.mean(perturbed_loss) - baseline_mean_loss
+        feature.important = feature.overall_pvalue < args.importance_significance_level
 
 
 def search_window(args, inputs, feature, baseline_loss, loss_fn):
@@ -214,16 +273,6 @@ def search_window(args, inputs, feature, baseline_loss, loss_fn):
     return left, right
 
 
-def compute_importances(args, features, perturbed_losses, baseline_loss):
-    """Computes p-values indicating feature importances"""
-    baseline_mean_loss = np.mean(baseline_loss)
-    for feature in features:
-        perturbed_loss = perturbed_losses[feature.name]
-        feature.overall_pvalue = compute_empirical_p_value(baseline_loss, perturbed_loss, args.permutation_test_statistic)
-        feature.overall_effect_size = np.mean(perturbed_loss) - baseline_mean_loss
-        feature.important = feature.overall_pvalue < args.importance_significance_level
-
-
 def temporal_analysis(args, inputs, features, baseline_loss, loss_fn):
     """Perform temporal analysis of important features"""
     features = [feature for feature in features if feature.important]
@@ -236,11 +285,17 @@ def temporal_analysis(args, inputs, features, baseline_loss, loss_fn):
         args.logger.info(f"Feature {feature.name}: ordering important: {feature.ordering_important}")
         # Test feature temporal localization
         left, right = search_window(args, inputs, feature, baseline_loss, loss_fn)
-        # Test importance of feature ordering across window
-        perturbed_loss = perturb_feature(args, inputs, feature, loss_fn, range(left, right + 1), perturbation_type=constants.WITHIN_INSTANCE)
-        feature.window_ordering_pvalue = compute_empirical_p_value(baseline_loss, perturbed_loss, args.permutation_test_statistic)
-        feature.window_ordering_important = feature.window_ordering_pvalue < args.importance_significance_level
-        args.logger.info(f"(Prior to FDR control) Found window for feature {feature.name}: ({left}, {right});"
+        # FDR control
+        adjusted_pvalues, rejected_hypotheses = bh_procedure([feature.ordering_pvalue, feature.window_pvalue], args.importance_significance_level)
+        feature.ordering_pvalue, feature.window_pvalue = adjusted_pvalues
+        feature.ordering_important, feature.window_important = rejected_hypotheses
+        feature.window_ordering_important &= feature.window_important
+        if feature.window_important:
+            # Test importance of feature ordering across window
+            perturbed_loss = perturb_feature(args, inputs, feature, loss_fn, range(left, right + 1), perturbation_type=constants.WITHIN_INSTANCE)
+            feature.window_ordering_pvalue = compute_empirical_p_value(baseline_loss, perturbed_loss, args.permutation_test_statistic)
+            feature.window_ordering_important = feature.window_ordering_pvalue < args.importance_significance_level
+        args.logger.info(f"Found window for feature {feature.name}: ({left}, {right});"
                          f" significant: {feature.window_important}; ordering important: {feature.window_ordering_important}")
 
 

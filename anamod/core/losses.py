@@ -1,10 +1,12 @@
 """Loss functions"""
 
 from abc import ABC
+from inspect import currentframe, getframeinfo
+import sys
 
 import numpy as np
 
-from anamod import constants
+from anamod.core import constants
 
 TARGET_VALUES = {constants.LABELS, constants.BASELINE_PREDICTIONS}
 
@@ -41,10 +43,25 @@ class ZeroOneLoss(LossFunction):
 
 class BinaryCrossEntropy(LossFunction):
     """Binary cross-entropy"""
+    fp_warned = False
+
+    @staticmethod
+    def fp_warn(err, flag):
+        """Warn once if zero encountered in np.log"""
+        # pylint: disable = unused-argument
+        if not BinaryCrossEntropy.fp_warned:
+            frameinfo = getframeinfo(currentframe())
+            sys.stderr.write(f"Warning: {frameinfo.filename}: {frameinfo.lineno}: 0 encountered in np.log; "
+                             "ensure that model predictions are probabilities\n")
+            BinaryCrossEntropy.fp_warned = True
+
+    np.seterrcall(fp_warn.__func__)
+
     @staticmethod
     def loss(y_true, y_pred):
         assert all(y_pred >= 0) and all(y_pred <= 1)
-        losses = -y_true * np.log(y_pred) - (1 - y_true) * np.log(1 - y_pred)
+        with np.errstate(invalid="call", divide="call"):
+            losses = -y_true * np.log(y_pred) - (1 - y_true) * np.log(1 - y_pred)
         losses[np.isnan(losses)] = 0  # to handle indeterminate case where y_pred components are zero
         return losses
 

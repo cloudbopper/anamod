@@ -1,6 +1,6 @@
 """Serial and distributed (condor) perturbation pipelines"""
 
-from collections import OrderedDict
+from collections import deque, OrderedDict
 import copy
 import glob
 import math
@@ -8,18 +8,22 @@ import os
 import pickle
 import shutil
 
+import anytree
 import cloudpickle
+import numpy as np
 
-from anamod import constants, worker
+from anamod.core import constants, worker
+from anamod.core.utils import CondorJobWrapper
 from anamod.fdr.fdr_algorithms import bh_procedure
-from anamod.utils import CondorJobWrapper
 
 
 class SerialPipeline():
     """Feature importance analysis pipeline"""
-    def __init__(self, args, features):
+    def __init__(self, args, features=None):
         self.args = copy.copy(args)
         self.features = features
+        if features is None:
+            self.features = list(filter(lambda node: node.perturbable, anytree.PreOrderIter(self.args.feature_hierarchy)))  # flatten hierarchy
         self.num_jobs = 1
 
     def write_features(self):
@@ -41,28 +45,7 @@ class SerialPipeline():
             features_filename = constants.OUTPUT_FEATURES_FILENAME.format(directory, idx)
             with open(features_filename, "rb") as features_file:
                 features.extend(cloudpickle.load(features_file))
-
-        self.fdr_control(features)
-        return features
-
-    def fdr_control(self, features):
-        """Apply FDR control to features"""
-        # TODO: better solution to unify hierarchical/temporal analysis FDR control
-        if self.args.analysis_type == constants.HIERARCHICAL:
-            return  # Hierarchical FDR control performed separately
-        pvalues = [feature.overall_pvalue for feature in features]
-        adjusted_pvalues, rejected_hypotheses = bh_procedure(pvalues, self.args.importance_significance_level)
-        for idx, feature in enumerate(features):
-            feature.overall_pvalue = adjusted_pvalues[idx]
-            if not rejected_hypotheses[idx]:
-                feature.important = False
-            else:
-                # Feature important overall; apply FDR control to tests for sequence ordering and window importance
-                adjusted_pvalues2, rejected_hypotheses2 = bh_procedure([feature.ordering_pvalue, feature.window_pvalue],
-                                                                        self.args.importance_significance_level)
-                feature.ordering_pvalue, feature.window_pvalue = adjusted_pvalues2
-                feature.ordering_important, feature.window_important = rejected_hypotheses2
-                feature.window_ordering_important &= feature.window_important
+        return features  # Updating self.features with output features unnecessary for serial pipeline, since order and hierarchy retained
 
     def cleanup(self, job_dirs=None):
         """Clean intermediate files after completing pipeline"""
@@ -95,6 +78,7 @@ class SerialPipeline():
             self.write_features()
             # Run worker pipeline
             self.args.worker_idx = 0
+            self.args.fdr_control = True
             self.args.features_filename = constants.INPUT_FEATURES_FILENAME.format(self.args.output_dir, 0)
             worker.pipeline(self.args)
         results = self.compile_results([self.args.output_dir])
@@ -104,13 +88,13 @@ class SerialPipeline():
 
 class CondorPipeline(SerialPipeline):
     """Class managing condor pipeline for distributing load across workers"""
-    def __init__(self, args, features):
+    def __init__(self, args, features=None):
         super().__init__(args, features)
         self.num_jobs = math.ceil(len(self.features) / self.args.features_per_worker)
 
     def setup_jobs(self):
         """Setup and run condor jobs"""
-        transfer_args = ["analysis_type", "perturbation", "num_shuffling_trials", "permutation_test_statistic", "loss_function",
+        transfer_args = ["analysis_type", "perturbation", "num_permutations", "permutation_test_statistic", "loss_function",
                          "importance_significance_level", "window_search_algorithm", "window_effect_size_threshold"]
         jobs = [None] * self.num_jobs
         for idx in range(self.num_jobs):
@@ -118,9 +102,10 @@ class CondorPipeline(SerialPipeline):
             features_filename = constants.INPUT_FEATURES_FILENAME.format(self.args.output_dir, idx)
             input_files = [features_filename, self.args.model_filename, self.args.model_loader_filename, self.args.data_filename]
             job_dir = f"{self.args.output_dir}/outputs_{idx}"
-            cmd = f"python3 -m anamod.worker -worker_idx {idx}"
+            cmd = f"python3 -m anamod.core.worker -worker_idx {idx}"
             for arg in transfer_args:
-                cmd += f" -{arg} {self.args.__getattribute__(arg)}"
+                if hasattr(self.args, arg):
+                    cmd += f" -{arg} {getattr(self.args, arg)}"
             # Relative file paths for non-shared FS, absolute for shared FS
             for name, path in dict(output_dir=job_dir, features_filename=features_filename, model_filename=self.args.model_filename,
                                    model_loader_filename=self.args.model_loader_filename, data_filename=self.args.data_filename).items():
@@ -135,6 +120,11 @@ class CondorPipeline(SerialPipeline):
     def run(self):
         """Run condor pipeline"""
         self.args.logger.info("Begin condor pipeline")
+        # Shuffle features to balance load across workers
+        pairs = list(zip(range(len(self.features)), self.features))
+        self.args.rng.shuffle(pairs)
+        fids, self.features = zip(*pairs)
+        # Write features and start jobs
         self.write_features()
         jobs = self.setup_jobs()
         if not self.args.compile_results_only:
@@ -149,7 +139,37 @@ class CondorPipeline(SerialPipeline):
                     job.run()
             CondorJobWrapper.monitor(list(running_jobs.keys()), cleanup=self.args.cleanup)
         job_dirs = [job.job_dir for job in jobs]
+        # Process results
         results = self.compile_results(job_dirs)
+        self.fdr_control(results)
+        _, self.features = zip(*sorted(zip(fids, self.features), key=lambda pair: pair[0]))  # Restore feature order
         self.cleanup(job_dirs)
         self.args.logger.info("End condor pipeline")
-        return results
+        return self.features
+
+    def fdr_control(self, output_features):
+        """Apply hierarchical FDR control to aggregated feature importance results"""
+        # Map output feature names
+        output_feature_map = {output_feature.name: output_feature for output_feature in output_features}
+        # Update saved hierarchy with FDR-controlled results
+        queue = deque()
+        root = self.features[0].root
+        queue.append(root)
+        while queue:
+            parent = queue.popleft()
+            if not parent.children:
+                continue
+            pvalues = np.ones(len(parent.children))
+            for idx, child in enumerate(parent.children):
+                child.copy_attributes(output_feature_map[child.name])
+                pvalues[idx] = child.overall_pvalue
+            adjusted_pvalues, rejected_hypotheses = bh_procedure(pvalues, self.args.importance_significance_level)
+            for idx, child in enumerate(parent.children):
+                child.overall_pvalue = adjusted_pvalues[idx]
+                child.important = rejected_hypotheses[idx]
+                if child.important:
+                    queue.append(child)
+                else:
+                    child.window_important = False
+                    child.ordering_important = False
+                    child.window_ordering_important = False

@@ -12,7 +12,7 @@ from anytree.exporter import DotExporter
 from anytree.exporter import JsonExporter
 import numpy as np
 
-from anamod import constants, utils
+from anamod.core import constants, utils
 from anamod.fdr.fdr_algorithms import hierarchical_fdr_control
 
 # pylint: disable = invalid-name
@@ -22,6 +22,7 @@ def main():
     """Main"""
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-output_dir", help="name of output directory")
+    parser.add_argument("-fdr_control", help="enable FDR control", type=strtobool, default=False)
     parser.add_argument("-dependence_assumption", help="choice of dependence assumption used by Lynch and Guo (2016) procedure",
                         choices=[constants.POSITIVE, constants.ARBITRARY], default=constants.POSITIVE)
     parser.add_argument("-alpha", type=float, default=0.05)
@@ -50,8 +51,13 @@ def main():
     args.logger.info("Begin hierarchical_fdr_control")
 
     tree = build_tree(args)
-    F, M = process_tree(args.logger, tree)
-    hierarchical_fdr_control(args, F, M)
+    if args.fdr_control:
+        F, M = process_tree(args.logger, tree)
+        hierarchical_fdr_control(args, F, M)
+    else:
+        for node in anytree.PreOrderIter(tree):
+            node.adjusted_pvalue = node.pvalue
+            node.rejected = node.pvalue < args.alpha
     write_outputs(args, tree)
     args.logger.info("End hierarchical_fdr_control")
 

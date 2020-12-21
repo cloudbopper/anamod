@@ -15,8 +15,8 @@ try:
 except ImportError:
     pass  # Caller performs its own check to validate condor availability
 
-from anamod.constants import (EVENT_LOG_TRACKING, CONDOR_MAX_RUNNING_TIME, CONDOR_MAX_WAIT_TIME, CONDOR_MAX_RETRIES,
-                              CONDOR_HOLD_RETRY_CODES, CONDOR_AVOID_HOSTS, CONDOR_MAX_ERROR_COUNT, QUEUE, REMOVE, QUERY, HISTORY)
+from anamod.core.constants import (EVENT_LOG_TRACKING, CONDOR_MAX_RUNNING_TIME, CONDOR_MAX_WAIT_TIME, CONDOR_MAX_RETRIES,
+                                   CONDOR_HOLD_RETRY_CODES, CONDOR_AVOID_HOSTS, CONDOR_MAX_ERROR_COUNT, QUEUE, REMOVE, QUERY, HISTORY)
 
 
 def get_logger(name, filename=None, level=logging.INFO):
