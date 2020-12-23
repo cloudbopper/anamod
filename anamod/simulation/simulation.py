@@ -99,8 +99,8 @@ def pipeline(args, pass_args):
     """Simulation pipeline"""
     args.logger.info("Begin anamod simulation with args: %s" % args)
     synthesized_features, data, model_wrapper, targets = synthesize(args)
-    analyzed_features, hierarchy_root, feature_id_map = analyze(args, pass_args, synthesized_features, data, model_wrapper, targets)
-    results, model_wrapper = evaluate(args, synthesized_features, model_wrapper, analyzed_features, hierarchy_root, feature_id_map)
+    analyzed_features = analyze(args, pass_args, synthesized_features, data, model_wrapper, targets)
+    results, model_wrapper = evaluate(args, synthesized_features, model_wrapper, analyzed_features)
     summary = write_summary(args, model_wrapper, results)
     args.logger.info("End anamod simulation")
     return summary
@@ -155,20 +155,20 @@ def analyze(args, pass_args, synthesized_features, data, model_wrapper, targets)
     """Analyze model"""
     # pylint: disable = too-many-arguments
     if args.synthesize_only or args.evaluate_only:
-        return (None, None, None)
-    hierarchy_root, feature_id_map = (None, None)
+        return (None, None)
+    hierarchy_root = None
     if args.analysis_type == constants.HIERARCHICAL:
         # Generate hierarchy if required
-        hierarchy_root, feature_id_map = gen_hierarchy(args, data)
+        hierarchy_root, _ = gen_hierarchy(args, data)
         if hierarchy_root:
             # Update hierarchy descriptions for future visualization
             update_hierarchy_relevance(hierarchy_root, model_wrapper.ground_truth_model.relevant_feature_map, synthesized_features)
     # Invoke feature importance algorithm
     analyzed_features = run_anamod(args, pass_args, data, model_wrapper, targets, hierarchy_root)
-    return analyzed_features, hierarchy_root, feature_id_map
+    return analyzed_features
 
 
-def evaluate(args, synthesized_features, model_wrapper, analyzed_features, hierarchy_root, feature_id_map):
+def evaluate(args, synthesized_features, model_wrapper, analyzed_features):
     """Evaluate results of analysis"""
     # pylint: disable = too-many-arguments
     if args.synthesize_only:
@@ -177,16 +177,8 @@ def evaluate(args, synthesized_features, model_wrapper, analyzed_features, hiera
         synthesized_features, model_wrapper, analyzed_features = read_outputs(args.output_dir)
     else:
         write_outputs(args.output_dir, synthesized_features, model_wrapper, analyzed_features)
-    if args.analysis_type == constants.HIERARCHICAL:
-        # Compare anamod outputs with ground truth outputs
-        if hierarchy_root:
-            # TODO: Only works for non-flat hierarchy
-            evaluation.compare_with_ground_truth(args, hierarchy_root)
-        # Evaluate anamod outputs - power/FDR for all nodes/outer nodes/base features
-        results = evaluation.evaluate_hierarchical(args, model_wrapper.ground_truth_model.relevant_feature_map, feature_id_map)
-    else:
-        # TODO: should have similar mode of parsing outputs for both analyses
-        results = evaluation.evaluate_temporal(args, synthesized_features, analyzed_features)
+    # Evaluate anamod outputs - power/FDR, importance score correlations
+    results = evaluation.evaluate(args, synthesized_features, analyzed_features)
     return results, model_wrapper
 
 
