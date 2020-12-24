@@ -35,6 +35,7 @@ def main():
     common.add_argument("-analysis_type", help="Type of model analysis to perform",
                         default=constants.TEMPORAL, choices=[constants.TEMPORAL, constants.HIERARCHICAL])
     common.add_argument("-seed", type=int, default=constants.SEED)
+    common.add_argument("-visualize", type=strtobool, default=False)
     common.add_argument("-num_instances", type=int, default=200)
     common.add_argument("-num_features", type=int, default=10)
     common.add_argument("-fraction_relevant_features", type=float, default=.2)
@@ -298,7 +299,7 @@ def gen_hierarchy(args, clustering_data):
     if args.hierarchy_type == constants.FLAT:
         args.contiguous_node_names = False  # Flat hierarchy should be automatically created; do not re-index hierarchy
     elif args.hierarchy_type == constants.CLUSTER_FROM_DATA:
-        clusters = cluster_data(args, clustering_data)
+        clusters = cluster_data(clustering_data)
         hierarchy_root = gen_hierarchy_from_clusters(args, clusters)
     elif args.hierarchy_type == constants.RANDOM:
         hierarchy_root = gen_random_hierarchy(args)
@@ -345,12 +346,10 @@ def gen_random_hierarchy(args):
     return hierarchy_root
 
 
-def cluster_data(args, data):
+def cluster_data(data):
     """Cluster data using hierarchical clustering with Hamming distance"""
     # Cluster data
-    args.logger.info("Begin clustering data")
     clusters = linkage(data.transpose(), metric="hamming", method="complete")
-    args.logger.info("End clustering data")
     return clusters
 
 
@@ -418,6 +417,7 @@ def run_anamod(args, pass_args, data, model, targets, hierarchy=None):  # pylint
     options["feature_hierarchy"] = hierarchy
     options["output_dir"] = args.output_dir
     options["seed"] = args.seed
+    options["visualize"] = args.visualize
     options["analysis_type"] = args.analysis_type
     options["condor"] = args.condor
     options["shared_filesystem"] = args.shared_filesystem

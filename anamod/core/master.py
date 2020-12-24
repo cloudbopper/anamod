@@ -16,6 +16,7 @@ import numpy as np
 
 from anamod.core import constants, utils
 from anamod.core.pipelines import CondorPipeline, SerialPipeline
+from anamod.visualization.analysis import visualize_hierarchical, visualize_temporal
 
 
 def main(args):
@@ -36,6 +37,7 @@ def pipeline(args):
     worker_pipeline = CondorPipeline(args) if args.condor else SerialPipeline(args)
     analyzed_features = worker_pipeline.run()
     write_outputs(args, analyzed_features)
+    visualize(args, analyzed_features)
     args.logger.info("End anamod master pipeline")
     return analyzed_features
 
@@ -57,6 +59,17 @@ def write_outputs(args, features):
         for feature in features:
             writer.writerow([getattr(feature, attribute) for attribute in attributes])
     print(f"Summary of important features: {csv_filename}")
+
+
+def visualize(args, features):
+    """Visualize outputs"""
+    if not args.visualize:
+        return
+    if args.analysis_type == constants.TEMPORAL:
+        sequence_length = args.data.shape[2]
+        visualize_temporal(args, features, sequence_length)
+    elif args.analysis_type == constants.HIERARCHICAL:
+        visualize_hierarchical(args, features)
 
 
 def validate_args(args):

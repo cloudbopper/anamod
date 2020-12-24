@@ -45,6 +45,7 @@ MODEL_FILENAME = "model.cpkl"
 DATA_FILENAME = "data.hdf5"
 FEATURE_IMPORTANCE = "feature_importance"
 FEATURE_IMPORTANCE_HIERARCHY = f"{FEATURE_IMPORTANCE}_hierarchy"
+FEATURE_IMPORTANCE_WINDOWS = f"{FEATURE_IMPORTANCE}_windows"
 
 # Worker I/O
 INPUT_FEATURES_FILENAME = "{}/input_features_worker_{}.cpkl"

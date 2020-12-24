@@ -30,9 +30,11 @@ setup(
         "anytree",
         "cloudpickle",
         "h5py",
+        "matplotlib",
         "numpy>=1.19.0",
         "scikit-learn",
         "scipy",
+        "seaborn",
         "sympy",
         "synmod",
         "xxhash"
