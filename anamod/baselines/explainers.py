@@ -94,9 +94,25 @@ class SageExplainer(TabularExplainer):
         super().__init__(predict, data)
         loss_fn = kwargs["loss_fn"]
         self.targets = kwargs["targets"]
-        imputer = sage.MarginalImputer(self.predict, self.data[:128])
+        imputer = self.get_imputer()
         self.estimator = sage.PermutationEstimator(imputer, loss_fn)
+
+    def get_imputer(self):
+        """Get SAGE data imputer"""
+        return sage.MarginalImputer(self.predict, self.data[:128])
 
     def explain(self):
         sage_values = self.estimator(self.data, self.targets, batch_size=512, thresh=0.05)
         return sage_values.values.reshape((self.num_features, self.num_timesteps), order="C")
+
+
+class SageExplainerMeanImputer(SageExplainer):
+    """SAGE explainer using default imputation using data mean (fast but lower accuracy)"""
+    def get_imputer(self):
+        return sage.DefaultImputer(self.predict, np.mean(self.data, axis=0))
+
+
+class SageExplainerZeroImputer(SageExplainer):
+    """SAGE explainer using default imputation using zeros (fast but lower accuracy)"""
+    def get_imputer(self):
+        return sage.DefaultImputer(self.predict, np.zeros(self.num_features_tabular))

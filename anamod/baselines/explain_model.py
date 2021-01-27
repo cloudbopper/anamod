@@ -1,4 +1,4 @@
-"""Synthesize data and run explainer"""
+"""Synthesize data and explain model"""
 import argparse
 import subprocess
 import time
@@ -8,10 +8,11 @@ import numpy as np
 from synmod.constants import REGRESSOR
 from synmod.aggregators import Slope
 
-from anamod.baselines.explainers import AnamodExplainer, LimeExplainer, SageExplainer
+from anamod.baselines.explainers import AnamodExplainer, LimeExplainer, SageExplainer, SageExplainerMeanImputer, SageExplainerZeroImputer
 from anamod.simulation.simulation import read_synthesized_inputs, read_intermediate_inputs
 
-EXPLAINERS = {"anamod": AnamodExplainer, "lime": LimeExplainer, "sage": SageExplainer}
+EXPLAINERS = {"anamod": AnamodExplainer, "lime": LimeExplainer, "sage": SageExplainer,
+              "sage-mean": SageExplainerMeanImputer, "sage-zero": SageExplainerZeroImputer}
 TRUE_SCORES_FILENAME = "true_scores.npy"
 EXPLAINER_SCORES_FILENAME = "explainer_scores.npy"
 EXPLAINER_RUNTIME_FILENAME = "explainer_runtime.npy"
@@ -29,7 +30,7 @@ def main():
     pass_args = " ".join(pass_arglist)
     synthesized_features, data, model, targets = synthesize(args, pass_args)
     true_scores = get_true_scores(synthesized_features, data)
-    explainer_scores, elapsed_time = explain(args, synthesized_features, data, model, targets)
+    explainer_scores, elapsed_time = explain_model(args, synthesized_features, data, model, targets)
     write_outputs(args, true_scores, explainer_scores, elapsed_time)
 
 
@@ -49,16 +50,13 @@ def get_true_scores(synthesized_features, data):
     true_scores = np.zeros((num_features, num_timesteps))
     for fidx, feature in enumerate(synthesized_features):
         left, right = feature.window
-        # FIXME: change simulation to ensure all timesteps in window are relevant
-        # Disable the conditional to show entire windows instead of just relevant timesteps
-        if isinstance(feature.aggregation_fn, Slope):
-            true_scores[fidx][[left, right]] = feature.effect_size
-        else:
-            true_scores[fidx][left: right + 1] = feature.effect_size
+        # FIXME: Edit feature functions
+        assert not isinstance(feature.aggregation_fn, Slope), "Unsupported"
+        true_scores[fidx][left: right + 1] = feature.effect_size
     return true_scores
 
 
-def explain(args, synthesized_features, data, model, targets):
+def explain_model(args, synthesized_features, data, model, targets):
     """Pipeline"""
     start_time = get_time()
     # Configure explainer
