@@ -22,7 +22,7 @@ from anamod.core.losses import Loss
 from anamod.core.perturbations import PERTURBATION_FUNCTIONS, PERTURBATION_MECHANISMS
 from anamod.core.utils import get_logger
 
-Inputs = namedtuple("Inputs", ["data", "targets", "model"])
+Inputs = namedtuple("Inputs", ["data", "targets", "predict"])
 
 
 def main():
@@ -58,7 +58,8 @@ def pipeline(args):
     data, targets = load_data(args)
     # Load model
     model = load_model(args)
-    inputs = Inputs(data, targets, model)
+    predict = model if callable(model) else model.predict
+    inputs = Inputs(data, targets, predict)
     # Baseline predictions/losses
     # FIXME: baseline may be computed in master and provided to all workers
     baseline_loss, loss_fn = compute_baseline(args, inputs)
@@ -118,8 +119,8 @@ def load_model(args):
 
 def compute_baseline(args, inputs):
     """Compute baseline prediction/loss"""
-    data, targets, model = inputs
-    pred = model.predict(data)
+    data, targets, predict = inputs
+    pred = predict(data)
     loss_fn = Loss(args.loss_function, targets).loss_fn
     baseline_loss = loss_fn(pred)
     args.logger.info(f"Baseline mean loss: {np.mean(baseline_loss)}")
@@ -176,7 +177,7 @@ def perturb_feature(args, inputs, feature, loss_fn,
                     timesteps=..., perturbation_type=constants.ACROSS_INSTANCES):
     """Perturb feature"""
     # pylint: disable = too-many-arguments, too-many-locals
-    data, _, model = inputs
+    data, _, predict = inputs
     num_permutations = args.num_permutations
     num_elements = data.shape[0]
     perturbed_loss = np.zeros((num_elements, num_permutations))
@@ -190,7 +191,7 @@ def perturb_feature(args, inputs, feature, loss_fn,
         except StopIteration:
             num_permutations = kidx
             break
-        pred = model.predict(data_perturbed)
+        pred = predict(data_perturbed)
         perturbed_loss[:, kidx] = loss_fn(pred)
     return perturbed_loss[:, :num_permutations]
 
