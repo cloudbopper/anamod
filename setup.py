@@ -32,6 +32,7 @@ setup(
         "h5py",
         "matplotlib",
         "numpy>=1.19.0",
+        "pandas",
         "scikit-learn",
         "scipy",
         "seaborn",

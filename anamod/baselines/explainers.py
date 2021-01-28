@@ -28,7 +28,8 @@ class AnamodExplainer(TemporalExplainer):
         super().__init__(predict, data)
         targets = kwargs["targets"]
         output_dir = kwargs["output_dir"]
-        self.analyzer = TemporalModelAnalyzer(predict, data, targets, output_dir=output_dir)
+        loss_function = kwargs["loss_function"]
+        self.analyzer = TemporalModelAnalyzer(predict, data, targets, output_dir=output_dir, loss_function=loss_function)
 
     def explain(self):
         features = self.analyzer.analyze()
