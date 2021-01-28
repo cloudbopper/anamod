@@ -428,6 +428,7 @@ def run_anamod(args, pass_args, data, model, targets, hierarchy=None):  # pylint
     options["retry_arbitrary_failures"] = args.retry_arbitrary_failures
     options["num_permutations"] = args.num_permutations
     options["cleanup"] = args.cleanup
+    options["loss_function"] = constants.BINARY_CROSS_ENTROPY if args.model_type == CLASSIFIER else constants.QUADRATIC_LOSS
     if args.analysis_type == constants.HIERARCHICAL:
         options["perturbation"] = args.perturbation
         options["analyze_interactions"] = args.analyze_interactions
