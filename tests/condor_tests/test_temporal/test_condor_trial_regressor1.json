@@ -73,12 +73,12 @@
     },
     "noise_multiplier": {
       "50": [
-        1.1300656018557627,
-        0.2039259194860458
+        1.1300656018557635,
+        0.20392591948604608
       ],
       "100": [
-        1.1300656018557627,
-        0.2039259194860458
+        1.1300656018557635,
+        0.20392591948604608
       ]
     },
     "sequences_independent_of_windows": {
@@ -128,22 +128,22 @@
     "aggregation_fns": {
       "50": [
         [
-          "Average",
-          "Max"
+          "Max",
+          "MonotonicWeightedAverage"
         ],
         [
-          "Slope",
-          "Max"
+          "RandomWeightedAverage",
+          "MonotonicWeightedAverage"
         ]
       ],
       "100": [
         [
-          "Average",
-          "Max"
+          "Max",
+          "MonotonicWeightedAverage"
         ],
         [
-          "Slope",
-          "Max"
+          "RandomWeightedAverage",
+          "MonotonicWeightedAverage"
         ]
       ]
     },
@@ -282,11 +282,11 @@
     "Window_Ordering_Important_Power": {
       "50": [
         1.0,
-        1.0
+        0.0
       ],
       "100": [
         1.0,
-        1.0
+        0.0
       ]
     },
     "overall_scores_corr": {
