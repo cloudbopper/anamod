@@ -1,11 +1,14 @@
 """Wrappers around different explainers"""
 from abc import ABC
 
+import cloudpickle
 import numpy as np
 import lime
 import lime.lime_tabular
 import sage
-from anamod import TemporalModelAnalyzer
+
+from anamod.core.constants import FEATURE_IMPORTANCE
+from anamod import ModelAnalyzer, TemporalModelAnalyzer
 
 # pylint 2.6.0 errors out while running
 # pylint: disable = all
@@ -57,6 +60,39 @@ class TabularExplainer(TemporalExplainer):
     def predict_tabular(self, predict):
         """Return function that performs prediction on tabular data"""
         return lambda data_tabular: predict(data_tabular.reshape((len(data_tabular), self.num_features, self.num_timesteps), order="C"))
+
+
+class PermutationTestExplainer(TabularExplainer):
+    """Permutation test explainer"""
+    def __init__(self, predict, data, **kwargs):
+        super().__init__(predict, data)
+        targets = kwargs["targets"]
+        output_dir = kwargs["output_dir"]
+        loss_function = kwargs["loss_function"]
+        self.analyzer = ModelAnalyzer(self.predict, self.data, targets, output_dir=output_dir, loss_function=loss_function)
+
+    def explain(self):
+        features = self.analyzer.analyze()
+        scores = np.zeros(self.num_features_tabular)
+        for idx, feature in enumerate(features):
+            scores[idx] = feature.effect_size
+        return scores.reshape((self.num_features, self.num_timesteps), order="C")
+
+
+class PermutationTestExplainerFDRControl(TabularExplainer):
+    """Permutation test explainer using FDR control - requires previously generated results from PermutationTestExplainer"""
+    def __init__(self, predict, data, **kwargs):
+        super().__init__(predict, data)
+        self.base_explainer_dir = kwargs["base_explainer_dir"]
+
+    def explain(self):
+        features_filename = f"{self.base_explainer_dir}/{FEATURE_IMPORTANCE}.cpkl"
+        with open(features_filename, "rb") as features_file:
+            features = cloudpickle.load(features_file)
+            scores = np.zeros(self.num_features_tabular)
+            for idx, feature in enumerate(features):
+                scores[idx] = feature.effect_size if feature.important else 0
+            return scores.reshape((self.num_features, self.num_timesteps), order="C")
 
 
 class LimeExplainer(TabularExplainer):

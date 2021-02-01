@@ -42,12 +42,17 @@ def main():
                         help="evaluate metrics assuming results are already generated")
     parser.add_argument("-anamod_scores_dir",
                         help="If provided, evaluate explainer w.r.t. top features returned by anamod")
+    parser.add_argument("-base_explainer_dir", help="Used to specify cached results directory for explainers"
+                        " that use results from other explainers (currently just 'perm-fdr'")
     parser.add_argument("-explainer", choices=EXPLAINERS.keys(), required=True)
     parser.add_argument("-output_dir", required=True)
     args, pass_arglist = parser.parse_known_args()
     args.pass_args = " ".join(pass_arglist)
 
-    args.output_dir = os.path.abspath(args.output_dir)
+    for dirname in ["output_dir", "anamod_scores_dir", "base_explainer_dir"]:
+        path = getattr(args, dirname)
+        if path is not None:
+            setattr(args, dirname, os.path.abspath(path))
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     args.logger = get_logger(__name__, f"{args.output_dir}/run_baselines.log")
@@ -81,12 +86,14 @@ def explain(args, sconfig):
     """Synthesize data/model and explain"""
     jobs = []
     for ridx in range(args.num_models):
+        model_dir_arg = f"-model_dir {args.anamod_scores_dir}/{ridx}" if args.anamod_scores_dir is not None else ""
+        base_explainer_dir_arg = f"-base_explainer_dir {args.base_explainer_dir}/{ridx}" if args.base_explainer_dir is not None else ""
         job_dir = f"{args.output_dir}/{ridx}"
         if args.missing_models_only and os.path.exists(f"{job_dir}/{EXPLAINER_SCORES_FILENAME}"):
             continue
         seed = args.start_seed + ridx
         cmd = (f"python -m anamod.baselines.explain_model -explainer {args.explainer} -model {args.model} -model_type {args.model_type}"
-               f" -output_dir {job_dir} -seed {seed} {sconfig} {args.pass_args}")
+               f" -output_dir {job_dir} -seed {seed} {model_dir_arg} {base_explainer_dir_arg} {sconfig} {args.pass_args}")
         args.logger.info(f"Running cmd (condor: {args.condor}): {cmd}")
         if args.condor:
             job = CondorJobWrapper(cmd, [], job_dir, shared_filesystem=True, avoid_bad_hosts=True, retry_arbitrary_failures=True)
@@ -114,6 +121,7 @@ def evaluate(args):
         runtime = np.load(f"{rdir}/{EXPLAINER_RUNTIME_FILENAME}")
         true_scores = np.load(f"{rdir}/{TRUE_SCORES_FILENAME}")
         explainer_scores = np.abs(np.load(f"{rdir}/{EXPLAINER_SCORES_FILENAME}"))  # absolute values for comparison since some scores may be negative
+        explainer_scores[explainer_scores < 1e-10] = 0  # set very small floating-point values to zero
         assert explainer_scores.shape == true_scores.shape
         metrics.loc[ridx, ['top_k_relevant_features_power', 'top_k_relevant_features_fdr']] = evaluate_features(true_scores, explainer_scores)
         metrics.loc[ridx, ['top_k_relevant_timesteps_power', 'top_k_relevant_timesteps_fdr']] = evaluate_timesteps(true_scores, explainer_scores)

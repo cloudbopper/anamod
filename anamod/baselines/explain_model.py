@@ -8,13 +8,14 @@ import timeit
 import numpy as np
 from synmod.constants import REGRESSOR
 
-from anamod.baselines.explainers import AnamodExplainer, LimeExplainer, SageExplainer, SageExplainerMeanImputer, SageExplainerZeroImputer
+from anamod.baselines.explainers import AnamodExplainer, PermutationTestExplainer, PermutationTestExplainerFDRControl
+from anamod.baselines.explainers import LimeExplainer, SageExplainer, SageExplainerMeanImputer, SageExplainerZeroImputer
 from anamod.core.constants import QUADRATIC_LOSS, BINARY_CROSS_ENTROPY
 from anamod.core.utils import get_logger
 from anamod.simulation.simulation import read_synthesized_inputs, read_intermediate_inputs
 
-EXPLAINERS = {"anamod": AnamodExplainer, "lime": LimeExplainer, "sage": SageExplainer,
-              "sage-mean": SageExplainerMeanImputer, "sage-zero": SageExplainerZeroImputer}
+EXPLAINERS = {"anamod": AnamodExplainer, "perm": PermutationTestExplainer, "perm-fdr": PermutationTestExplainerFDRControl,
+              "lime": LimeExplainer, "sage": SageExplainer, "sage-mean": SageExplainerMeanImputer, "sage-zero": SageExplainerZeroImputer}
 TRUE_SCORES_FILENAME = "true_scores.npy"
 EXPLAINER_SCORES_FILENAME = "explainer_scores.npy"
 EXPLAINER_RUNTIME_FILENAME = "explainer_runtime.npy"
@@ -24,8 +25,10 @@ def main():
     """Main"""
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-explainer", required=True)
+    parser.add_argument("-base_explainer_dir")
     parser.add_argument("-model", required=True)
     parser.add_argument("-model_type", required=True)
+    parser.add_argument("-model_dir")
     parser.add_argument("-output_dir", required=True)
     parser.add_argument("-seed", type=int, required=True)
     args, pass_arglist = parser.parse_known_args()
@@ -41,12 +44,16 @@ def main():
 
 def synthesize(args, pass_args):
     """Synthesize data"""
-    sim_cmd = (f"python -m anamod.simulation.simulation {pass_args} -output_dir {args.output_dir} -seed {args.seed}"
-               f" -synthesize_only 1 -synthesis_dir {args.output_dir} -model_type {args.model_type}")
-    args.logger.info(f"Running synthesis cmd: {sim_cmd}")
-    subprocess.run(sim_cmd, check=True, shell=True)
-    synthesized_features, data, _ = read_synthesized_inputs(args.output_dir)
-    model, targets = read_intermediate_inputs(args.output_dir)
+    model_dir = args.model_dir if args.model_dir else args.base_explainer_dir
+    if model_dir is None:
+        assert not args.explainer == "perm-fdr", "Explainer 'perm-fdr' requires prior execution of explainer 'perm'"
+        model_dir = args.output_dir
+        sim_cmd = (f"python -m anamod.simulation.simulation {pass_args} -output_dir {args.output_dir} -seed {args.seed}"
+                   f" -synthesize_only 1 -synthesis_dir {args.output_dir} -model_type {args.model_type}")
+        args.logger.info(f"Running synthesis cmd: {sim_cmd}")
+        subprocess.run(sim_cmd, check=True, shell=True)
+    synthesized_features, data, _ = read_synthesized_inputs(model_dir)
+    model, targets = read_intermediate_inputs(model_dir)
     return synthesized_features, data, model, targets
 
 
@@ -74,8 +81,11 @@ def explain_model(args, synthesized_features, data, model, targets):
     for feature in synthesized_features:
         new_features = [f"{feature.name}_{tidx}" for tidx in range(num_timesteps)]
         feature_names_tabular.extend(new_features)
+    if args.explainer == "perm-fdr":
+        assert args.base_explainer_dir, "Explainer 'perm-fdr' requires prior execution of explainer 'perm'"
     kwargs = dict(model_type=args.model_type, mode=mode, loss_fn=loss_fn, targets=targets,
-                  feature_names=feature_names_tabular, loss_function=loss_function, output_dir=args.output_dir)
+                  feature_names=feature_names_tabular, loss_function=loss_function,
+                  base_explainer_dir=args.base_explainer_dir, output_dir=args.output_dir)
     # Initialize explainer and explain model
     explainer_cls = EXPLAINERS[args.explainer]
     explainer = explainer_cls(model.predict, data, **kwargs)
