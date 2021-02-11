@@ -40,6 +40,8 @@ def main():
                         help="Only run explainer for models where results are missing (due to failure/abort)")
     parser.add_argument("-evaluate_only", type=strtobool, default=False,
                         help="evaluate metrics assuming results are already generated")
+    parser.add_argument("-evaluate_all_nonzeros", type=strtobool, default=False,
+                        help="Use all non-zero scores returned by the explainer to evaluate it")
     parser.add_argument("-anamod_scores_dir",
                         help="If provided, evaluate explainer w.r.t. top features returned by anamod")
     parser.add_argument("-base_explainer_dir", help="Used to specify cached results directory for explainers"
@@ -123,15 +125,23 @@ def evaluate(args):
         explainer_scores = np.abs(np.load(f"{rdir}/{EXPLAINER_SCORES_FILENAME}"))  # absolute values for comparison since some scores may be negative
         explainer_scores[explainer_scores < 1e-10] = 0  # set very small floating-point values to zero
         assert explainer_scores.shape == true_scores.shape
-        metrics.loc[ridx, ['top_k_relevant_features_power', 'top_k_relevant_features_fdr']] = evaluate_features(true_scores, explainer_scores)
-        metrics.loc[ridx, ['top_k_relevant_timesteps_power', 'top_k_relevant_timesteps_fdr']] = evaluate_timesteps(true_scores, explainer_scores)
+        metrics.loc[ridx, ['top_k_relevant_features_power',
+                           'top_k_relevant_features_fdr']] = evaluate_features(true_scores, explainer_scores,
+                                                                               evaluate_all_nonzeros=args.evaluate_all_nonzeros)
+        metrics.loc[ridx, ['top_k_relevant_timesteps_power',
+                           'top_k_relevant_timesteps_fdr']] = evaluate_timesteps(true_scores, explainer_scores,
+                                                                                 evaluate_all_nonzeros=args.evaluate_all_nonzeros)
         if args.anamod_scores_dir:
             anamod_scores = np.load(f"{args.anamod_scores_dir}/{ridx}/{EXPLAINER_SCORES_FILENAME}")
             assert anamod_scores.shape == true_scores.shape
-            metrics.loc[ridx, ['top_k_anamod_features_power', 'top_k_anamod_features_fdr']] = evaluate_features(true_scores, explainer_scores,
-                                                                                                                    anamod_scores)
-            metrics.loc[ridx, ['top_k_anamod_timesteps_power', 'top_k_anamod_timesteps_fdr']] = evaluate_timesteps(true_scores, explainer_scores,
-                                                                                                                       anamod_scores)
+            metrics.loc[ridx, ['top_k_anamod_features_power',
+                               'top_k_anamod_features_fdr']] = evaluate_features(true_scores, explainer_scores,
+                                                                                 anamod_scores=anamod_scores,
+                                                                                 evaluate_all_nonzeros=args.evaluate_all_nonzeros)
+            metrics.loc[ridx, ['top_k_anamod_timesteps_power',
+                               'top_k_anamod_timesteps_fdr']] = evaluate_timesteps(true_scores, explainer_scores,
+                                                                                   anamod_scores=anamod_scores,
+                                                                                   evaluate_all_nonzeros=args.evaluate_all_nonzeros)
         metrics.loc[ridx, ['cpu_runtime', 'user_runtime']] = runtime
 
     # TODO: visualize box/violin plot to examine high FDR cases
@@ -154,39 +164,45 @@ def evaluate(args):
     args.logger.info("End explainer evaluation")
 
 
-def evaluate_features(true_scores, explainer_scores, anamod_scores=None):
+def evaluate_features(true_scores, explainer_scores, anamod_scores=None, evaluate_all_nonzeros=False):
     """Evaluate features identified by explainer"""
     # Get power/FDR for relevant features
     num_features, _ = true_scores.shape
     true_features = np.any(true_scores, axis=1)
+    explainer_features = np.zeros(num_features)
     explainer_num_timesteps_per_feature = np.sum(explainer_scores != 0, axis=1)  # pylint: disable = invalid-name
     explainer_scores_per_feature = np.zeros(num_features)
     for idx in range(num_features):
         if explainer_num_timesteps_per_feature[idx]:
             explainer_scores_per_feature[idx] = np.sum(explainer_scores[idx]) / explainer_num_timesteps_per_feature[idx]
-    num_relevant_features = min(np.sum(true_features), np.sum(explainer_scores_per_feature != 0))
-    if anamod_scores is not None:
-        anamod_features = np.any(anamod_scores != 0, axis=1)
-        num_relevant_features = min(num_relevant_features, np.sum(anamod_features))
-    explainer_features = np.zeros(num_features)
-    explainer_features[np.argsort(explainer_scores_per_feature)[::-1][:num_relevant_features]] = 1
+    if evaluate_all_nonzeros:
+        explainer_features[explainer_scores_per_feature != 0] = 1
+    else:
+        num_relevant_features = min(np.sum(true_features), np.sum(explainer_scores_per_feature != 0))
+        if anamod_scores is not None:
+            anamod_features = np.any(anamod_scores != 0, axis=1)
+            num_relevant_features = min(num_relevant_features, np.sum(anamod_features))
+        explainer_features[np.argsort(explainer_scores_per_feature)[::-1][:num_relevant_features]] = 1
     precision, recall = get_precision_recall(true_features, explainer_features)
     return recall, 1 - precision
 
 
-def evaluate_timesteps(true_scores, explainer_scores, anamod_scores=None):
+def evaluate_timesteps(true_scores, explainer_scores, anamod_scores=None, evaluate_all_nonzeros=False):
     """Evaluate timesteps identified by explainer"""
     # Identify relevant timesteps
     num_features, num_timesteps = true_scores.shape
     true_scores_tabular_bool = true_scores.flatten() != 0
     # Get power/FDR for relevant timesteps
-    explainer_scores_tabular = explainer_scores.flatten()
-    num_relevant_timesteps = min(sum(true_scores_tabular_bool), sum(explainer_scores_tabular != 0))
-    if anamod_scores is not None:
-        anamod_num_timesteps = np.sum(anamod_scores != 0)
-        num_relevant_timesteps = min(num_relevant_timesteps, anamod_num_timesteps)
     explainer_scores_tabular_bool = np.zeros(num_features * num_timesteps)
-    explainer_scores_tabular_bool[np.argsort(explainer_scores_tabular)[::-1][:num_relevant_timesteps]] = 1
+    explainer_scores_tabular = explainer_scores.flatten()
+    if evaluate_all_nonzeros:
+        explainer_scores_tabular_bool[explainer_scores_tabular != 0] = 1
+    else:
+        num_relevant_timesteps = min(sum(true_scores_tabular_bool), sum(explainer_scores_tabular != 0))
+        if anamod_scores is not None:
+            anamod_num_timesteps = np.sum(anamod_scores != 0)
+            num_relevant_timesteps = min(num_relevant_timesteps, anamod_num_timesteps)
+        explainer_scores_tabular_bool[np.argsort(explainer_scores_tabular)[::-1][:num_relevant_timesteps]] = 1
     precision, recall = get_precision_recall(true_scores_tabular_bool, explainer_scores_tabular_bool)
     return recall, 1 - precision
 
