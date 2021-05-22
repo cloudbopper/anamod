@@ -27,7 +27,7 @@ CHOICES_WINDOW_SEARCH_ALGORITHM = {EFFECT_SIZE}  # {EFFECT_SIZE, IMPORTANCE_TEST
 # Condor
 POLL_BASED_TRACKING = "poll_based_tracking"
 EVENT_LOG_TRACKING = "event_log_tracking"
-CONDOR_MAX_RUNNING_TIME = 24 * 3600
+CONDOR_MAX_RUNNING_TIME = 72 * 3600
 CONDOR_MAX_WAIT_TIME = 1200  # Time to wait for job to start running before retrying
 CONDOR_MAX_RETRIES = 50
 # Reference: https://htcondor.readthedocs.io/en/latest/classad-attributes/job-classad-attributes.html
