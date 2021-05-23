@@ -62,7 +62,8 @@ class BinaryCrossEntropy(LossFunction):
         assert all(y_pred >= 0) and all(y_pred <= 1)
         with np.errstate(invalid="call", divide="call"):
             losses = -y_true * np.log(y_pred) - (1 - y_true) * np.log(1 - y_pred)
-        losses[np.isnan(losses)] = 0  # to handle indeterminate case where y_pred components are zero
+        losses[np.isnan(losses)] = 0  # to handle indeterminate case where y_pred[i] = y_true[i]
+        losses[np.isinf(losses)] = 23  # to handle case where y_pred[i] = 1 - y_true[i]; -log(1e-10) ~ 23
         return losses
 
 
