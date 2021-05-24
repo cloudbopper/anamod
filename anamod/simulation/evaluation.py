@@ -45,7 +45,7 @@ def evaluate_hierarchical(args, sfeatures, afeatures):
             importance_map[node.name] = sfeatures_map[sfeature_name].important
             score_map[node.name] = sfeatures_map[sfeature_name].effect_size
         else:
-            importance_map[node.name] = any([importance_map[child.name] for child in node.children])
+            importance_map[node.name] = any(importance_map[child.name] for child in node.children)
     # Overall FDR/power
     important = np.zeros(len(afeatures))
     inferred_important = np.zeros(len(afeatures))

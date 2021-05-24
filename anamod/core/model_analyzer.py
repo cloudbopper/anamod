@@ -277,7 +277,7 @@ class ModelAnalyzer(ABC):
                     valid = (hasattr(node, "idx") and
                              isinstance(node.idx, list) and
                              len(node.idx) >= 1 and
-                             all([isinstance(node.idx[i], int) for i in range(len(node.idx))]))
+                             all(isinstance(node.idx[i], int) for i in range(len(node.idx))))
                     assert valid, f"Leaf node {node.name} must contain a non-empty list of integer indices under attribute 'idx'"
                     assert not all_idx.intersection(node.idx), f"Leaf node {node.name} has index overlap with other leaf nodes"
                     idx = node.idx
