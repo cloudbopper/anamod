@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 from anamod.core import model_loader
 from anamod.simulation import simulation, run_trials
-from tests.utils import pre_test, post_test, write_logfile
+from tests.utils import pre_test, post_test, write_logfile, RESOURCES_DIR
 
 
 # pylint: disable = protected-access, invalid-name
@@ -78,3 +78,41 @@ def test_trial_regressor1(file_regression, tmpdir, caplog, shared_fs):
     summary = run_trials.main(strargs)
     write_logfile(caplog, output_dir)
     file_regression.check(json.dumps(summary, indent=2), extension=".json")
+
+
+def test_simulation_classifier_hierarchy1(file_regression, tmpdir, caplog, shared_fs):
+    """Test simulation over temporal data with flat feature hierarchy (otherwise identical to test_simulation_classifier1)"""
+    func_name = sys._getframe().f_code.co_name
+    output_dir = pre_test(func_name, tmpdir, caplog)
+    hierarchy_filename = f"{os.path.dirname(os.path.abspath(__file__))}/{RESOURCES_DIR}/{func_name}.json"
+    cmd = ("python -m anamod.simulation"
+           " -seed 100 -analysis_type temporal -num_instances 100 -num_features 10"
+           f" -model_type classifier -hierarchy_filename {hierarchy_filename}"
+           " -noise_multiplier auto"
+           f" -model_loader_filename {os.path.abspath(model_loader.__file__)}"
+           " -fraction_relevant_features 0.5 -cleanup 0"
+           f" -shared_filesystem {shared_fs} -output_dir {output_dir}")
+    logging.getLogger().info(f"Cmd: {cmd}")
+    pass_args = cmd.split()[2:]
+    with patch.object(sys, 'argv', pass_args):
+        simulation.main()
+    post_test(file_regression, caplog, output_dir)
+
+
+def test_simulation_classifier_hierarchy2(file_regression, tmpdir, caplog, shared_fs):
+    """Test simulation over temporal data with feature hierarchy (otherwise identical to test_simulation_classifier1)"""
+    func_name = sys._getframe().f_code.co_name
+    output_dir = pre_test(func_name, tmpdir, caplog)
+    hierarchy_filename = f"{os.path.dirname(os.path.abspath(__file__))}/{RESOURCES_DIR}/{func_name}.json"
+    cmd = ("python -m anamod.simulation"
+           " -seed 100 -analysis_type temporal -num_instances 100 -num_features 10"
+           f" -model_type classifier -hierarchy_filename {hierarchy_filename}"
+           " -noise_multiplier auto"
+           f" -model_loader_filename {os.path.abspath(model_loader.__file__)}"
+           " -fraction_relevant_features 0.5 -cleanup 0"
+           f" -shared_filesystem {shared_fs} -output_dir {output_dir}")
+    logging.getLogger().info(f"Cmd: {cmd}")
+    pass_args = cmd.split()[2:]
+    with patch.object(sys, 'argv', pass_args):
+        simulation.main()
+    post_test(file_regression, caplog, output_dir)

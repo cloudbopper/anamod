@@ -19,6 +19,7 @@ SUBSTITUTIONS = {TEST_SIMULATION: TEST_CONDOR_SIMULATION,
                  "python -m anamod.simulation": f"python -m anamod.simulation {CONDOR_ARGS}",
                  TEST_TRIAL: TEST_CONDOR_TRIAL,
                  "python -m anamod.run_trials": f"python -m anamod.run_trials {CONDOR_ARGS}"}
+# TODO: Copy resources directory and change names as needed
 
 
 def main():

@@ -88,6 +88,8 @@ def evaluate_temporal(args, sfeatures, afeatures):
     """Evaluate results of temporal model analysis - obtain power/FDR measures for importance, temporal importance and windows"""
     # pylint: disable = protected-access, too-many-locals, invalid-name, too-many-statements
     # TODO: Refactor
+    afeatures = list(filter(lambda afeature: len(afeature.idx) == 1, afeatures))  # Only evaluate base features, not feature groups
+    # TODO: Measure power and FDR w.r.t. feature groups as well
     num_features = len(afeatures)
 
     def init_vectors():

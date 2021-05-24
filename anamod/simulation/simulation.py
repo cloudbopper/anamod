@@ -10,6 +10,7 @@ import pprint
 import sys
 
 import anytree
+from anytree.importer.jsonimporter import JsonImporter
 import cloudpickle
 import numpy as np
 from scipy.cluster.hierarchy import linkage
@@ -63,6 +64,8 @@ def main():
     hierarchical.add_argument("-noise_multiplier", default=0.,
                               help=("Multiplicative factor for noise added to polynomial computation for irrelevant features; "
                                     f"if '{constants.AUTO}', selected automatically to get R^2 value of 0.9 (regressor only)"))
+    hierarchical.add_argument("-hierarchy_filename", help="If provided, will be passed to anamod instead of creating "
+                              "a flat/random/clustering-based hierarchy", type=str)
     hierarchical.add_argument("-hierarchy_type", help="Choice of hierarchy to generate", default=constants.FLAT,
                               choices=[constants.CLUSTER_FROM_DATA, constants.RANDOM, constants.FLAT])
     hierarchical.add_argument("-contiguous_node_names", type=strtobool, default=False, help="enable to change node names in hierarchy "
@@ -158,7 +161,11 @@ def analyze(args, pass_args, synthesized_features, data, model_wrapper, targets)
     if args.synthesize_only or args.evaluate_only:
         return (None, None)
     hierarchy_root = None
-    if args.analysis_type == constants.HIERARCHICAL:
+    if args.hierarchy_filename:
+        # Load hierarchy from file
+        with open(args.hierarchy_filename) as hierarchy_file:
+            hierarchy_root = JsonImporter().read(hierarchy_file)
+    elif args.analysis_type == constants.HIERARCHICAL:
         # Generate hierarchy if required
         hierarchy_root, _ = gen_hierarchy(args, data)
         if hierarchy_root:

@@ -174,7 +174,7 @@ def perturb_feature_hierarchy(args, inputs, features, baseline_loss, loss_fn):
 
 
 def perturb_feature(args, inputs, feature, loss_fn,
-                    timesteps=..., perturbation_type=constants.ACROSS_INSTANCES):
+                    timesteps=slice(None), perturbation_type=constants.ACROSS_INSTANCES):
     """Perturb feature"""
     # pylint: disable = too-many-arguments, too-many-locals
     data, _, predict = inputs
@@ -182,7 +182,7 @@ def perturb_feature(args, inputs, feature, loss_fn,
     num_elements = data.shape[0]
     perturbed_loss = np.zeros((num_elements, num_permutations))
     if perturbation_type == constants.WITHIN_INSTANCE:
-        num_elements = data.shape[2] if timesteps == ... else len(timesteps)
+        num_elements = len(range(data.shape[2])[timesteps])  # len of slice requires (implicit) sequence
     perturbation_mechanism = get_perturbation_mechanism(args, feature.rng, perturbation_type, num_elements, num_permutations)
     assert args.perturbation == constants.PERMUTATION, "Zeroing deprecated, only permutation-type perturbations currently supported"
     for kidx in range(num_permutations):
@@ -225,7 +225,7 @@ def search_window(args, inputs, feature, baseline_loss, loss_fn):
     while current < rbound:
         # Search for the largest 'negative' window anchored on the left that results in a non-important p-value/effect size
         # The right boundary of the left inverted window is the left boundary of the window of interest
-        perturbed_loss = perturb_feature(args, inputs, feature, loss_fn, range(0, current))
+        perturbed_loss = perturb_feature(args, inputs, feature, loss_fn, slice(0, current))
         if args.window_search_algorithm == constants.IMPORTANCE_TEST:
             important = compute_empirical_p_value(baseline_loss, perturbed_loss, args.permutation_test_statistic) < args.importance_significance_level
         else:
@@ -244,7 +244,7 @@ def search_window(args, inputs, feature, baseline_loss, loss_fn):
     # Search right boundary of window by identifying the right inverted window
     lbound, current, rbound = (left, (left + T) // 2, T)
     while lbound < current:
-        perturbed_loss = perturb_feature(args, inputs, feature, loss_fn, range(current, T))
+        perturbed_loss = perturb_feature(args, inputs, feature, loss_fn, slice(current, T))
         if args.window_search_algorithm == constants.IMPORTANCE_TEST:
             important = compute_empirical_p_value(baseline_loss, perturbed_loss, args.permutation_test_statistic) < args.importance_significance_level
         else:
@@ -261,7 +261,7 @@ def search_window(args, inputs, feature, baseline_loss, loss_fn):
             current = (current + lbound) // 2
     right = current
     # Report importance as per significance test
-    perturbed_loss = perturb_feature(args, inputs, feature, loss_fn, range(left, right + 1))
+    perturbed_loss = perturb_feature(args, inputs, feature, loss_fn, slice(left, right + 1))
     # Set attributes on feature
     # TODO: FDR control via Benjamini Hochberg for importance_test algorithm
     # Doesn't seem appropriate though: (i) The p-values are sequentially generated and are not independent, and
@@ -292,7 +292,7 @@ def temporal_analysis(args, inputs, features, baseline_loss, loss_fn):
         feature.window_ordering_important &= feature.window_important
         if feature.window_important:
             # Test importance of feature ordering across window
-            perturbed_loss = perturb_feature(args, inputs, feature, loss_fn, range(left, right + 1), perturbation_type=constants.WITHIN_INSTANCE)
+            perturbed_loss = perturb_feature(args, inputs, feature, loss_fn, slice(left, right + 1), perturbation_type=constants.WITHIN_INSTANCE)
             feature.window_ordering_pvalue = compute_empirical_p_value(baseline_loss, perturbed_loss, args.permutation_test_statistic)
             feature.window_ordering_important = feature.window_ordering_pvalue < args.importance_significance_level
         args.logger.info(f"Found window for feature {feature.name}: ({left}, {right});"
