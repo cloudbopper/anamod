@@ -10,9 +10,6 @@ import sage
 from anamod.core.constants import FEATURE_IMPORTANCE, BINARY_CROSS_ENTROPY
 from anamod import ModelAnalyzer, TemporalModelAnalyzer
 
-# pylint 2.6.0 errors out while running
-# pylint: disable = all
-
 
 class TemporalExplainer(ABC):
     """Global temporal model explainer base class"""
@@ -51,7 +48,7 @@ class AnamodExplainer(TemporalExplainer):
 
 class OcclusionZeroExplainer(TemporalExplainer):
     """Feature occlusion over time using zeros"""
-    def __init__(self, predict, data, **kwargs):
+    def __init__(self, predict, data, **_kwargs):
         super().__init__(predict, data)
 
     def explain(self):
@@ -168,6 +165,9 @@ class LimeExplainer(TabularExplainer):
         return scores
 
 
+# SAGE explainer crashes pylint 2.8.2 with InconsistentMroError: https://github.com/PyCQA/pylint/issues/2188
+# Remove SAGE block to enable linter for other code
+# pylint: disable = all
 class SageExplainer(TabularExplainer):
     """SAGE explainer"""
     def __init__(self, predict, data, **kwargs):
@@ -199,15 +199,20 @@ class SageExplainerZeroImputer(SageExplainer):
 
 
 class CXPlainExplainer(TabularExplainer):
+    """CXPlain explainer"""
     class Model:
+        """Model wrapper - CXPlain requires model object with predict function"""
         def __init__(self, pred_fn):
             self.pred_fn = pred_fn
 
-        def predict(self, X):
+        def predict(self, X):  # pylint: disable = invalid-name
+            """Predict output on X"""
             return self.pred_fn(X)
 
     def __init__(self, predict, data, **kwargs):
         super().__init__(predict, data)
+        # Only import tensorflow if needed
+        # pylint: disable = import-outside-toplevel, no-name-in-module
         import tensorflow as tf
         from tensorflow.python.keras.losses import binary_crossentropy, mean_squared_error
         from cxplain import MLPModelBuilder, ZeroMasking, CXPlain
@@ -216,7 +221,7 @@ class CXPlainExplainer(TabularExplainer):
         masking_operation = ZeroMasking()
         loss_fn = binary_crossentropy if kwargs["loss_fn"] == BINARY_CROSS_ENTROPY else mean_squared_error
         self.targets = kwargs["targets"]
-        self.explainer = CXPlain(self.Model(predict), model_builder, masking_operation, loss_fn)
+        self.explainer = CXPlain(self.Model(self.predict), model_builder, masking_operation, loss_fn)
 
     def explain(self):
         self.explainer.fit(self.data, self.targets)
