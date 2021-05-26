@@ -116,7 +116,7 @@ class Trial():  # pylint: disable = too-many-instance-attributes
             return  # Skip running the simulations and proceed to analysis (assuming the results are already generated)
         if self.synthesis_sim and not self.synthesis_sim.complete:
             self.logger.info(f"Running synthesis simulation: '{self.synthesis_sim.cmd}'")
-            self.synthesis_sim.popen = subprocess.Popen(self.synthesis_sim.cmd, shell=True)
+            self.synthesis_sim.popen = subprocess.Popen(self.synthesis_sim.cmd, shell=True)  # pylint: disable = consider-using-with
             self.running_sims.add(self.synthesis_sim)
         else:
             for sim in self.simulations:
@@ -126,7 +126,7 @@ class Trial():  # pylint: disable = too-many-instance-attributes
                     subprocess.run(sim.cmd, shell=True, check=True)
                 elif not sim.complete:
                     self.logger.info(f"Running simulation: '{sim.cmd}'")
-                    sim.popen = subprocess.Popen(sim.cmd, shell=True)
+                    sim.popen = subprocess.Popen(sim.cmd, shell=True)  # pylint: disable = consider-using-with
                     self.running_sims.add(sim)
 
     def monitor_simulations(self, concurrent_simulation_count):
@@ -140,7 +140,7 @@ class Trial():  # pylint: disable = too-many-instance-attributes
                     if sim.attempt < constants.MAX_ATTEMPTS:
                         sim.attempt += 1
                         self.logger.warning(f"Simulation {sim.cmd} failed; re-attempting ({sim.attempt} of {constants.MAX_ATTEMPTS})")
-                        sim.popen = subprocess.Popen(sim.cmd, shell=True)
+                        sim.popen = subprocess.Popen(sim.cmd, shell=True)  # pylint: disable = consider-using-with
                         continue
                     self.logger.error(f"Simulation {sim.cmd} failed; reached max attempts ({constants.MAX_ATTEMPTS}); see logs in {sim.output_dir}")
                     self.error = True
