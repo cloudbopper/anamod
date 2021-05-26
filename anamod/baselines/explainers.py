@@ -7,7 +7,7 @@ import lime
 import lime.lime_tabular
 import sage
 
-from anamod.core.constants import FEATURE_IMPORTANCE
+from anamod.core.constants import FEATURE_IMPORTANCE, BINARY_CROSS_ENTROPY
 from anamod import ModelAnalyzer, TemporalModelAnalyzer
 
 # pylint 2.6.0 errors out while running
@@ -46,6 +46,46 @@ class AnamodExplainer(TemporalExplainer):
                 left, right = (0, self.num_timesteps)
                 effect_size = feature.overall_effect_size
             scores[fidx][left: right + 1] = effect_size
+        return scores
+
+
+class OcclusionZeroExplainer(TemporalExplainer):
+    """Feature occlusion over time using zeros"""
+    def __init__(self, predict, data, **kwargs):
+        super().__init__(predict, data)
+
+    def explain(self):
+        scores = np.zeros((self.num_features, self.num_timesteps))
+        pred1 = self.predict(self.data)
+        for fidx in range(self.num_features):
+            for tidx in range(self.num_timesteps):
+                back = self.data[:, fidx, tidx]
+                self.data[:, fidx, tidx] = 0
+                pred2 = self.predict(self.data)
+                scores[fidx][tidx] = np.mean(np.abs(pred1 - pred2))
+                self.data[:, fidx, tidx] = back
+        return scores
+
+
+class OcclusionUniformExplainer(TemporalExplainer):
+    """Feature occlusion over time using uniform samples, based on FIT, Tonekaboni et al. (2020)"""
+    def __init__(self, predict, data, **kwargs):
+        super().__init__(predict, data)
+        self.num_samples = kwargs.get("num_samples")
+        self.rng = np.random.default_rng(kwargs.get("rng_seed"))
+
+    def explain(self):
+        scores = np.zeros((self.num_features, self.num_timesteps))
+        pred1 = self.predict(self.data)
+        for fidx in range(self.num_features):
+            for tidx in range(self.num_timesteps):
+                back = self.data[:, fidx, tidx]
+                for _ in range(self.num_samples):
+                    self.data[:, fidx, tidx] = self.rng.uniform(-3, 3, size=self.num_instances)
+                    pred2 = self.predict(self.data)
+                    scores[fidx][tidx] += np.mean(np.abs(pred1 - pred2))
+                self.data[:, fidx, tidx] = back
+                scores[fidx][tidx] /= self.num_samples
         return scores
 
 
@@ -99,11 +139,11 @@ class LimeExplainer(TabularExplainer):
     """LIME explainer"""
     def __init__(self, predict, data, **kwargs):
         super().__init__(predict, data)
-        feature_names = kwargs["feature_names"]
+        self.feature_names = kwargs["feature_names"]
         mode = kwargs.get("mode")
         if mode == "classification":
             self.predict = self.predict_tabular_classification(predict)
-        self.explainer = lime.lime_tabular.LimeTabularExplainer(self.data, feature_names=feature_names, mode=mode,
+        self.explainer = lime.lime_tabular.LimeTabularExplainer(self.data, feature_names=self.feature_names, mode=mode,
                                                                 class_names=["0", "1"], verbose=False, discretize_continuous=False)
 
     def predict_tabular_classification(self, predict):
@@ -118,9 +158,12 @@ class LimeExplainer(TabularExplainer):
         scores = np.zeros((self.num_features, self.num_timesteps))
         for instance in self.data:
             lime_exp = self.explainer.explain_instance(instance, self.predict, num_features=self.num_features_tabular)
+            fidx = -1
             for feature_name, score in lime_exp.as_list():
-                fidx, tidx = feature_name.split("_")
-                scores[int(fidx)][int(tidx)] += np.abs(score)
+                _, tidx = feature_name.split("_")
+                tidx = int(tidx)
+                fidx += 1 if tidx == 0 else 0
+                scores[fidx][tidx] += np.abs(score)
         scores /= self.num_instances
         return scores
 
@@ -153,3 +196,29 @@ class SageExplainerZeroImputer(SageExplainer):
     """SAGE explainer using default imputation using zeros (fast but lower accuracy)"""
     def get_imputer(self):
         return sage.DefaultImputer(self.predict, np.zeros(self.num_features_tabular))
+
+
+class CXPlainExplainer(TabularExplainer):
+    class Model:
+        def __init__(self, pred_fn):
+            self.pred_fn = pred_fn
+
+        def predict(self, X):
+            return self.pred_fn(X)
+
+    def __init__(self, predict, data, **kwargs):
+        super().__init__(predict, data)
+        import tensorflow as tf
+        from tensorflow.python.keras.losses import binary_crossentropy, mean_squared_error
+        from cxplain import MLPModelBuilder, ZeroMasking, CXPlain
+        tf.compat.v1.disable_v2_behavior()
+        model_builder = MLPModelBuilder(num_layers=2, num_units=64, batch_size=256, learning_rate=0.001)
+        masking_operation = ZeroMasking()
+        loss_fn = binary_crossentropy if kwargs["loss_fn"] == BINARY_CROSS_ENTROPY else mean_squared_error
+        self.targets = kwargs["targets"]
+        self.explainer = CXPlain(self.Model(predict), model_builder, masking_operation, loss_fn)
+
+    def explain(self):
+        self.explainer.fit(self.data, self.targets)
+        attributions = self.explainer.explain(self.data)
+        return np.sum(attributions, axis=0).reshape((self.num_features, self.num_timesteps), order="C")

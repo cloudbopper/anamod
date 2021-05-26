@@ -10,12 +10,15 @@ from synmod.constants import REGRESSOR
 
 from anamod.baselines.explainers import AnamodExplainer, PermutationTestExplainer, PermutationTestExplainerFDRControl
 from anamod.baselines.explainers import LimeExplainer, SageExplainer, SageExplainerMeanImputer, SageExplainerZeroImputer
-from anamod.core.constants import QUADRATIC_LOSS, BINARY_CROSS_ENTROPY
+from anamod.baselines.explainers import OcclusionZeroExplainer, OcclusionUniformExplainer, CXPlainExplainer
+from anamod.core.constants import QUADRATIC_LOSS, BINARY_CROSS_ENTROPY, SEED
 from anamod.core.utils import get_logger
 from anamod.simulation.simulation import read_synthesized_inputs, read_intermediate_inputs
 
 EXPLAINERS = {"anamod": AnamodExplainer, "perm": PermutationTestExplainer, "perm-fdr": PermutationTestExplainerFDRControl,
-              "lime": LimeExplainer, "sage": SageExplainer, "sage-mean": SageExplainerMeanImputer, "sage-zero": SageExplainerZeroImputer}
+              "lime": LimeExplainer, "sage": SageExplainer, "sage-mean": SageExplainerMeanImputer, "sage-zero": SageExplainerZeroImputer,
+              "occlusion-zero": OcclusionZeroExplainer, "occlusion-uniform": OcclusionUniformExplainer,
+              "cxplain": CXPlainExplainer}
 TRUE_SCORES_FILENAME = "true_scores.npy"
 EXPLAINER_SCORES_FILENAME = "explainer_scores.npy"
 EXPLAINER_RUNTIME_FILENAME = "explainer_runtime.npy"
@@ -85,7 +88,8 @@ def explain_model(args, synthesized_features, data, model, targets):
         assert args.base_explainer_dir, "Explainer 'perm-fdr' requires prior execution of explainer 'perm'"
     kwargs = dict(model_type=args.model_type, mode=mode, loss_fn=loss_fn, targets=targets,
                   feature_names=feature_names_tabular, loss_function=loss_function,
-                  base_explainer_dir=args.base_explainer_dir, output_dir=args.output_dir)
+                  base_explainer_dir=args.base_explainer_dir, output_dir=args.output_dir,
+                  num_samples=10, rng_seed=SEED)
     # Initialize explainer and explain model
     explainer_cls = EXPLAINERS[args.explainer]
     explainer = explainer_cls(model.predict, data, **kwargs)
