@@ -22,6 +22,7 @@ EXPLAINERS = {"anamod": AnamodExplainer, "perm": PermutationTestExplainer, "perm
 TRUE_SCORES_FILENAME = "true_scores.npy"
 EXPLAINER_SCORES_FILENAME = "explainer_scores.npy"
 EXPLAINER_RUNTIME_FILENAME = "explainer_runtime.npy"
+EXPLAINER_EVALUATION_FILENAME = "explainer_evaluation.csv"
 
 
 def main():

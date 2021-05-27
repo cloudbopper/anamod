@@ -1,0 +1,8 @@
+Average FDR (top k features, k = min(num_relevant_features, num_important_features)): '0.5'
+Average FDR (top k features, k = num_important_features_anamod): '0.0'
+Average FDR (top k timesteps, k = min(num_relevant_timesteps, num_important_timesteps)): '0.625'
+Average FDR (top k timesteps, k = num_important_timesteps_anamod): '0.0'
+Average power (top k features, k = min(num_relevant_features, num_important_features)): '0.5'
+Average power (top k features, k = num_important_features_anamod): '0.0'
+Average power (top k timesteps, k = min(num_relevant_timesteps, num_important_timesteps)): '0.375'
+Average power (top k timesteps, k = num_important_timesteps_anamod): '0.0'

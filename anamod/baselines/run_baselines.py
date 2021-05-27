@@ -10,7 +10,8 @@ import numpy as np
 import pandas as pd
 from synmod.constants import CLASSIFIER, REGRESSOR
 
-from anamod.baselines.explain_model import EXPLAINERS, TRUE_SCORES_FILENAME, EXPLAINER_SCORES_FILENAME, EXPLAINER_RUNTIME_FILENAME
+from anamod.baselines.explain_model import EXPLAINERS, TRUE_SCORES_FILENAME, EXPLAINER_SCORES_FILENAME
+from anamod.baselines.explain_model import EXPLAINER_RUNTIME_FILENAME, EXPLAINER_EVALUATION_FILENAME
 from anamod.core.constants import DEFAULT
 from anamod.core.utils import CondorJobWrapper, get_logger
 from anamod.simulation.evaluation import get_precision_recall
@@ -41,7 +42,8 @@ def main():
     parser.add_argument("-evaluate_only", type=strtobool, default=False,
                         help="evaluate metrics assuming results are already generated")
     parser.add_argument("-evaluate_all_nonzeros", type=strtobool, default=False,
-                        help="Use all non-zero scores returned by the explainer to evaluate it")
+                        help="Use all non-zero scores returned by the explainer to evaluate it,"
+                             " instead of restricting them to the number of important ground-truth features/timesteps")
     parser.add_argument("-anamod_scores_dir",
                         help="If provided, evaluate explainer w.r.t. top features returned by anamod")
     parser.add_argument("-base_explainer_dir", help="Used to specify cached results directory for explainers"
@@ -145,7 +147,7 @@ def evaluate(args):
         metrics.loc[ridx, ['cpu_runtime', 'user_runtime']] = runtime
 
     # TODO: visualize box/violin plot to examine high FDR cases
-    print(f"Explainer: {args.explainer}")
+    args.logger.info(f"Explainer: {args.explainer}")
     means = metrics.mean(axis=0)
     medians = metrics.median(axis=0)
     ametrics = {"Average power (top k features, k = min(num_relevant_features, num_important_features))": means['top_k_relevant_features_power'],
@@ -159,8 +161,11 @@ def evaluate(args):
                 "Median CPU runtime (seconds)": medians['cpu_runtime'],
                 "Median user runtime (seconds)": medians['user_runtime']}
     for key, value in ametrics.items():
-        print(f"{key}: {value}")
-    print(f"All metrics (CSV):\n{pd.DataFrame.from_dict([ametrics]).to_csv(index=False)}")
+        args.logger.info(f"{key}: {value}")
+    df_metrics = pd.DataFrame.from_dict([ametrics])
+    args.logger.info(f"All metrics (CSV):\n{df_metrics.to_csv(index=False)}")
+    metrics_filename = f"{args.output_dir}/{EXPLAINER_EVALUATION_FILENAME}"
+    df_metrics.to_csv(metrics_filename, index=False)
     args.logger.info("End explainer evaluation")
 
 

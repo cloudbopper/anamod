@@ -7,18 +7,22 @@ import re
 import shutil
 from anamod.core.constants import HIERARCHICAL, TEMPORAL
 
-TESTS = {HIERARCHICAL: "test_hierarchical.py", TEMPORAL: "test_temporal.py"}
-GOLDS = {HIERARCHICAL: "test_hierarchical", TEMPORAL: "test_temporal"}
+BASELINES = "baselines"
+TESTS = {HIERARCHICAL: "test_hierarchical.py", TEMPORAL: "test_temporal.py", BASELINES: "test_baselines.py"}
+GOLDS = {HIERARCHICAL: "test_hierarchical", TEMPORAL: "test_temporal", BASELINES: "test_baselines"}
 CONDOR_TEST_DIRECTORY = "condor_tests"
 TEST_SIMULATION = "test_simulation"
 TEST_CONDOR_SIMULATION = "test_condor_simulation"
 TEST_TRIAL = "test_trial"
 TEST_CONDOR_TRIAL = "test_condor_trial"
+CONDOR_DISABLED = "-condor 0"
+CONDOR_ENABLED = "-condor 1"
 CONDOR_ARGS = "-condor 1 -memory_requirement 1 -disk_requirement 1"
 SUBSTITUTIONS = {TEST_SIMULATION: TEST_CONDOR_SIMULATION,
                  "python -m anamod.simulation": f"python -m anamod.simulation {CONDOR_ARGS}",
                  TEST_TRIAL: TEST_CONDOR_TRIAL,
-                 "python -m anamod.run_trials": f"python -m anamod.run_trials {CONDOR_ARGS}"}
+                 "python -m anamod.run_trials": f"python -m anamod.run_trials {CONDOR_ARGS}",
+                 CONDOR_DISABLED: CONDOR_ENABLED}
 
 
 def main():
@@ -27,7 +31,7 @@ def main():
     # Parse args
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-overwrite_golds", help="overwrite existing gold files", type=strtobool, default=True)
-    parser.add_argument("-type", default=HIERARCHICAL, choices=[HIERARCHICAL, TEMPORAL])
+    parser.add_argument("-type", default=HIERARCHICAL, choices=TESTS.keys())
     args = parser.parse_args()
     test_dir = os.path.dirname(os.path.realpath(__file__))
     condor_test_dir = os.path.join(test_dir, CONDOR_TEST_DIRECTORY)
