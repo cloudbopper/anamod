@@ -67,8 +67,9 @@ test: ## run tests quickly with the default Python
 test-update-golds: ## run tests and update gold files (two passes required for hierarchical analysis tests)
 	-pytest -rA tests --force-regen
 	-pytest -rA tests --force-regen
-	-python -m tests.gen_condor_tests -type hierarchical -overwrite_golds 1
+	python -m tests.gen_condor_tests -type hierarchical -overwrite_golds 1
 	python -m tests.gen_condor_tests -type temporal -overwrite_golds 1
+	python -m tests.gen_condor_tests -type baselines -overwrite_golds 1
 
 test-condor: ## run tests in parallel over condor with non-shared filesystem
 	pytest -rA tests/condor_tests/ -n 20

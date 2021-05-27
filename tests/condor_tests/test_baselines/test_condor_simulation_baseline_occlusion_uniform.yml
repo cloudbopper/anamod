@@ -6,3 +6,5 @@ Average power (top k features, k = min(num_relevant_features, num_important_feat
 Average power (top k features, k = num_important_features_anamod): '0.0'
 Average power (top k timesteps, k = min(num_relevant_timesteps, num_important_timesteps)): '0.75'
 Average power (top k timesteps, k = num_important_timesteps_anamod): '0.0'
+Average window count (top k timesteps, k = num_relevant_timesteps): '1.0'
+Average window count ratio (top k timesteps, k = num_relevant_timesteps): '1.0'
