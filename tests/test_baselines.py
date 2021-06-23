@@ -13,7 +13,7 @@ def check_metrics(data_regression, metrics_filename):
     with open(metrics_filename, "r") as metrics_file:
         reader = csv.DictReader(metrics_file)
         row = next(reader)
-        data = {field: row[field] for field in reader.fieldnames if "runtime" not in field}
+        data = {field: row[field] for field in reader.fieldnames if "Runtime" not in field}
         if "sage" not in metrics_filename:
             # SAGE results non-deterministic
             data_regression.check(data)
@@ -65,21 +65,6 @@ def test_simulation_baseline_lime(data_regression, tmpdir, caplog, shared_fs):
     check_metrics(data_regression, metrics_filename)
 
 
-def test_simulation_baseline_perm(data_regression, tmpdir, caplog, shared_fs):
-    """Test perm baseline explainer"""
-    func_name = sys._getframe().f_code.co_name
-    output_dir = pre_test(func_name, tmpdir, caplog)
-    cmd = (f"python -m anamod.baselines.run_baselines -condor 0 -shared_filesystem {shared_fs}"
-           f" -start_seed 200000 -config demo -explainer perm -output_dir {output_dir}")
-    logging.getLogger().info(f"Cmd: {cmd}")
-    pass_args = cmd.split()[2:]
-    with patch.object(sys, 'argv', pass_args):
-        run_baselines.main()
-    write_logfile(caplog, output_dir)
-    metrics_filename = f"{output_dir}/{explain_model.EXPLAINER_EVALUATION_FILENAME}"
-    check_metrics(data_regression, metrics_filename)
-
-
 def test_simulation_baseline_sage(data_regression, tmpdir, caplog, shared_fs):
     """Test sage baseline explainer"""
     func_name = sys._getframe().f_code.co_name
@@ -116,6 +101,21 @@ def test_simulation_baseline_sage_zero(data_regression, tmpdir, caplog, shared_f
     output_dir = pre_test(func_name, tmpdir, caplog)
     cmd = (f"python -m anamod.baselines.run_baselines -condor 0 -shared_filesystem {shared_fs}"
            f" -start_seed 200000 -config demo -explainer sage-zero -output_dir {output_dir}")
+    logging.getLogger().info(f"Cmd: {cmd}")
+    pass_args = cmd.split()[2:]
+    with patch.object(sys, 'argv', pass_args):
+        run_baselines.main()
+    write_logfile(caplog, output_dir)
+    metrics_filename = f"{output_dir}/{explain_model.EXPLAINER_EVALUATION_FILENAME}"
+    check_metrics(data_regression, metrics_filename)
+
+
+def test_simulation_baseline_perm(data_regression, tmpdir, caplog, shared_fs):
+    """Test perm baseline explainer"""
+    func_name = sys._getframe().f_code.co_name
+    output_dir = pre_test(func_name, tmpdir, caplog)
+    cmd = (f"python -m anamod.baselines.run_baselines -condor 0 -shared_filesystem {shared_fs}"
+           f" -start_seed 200000 -config demo -explainer perm -output_dir {output_dir}")
     logging.getLogger().info(f"Cmd: {cmd}")
     pass_args = cmd.split()[2:]
     with patch.object(sys, 'argv', pass_args):

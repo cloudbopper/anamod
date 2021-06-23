@@ -1,6 +1,7 @@
 """Run baselines"""
 
 import argparse
+from collections import defaultdict
 import configparser
 from distutils.util import strtobool
 import os
@@ -21,6 +22,13 @@ LR = "LR"
 RF = "RF"
 NN = "NN"
 CONFIG_BASELINES = "config.ini"
+# Metrics
+FEATURES_POWER = "Features: Power"
+FEATURES_FDR = "Features: FDR"
+TIMESTEPS_POWER = "Timesteps: Power"
+TIMESTEPS_FDR = "Timesteps: FDR"
+WINDOWS = "Windows"
+RUNTIME = "Runtime"
 
 
 def main():
@@ -45,8 +53,9 @@ def main():
     parser.add_argument("-evaluate_all_nonzeros", type=strtobool, default=False,
                         help="Use all non-zero scores returned by the explainer to evaluate it,"
                              " instead of restricting them to the number of important ground-truth features/timesteps")
-    parser.add_argument("-anamod_scores_dir",
-                        help="If provided, evaluate explainer w.r.t. top features returned by anamod")
+    parser.add_argument("-models_dir", "-anamod_scores_dir",
+                        help="If provided, used to load pre-generated models."
+                             " -anamod_scores_dir option retained for backward compatibility, no longer used for evaluation metrics.")
     parser.add_argument("-base_explainer_dir", help="Used to specify cached results directory for explainers"
                         " that use results from other explainers (currently just 'perm-fdr'")
     parser.add_argument("-explainer", choices=EXPLAINERS.keys(), required=True)
@@ -54,7 +63,7 @@ def main():
     args, pass_arglist = parser.parse_known_args()
     args.pass_args = " ".join(pass_arglist)
 
-    for dirname in ["output_dir", "anamod_scores_dir", "base_explainer_dir"]:
+    for dirname in ["output_dir", "models_dir", "base_explainer_dir"]:
         path = getattr(args, dirname)
         if path is not None:
             setattr(args, dirname, os.path.abspath(path))
@@ -91,7 +100,7 @@ def explain(args, sconfig):
     """Synthesize data/model and explain"""
     jobs = []
     for ridx in range(args.num_models):
-        model_dir_arg = f"-model_dir {args.anamod_scores_dir}/{ridx}" if args.anamod_scores_dir is not None else ""
+        model_dir_arg = f"-model_dir {args.models_dir}/{ridx}" if args.models_dir is not None else ""
         base_explainer_dir_arg = f"-base_explainer_dir {args.base_explainer_dir}/{ridx}" if args.base_explainer_dir is not None else ""
         job_dir = f"{args.output_dir}/{ridx}"
         if args.missing_models_only and os.path.exists(f"{job_dir}/{EXPLAINER_SCORES_FILENAME}"):
@@ -110,66 +119,52 @@ def explain(args, sconfig):
         CondorJobWrapper.monitor(jobs)
 
 
-METRICS = ["top_k_relevant_features_power", "top_k_relevant_features_fdr",
-           "top_k_anamod_features_power", "top_k_anamod_features_fdr",
-           "top_k_relevant_timesteps_power", "top_k_relevant_timesteps_fdr",
-           "top_k_anamod_timesteps_power", "top_k_anamod_timesteps_fdr",
-           "top_k_relevant_timesteps_window_count", "top_k_relevant_timesteps_window_ratio",
-           "cpu_runtime", "user_runtime"]
-
-
 def evaluate(args):
     """Evaluate explainer"""
     args.logger.info("Begin explainer evaluation")
-    metrics = pd.DataFrame(data=np.zeros((args.num_models, len(METRICS))), columns=METRICS)
+    results = defaultdict(list)
     for ridx in range(args.num_models):
         rdir = f"{args.output_dir}/{ridx}"
+        scores_filename = f"{rdir}/{EXPLAINER_SCORES_FILENAME}"
+        if not os.path.exists(scores_filename):
+            args.logger.warning(f"Results missing in directory {rdir}, skipping")
+            continue
         runtime = np.load(f"{rdir}/{EXPLAINER_RUNTIME_FILENAME}")
         true_scores = np.load(f"{rdir}/{TRUE_SCORES_FILENAME}")
-        explainer_scores = np.abs(np.load(f"{rdir}/{EXPLAINER_SCORES_FILENAME}"))  # absolute values for comparison since some scores may be negative
+        explainer_scores = np.abs(np.load(scores_filename))  # absolute values for comparison since some scores may be negative
         explainer_scores[explainer_scores < 1e-10] = 0  # set very small floating-point values to zero
         assert explainer_scores.shape == true_scores.shape
         # Top k features/timesteps selected using non-zero ground truth scores
-        metrics.loc[ridx, ['top_k_relevant_features_power',
-                           'top_k_relevant_features_fdr']] = evaluate_features(true_scores, explainer_scores,
-                                                                               evaluate_all_nonzeros=args.evaluate_all_nonzeros)
-        metrics.loc[ridx, ['top_k_relevant_timesteps_power',
-                           'top_k_relevant_timesteps_fdr']] = evaluate_timesteps(true_scores, explainer_scores,
-                                                                                 evaluate_all_nonzeros=args.evaluate_all_nonzeros)
-        if args.anamod_scores_dir:
-            # Top k features selected using non-zero TIME scores
-            anamod_scores = np.load(f"{args.anamod_scores_dir}/{ridx}/{EXPLAINER_SCORES_FILENAME}")
-            assert anamod_scores.shape == true_scores.shape
-            metrics.loc[ridx, ['top_k_anamod_features_power',
-                               'top_k_anamod_features_fdr']] = evaluate_features(true_scores, explainer_scores,
-                                                                                 anamod_scores=anamod_scores,
-                                                                                 evaluate_all_nonzeros=args.evaluate_all_nonzeros)
-            metrics.loc[ridx, ['top_k_anamod_timesteps_power',
-                               'top_k_anamod_timesteps_fdr']] = evaluate_timesteps(true_scores, explainer_scores,
-                                                                                   anamod_scores=anamod_scores,
-                                                                                   evaluate_all_nonzeros=args.evaluate_all_nonzeros)
+        power, fdr = evaluate_features(true_scores, explainer_scores, evaluate_all_nonzeros=args.evaluate_all_nonzeros)
+        results[FEATURES_POWER].append(power)
+        results[FEATURES_FDR].append(fdr)
+        power, fdr = evaluate_timesteps(true_scores, explainer_scores, evaluate_all_nonzeros=args.evaluate_all_nonzeros)
+        results[TIMESTEPS_POWER].append(power)
+        results[TIMESTEPS_FDR].append(fdr)
         # Window counts for top k timesteps selected using non-zero ground truth scores
-        metrics.loc[ridx, ['top_k_relevant_timesteps_window_count',
-                           'top_k_relevant_timesteps_window_ratio']] = evaluate_window_counts(true_scores, explainer_scores,
-                                                                                              evaluate_all_nonzeros=args.evaluate_all_nonzeros)
-        metrics.loc[ridx, ['cpu_runtime', 'user_runtime']] = runtime
+        results[WINDOWS].append(evaluate_window_counts(true_scores, explainer_scores, evaluate_all_nonzeros=args.evaluate_all_nonzeros)[0])
+        results[RUNTIME].append(runtime[1])
 
-    # TODO: visualize box/violin plot to examine high FDR cases
+    assert results, "No results found, unable to evaluate"
+    if len(results) != args.num_models:
+        args.logger.warning(f"Number of results: {len(results)}; number specified: {args.num_models}")
+    metrics = pd.DataFrame.from_dict(results)
     args.logger.info(f"Explainer: {args.explainer}")
     means = metrics.mean(axis=0)
     medians = metrics.median(axis=0)
-    ametrics = {"Average power (top k features, k = min(num_relevant_features, num_important_features))": means['top_k_relevant_features_power'],
-                "Average FDR (top k features, k = min(num_relevant_features, num_important_features))": means['top_k_relevant_features_fdr'],
-                "Average power (top k features, k = num_important_features_anamod)": means['top_k_anamod_features_power'],
-                "Average FDR (top k features, k = num_important_features_anamod)": means['top_k_anamod_features_fdr'],
-                "Average power (top k timesteps, k = min(num_relevant_timesteps, num_important_timesteps))": means['top_k_relevant_timesteps_power'],
-                "Average FDR (top k timesteps, k = min(num_relevant_timesteps, num_important_timesteps))": means['top_k_relevant_timesteps_fdr'],
-                "Average power (top k timesteps, k = num_important_timesteps_anamod)": means['top_k_anamod_timesteps_power'],
-                "Average FDR (top k timesteps, k = num_important_timesteps_anamod)": means['top_k_anamod_timesteps_fdr'],
-                "Average window count (top k timesteps, k = num_relevant_timesteps)": means['top_k_relevant_timesteps_window_count'],
-                "Average window count ratio (top k timesteps, k = num_relevant_timesteps)": means['top_k_relevant_timesteps_window_ratio'],
-                "Median CPU runtime (seconds)": medians['cpu_runtime'],
-                "Median user runtime (seconds)": medians['user_runtime']}
+    sds = metrics.std(axis=0)
+    ametrics = {"Features: Power: Mean": means[FEATURES_POWER],
+                "Features: Power: SD": sds[FEATURES_POWER],
+                "Features: FDR: Mean": means[FEATURES_FDR],
+                "Features: FDR: SD": sds[FEATURES_FDR],
+                "Timesteps: Power: Mean": means[TIMESTEPS_POWER],
+                "Timesteps: Power: SD": sds[TIMESTEPS_POWER],
+                "Timesteps: FDR: Mean": means[TIMESTEPS_FDR],
+                "Timesteps: FDR: SD": sds[TIMESTEPS_FDR],
+                "Windows: Mean": means[WINDOWS],
+                "Windows: SD": sds[WINDOWS],
+                "Runtime: Median": medians[RUNTIME],
+                "Runtime: SD": sds[RUNTIME]}
     for key, value in ametrics.items():
         args.logger.info(f"{key}: {value}")
     df_metrics = pd.DataFrame.from_dict([ametrics])
@@ -179,7 +174,7 @@ def evaluate(args):
     args.logger.info("End explainer evaluation")
 
 
-def evaluate_features(true_scores, explainer_scores, anamod_scores=None, evaluate_all_nonzeros=False):
+def evaluate_features(true_scores, explainer_scores, evaluate_all_nonzeros=False):
     """Evaluate features identified by explainer"""
     # Get power/FDR for relevant features
     num_features, _ = true_scores.shape
@@ -194,33 +189,28 @@ def evaluate_features(true_scores, explainer_scores, anamod_scores=None, evaluat
         explainer_features[explainer_scores_per_feature != 0] = 1
     else:
         num_relevant_features = min(np.sum(true_features), np.sum(explainer_scores_per_feature != 0))
-        if anamod_scores is not None:
-            anamod_features = np.any(anamod_scores != 0, axis=1)
-            num_relevant_features = min(num_relevant_features, np.sum(anamod_features))
         explainer_features[np.argsort(explainer_scores_per_feature)[::-1][:num_relevant_features]] = 1
     precision, recall = get_precision_recall(true_features, explainer_features)
     return recall, 1 - precision
 
 
-def evaluate_timesteps(true_scores, explainer_scores, anamod_scores=None, evaluate_all_nonzeros=False):
+def evaluate_timesteps(true_scores, explainer_scores, evaluate_all_nonzeros=False):
     """Evaluate timesteps identified by explainer"""
     # Identify relevant timesteps
     true_scores_tabular_bool = true_scores.flatten() != 0
     # Get power/FDR for relevant timesteps
     if not evaluate_all_nonzeros:
-        explainer_scores = select_important_timesteps(true_scores, explainer_scores, anamod_scores)
+        explainer_scores = select_important_timesteps(true_scores, explainer_scores)
     explainer_scores_tabular_bool = explainer_scores.flatten() != 0
     precision, recall = get_precision_recall(true_scores_tabular_bool, explainer_scores_tabular_bool)
     return recall, 1 - precision
 
 
-def select_important_timesteps(true_scores, explainer_scores, anamod_scores=None):
+def select_important_timesteps(true_scores, explainer_scores):
     """Identify top-k important timesteps identified by explainer based on ground truth or TIME scores"""
     num_features, num_timesteps = explainer_scores.shape
     explainer_scores_tabular = explainer_scores.flatten()
     num_relevant_timesteps = min(np.sum(true_scores != 0), np.sum(explainer_scores_tabular != 0))
-    if anamod_scores is not None:
-        num_relevant_timesteps = min(np.sum(anamod_scores != 0), num_relevant_timesteps)
     explainer_scores_tabular[np.argsort(-explainer_scores_tabular)[num_relevant_timesteps:]] = 0
     return explainer_scores_tabular.reshape((num_features, num_timesteps))
 
