@@ -56,7 +56,7 @@ class OcclusionZeroExplainer(TemporalExplainer):
         pred1 = self.predict(self.data)
         for fidx in range(self.num_features):
             for tidx in range(self.num_timesteps):
-                back = self.data[:, fidx, tidx]
+                back = self.data[:, fidx, tidx].copy()
                 self.data[:, fidx, tidx] = 0
                 pred2 = self.predict(self.data)
                 scores[fidx][tidx] = np.mean(np.abs(pred1 - pred2))
@@ -76,7 +76,7 @@ class OcclusionUniformExplainer(TemporalExplainer):
         pred1 = self.predict(self.data)
         for fidx in range(self.num_features):
             for tidx in range(self.num_timesteps):
-                back = self.data[:, fidx, tidx]
+                back = self.data[:, fidx, tidx].copy()
                 for _ in range(self.num_samples):
                     self.data[:, fidx, tidx] = self.rng.uniform(-3, 3, size=self.num_instances)
                     pred2 = self.predict(self.data)

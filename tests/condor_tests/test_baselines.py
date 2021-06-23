@@ -167,7 +167,7 @@ def test_condor_simulation_baseline_occlusion_uniform(data_regression, tmpdir, c
     func_name = sys._getframe().f_code.co_name
     output_dir = pre_test(func_name, tmpdir, caplog)
     cmd = (f"python -m anamod.baselines.run_baselines -condor 1 -shared_filesystem {shared_fs}"
-           f" -start_seed 200000 -config demo -explainer occlusion-uniform -output_dir {output_dir}")
+           f" -start_seed 200002 -config demo -explainer occlusion-uniform -output_dir {output_dir}")
     logging.getLogger().info(f"Cmd: {cmd}")
     pass_args = cmd.split()[2:]
     with patch.object(sys, 'argv', pass_args):
