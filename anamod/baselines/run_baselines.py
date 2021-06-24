@@ -49,7 +49,6 @@ def main():
                         help="Only run explainer for models where results are missing (due to failure/abort)")
     parser.add_argument("-evaluate_only", type=strtobool, default=False,
                         help="evaluate metrics assuming results are already generated")
-    # TODO: use better name for option -evaluate_all_nonzeros
     parser.add_argument("-evaluate_all_nonzeros", type=strtobool, default=False,
                         help="Use all non-zero scores returned by the explainer to evaluate it,"
                              " instead of restricting them to the number of important ground-truth features/timesteps")

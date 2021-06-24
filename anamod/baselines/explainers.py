@@ -22,8 +22,8 @@ class TemporalExplainer(ABC):
         """Return global explanation of data as array of (num_features * num_timesteps)"""
 
 
-class AnamodExplainer(TemporalExplainer):
-    """Anamod explainer"""
+class TimeExplainer(TemporalExplainer):
+    """TIME explainer"""
     def __init__(self, predict, data, **kwargs):
         super().__init__(predict, data)
         targets = kwargs["targets"]

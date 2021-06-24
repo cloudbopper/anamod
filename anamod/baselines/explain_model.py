@@ -8,14 +8,14 @@ import timeit
 import numpy as np
 from synmod.constants import REGRESSOR
 
-from anamod.baselines.explainers import AnamodExplainer, PermutationTestExplainer, PermutationTestExplainerFDRControl
+from anamod.baselines.explainers import TimeExplainer, PermutationTestExplainer, PermutationTestExplainerFDRControl
 from anamod.baselines.explainers import LimeExplainer, SageExplainer, SageExplainerMeanImputer, SageExplainerZeroImputer
 from anamod.baselines.explainers import OcclusionZeroExplainer, OcclusionUniformExplainer, CXPlainExplainer
 from anamod.core.constants import QUADRATIC_LOSS, BINARY_CROSS_ENTROPY, SEED
 from anamod.core.utils import get_logger
 from anamod.simulation.simulation import read_synthesized_inputs, read_intermediate_inputs
 
-EXPLAINERS = {"anamod": AnamodExplainer, "perm": PermutationTestExplainer, "perm-fdr": PermutationTestExplainerFDRControl,
+EXPLAINERS = {"time": TimeExplainer, "perm": PermutationTestExplainer, "perm-fdr": PermutationTestExplainerFDRControl,
               "lime": LimeExplainer, "sage": SageExplainer, "sage-mean": SageExplainerMeanImputer, "sage-zero": SageExplainerZeroImputer,
               "occlusion-zero": OcclusionZeroExplainer, "occlusion-uniform": OcclusionUniformExplainer,
               "cxplain": CXPlainExplainer}
