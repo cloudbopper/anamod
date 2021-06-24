@@ -37,7 +37,7 @@ def visualize_temporal(args, features, sequence_length):
         if feature.window_ordering_important:
             hatchdata[idx, left: right + 1] = 1
     _, axes = plt.subplots(2, 1, gridspec_kw={'height_ratios': [num_features, 1]})
-    sns.heatmap(data, yticklabels=labels, xticklabels=np.arange(sequence_length),
+    sns.heatmap(data, yticklabels=labels, xticklabels=np.arange(1, sequence_length + 1),
                 mask=(data == 0), linewidth=2, linecolor="black", cmap="YlOrRd",
                 cbar_kws=dict(label="Importance\nScore"), ax=axes[0])
     # Border lines
