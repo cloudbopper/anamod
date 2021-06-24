@@ -4,6 +4,8 @@ import logging
 
 from anamod.core import constants
 
+RESOURCES_DIR = "res"
+
 
 def setup_logfile(caplog):
     """Set up logfile for test"""

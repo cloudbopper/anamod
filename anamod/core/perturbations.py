@@ -88,7 +88,7 @@ class PerturbMatrix(PerturbationMechanism):
 class PerturbTensor(PerturbationMechanism):
     """Perturb input arranged as tensor of instances X features X time"""
     def _perturb(self, X_hat, idx, *args, **kwargs):
-        timesteps = kwargs.get("timesteps", ...)
+        timesteps = kwargs.get("timesteps", slice(None))
         axis0 = slice(None)  # all sequences
         axis1 = idx  # features to be perturbed
         axis2 = timesteps  # timesteps to be perturbed
@@ -96,7 +96,7 @@ class PerturbTensor(PerturbationMechanism):
             X_hat = np.transpose(X_hat)
             axis0, axis2 = axis2, axis0  # swap sequence and timestep axis for within-instance permutation
         perturbed_slice = self._perturbation_fn.operate(X_hat[axis0, axis1, axis2])
-        if self._perturbation_type == constants.WITHIN_INSTANCE and timesteps == ... and np.isscalar(idx):
+        if self._perturbation_type == constants.WITHIN_INSTANCE and timesteps == slice(None) and np.isscalar(idx):
             # Basic indexing - view was perturbed, so no assignment needed
             X_hat = X_hat.base
             assert perturbed_slice.base is X_hat

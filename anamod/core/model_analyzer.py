@@ -1,10 +1,12 @@
 """Python API to analyze temporal models"""
 from abc import ABC
 import importlib
+from json.decoder import JSONDecodeError
 import os
 import sys
 
 import anytree
+from anytree.importer.jsonimporter import JsonImporter
 import h5py
 import numpy as np
 
@@ -31,6 +33,16 @@ COMMON_DOC = (
                 If `None`, features will be identified using their indices as names.
 
                 If :attr:`feature_hierarchy` is provided, names from that will be used instead.
+
+            feature_hierarchy: anytree.Node object, default: None
+                Hierarchy over features, defined as an anytree_ Node or a JSON file.
+                anytree_ allows importing trees from multiple formats (Python dict, JSON)
+
+                If no hierarchy is provided, a flat hierarchy will be auto-generated over base features.
+
+                Supersedes :attr:`feature_names` for source of feature names.
+
+                .. _anytree: https://anytree.readthedocs.io/en/2.8.0/
 
             visualize: bool, default: True
                 Flag to control output visualization.
@@ -115,27 +127,6 @@ class ModelAnalyzer(ABC):
             targets: 1D numpy array
                 A vector containing targets for each instance in the test data.
 
-        **Hierarchical feature analysis parameters:**
-
-            feature_hierarchy: object, default: None
-                Hierarchy over features, defined as an anytree_ node.
-                anytree_ allows importing trees from multiple formats (Python dict, JSON)
-
-                If no hierarchy is provided, a flat hierarchy will be auto-generated over base features.
-
-                Supersedes :attr:`feature_names` for source of feature names.
-
-                .. _anytree: https://anytree.readthedocs.io/en/2.8.0/
-
-            analyze_interactions: bool, default: False
-                Flag to enable testing of interaction significance. By default,
-                only pairwise interactions between leaf features identified as important by hierarchical FDR.
-                are tested. To enable testing of all pairwise interactions, also use -analyze_all_pairwise_interactions.
-
-            analyze_all_pairwise_interactions: bool, default: False
-                Analyze all pairwise interactions between leaf features,
-                instead of just pairwise interactions of leaf features identified by hierarchical FDR.
-
         {COMMON_DOC}
 
         {CONDOR_DOC}
@@ -149,18 +140,17 @@ class ModelAnalyzer(ABC):
         self.num_permutations = self.process_keyword_arg("num_permutations", constants.DEFAULT_NUM_PERMUTATIONS)
         self.permutation_test_statistic = self.process_keyword_arg("permutation_test_statistic", constants.MEAN_LOSS)
         self.feature_names = self.process_keyword_arg("feature_names", None)
+        self.feature_hierarchy = self.process_keyword_arg("feature_hierarchy", None)
         self.visualize = self.process_keyword_arg("visualize", True)
         self.seed = self.process_keyword_arg("seed", constants.SEED)
         self.loss_function = self.process_keyword_arg("loss_function", None, constants.CHOICES_LOSS_FUNCTIONS)
         self.set_loss_function(targets)
         self.importance_significance_level = self.process_keyword_arg("importance_significance_level", 0.1)
         self.compile_results_only = self.process_keyword_arg("compile_results_only", False)
-        # Hierarchical feature analysis parameters
-        self.feature_hierarchy = self.process_keyword_arg("feature_hierarchy", None)
-        self.analyze_interactions = self.process_keyword_arg("analyze_interactions", False)
-        if self.analyze_interactions:
-            raise NotImplementedError("Interaction analysis currently disabled pending updated theoretical analysis")
-        self.analyze_all_pairwise_interactions = self.process_keyword_arg("analyze_all_pairwise_interactions", False)  # pylint: disable = invalid-name
+        # Deprecated analysis parameters
+        # TODO: Remove these entirely from code
+        self.analyze_interactions = False
+        self.analyze_all_pairwise_interactions = False  # pylint: disable = invalid-name
         # HTCondor parameters
         self.condor = self.process_keyword_arg("condor", False)
         self.shared_filesystem = self.process_keyword_arg("shared_filesystem", False)
@@ -268,6 +258,15 @@ class ModelAnalyzer(ABC):
             # TODO: Document real hierarchy with examples
             # Input hierarchy needs a list of indices assigned to all base features
             # Create hierarchy over features from input hierarchy
+            if isinstance(self.feature_hierarchy, str):
+                # JSON hierarchy - import to anytree
+                try:
+                    importer = JsonImporter()
+                    with open(self.feature_hierarchy) as hierarchy_file:
+                        self.feature_hierarchy = importer.read(hierarchy_file)
+                except JSONDecodeError as error:
+                    raise ValueError(f"Feature hierarchy {self.feature_hierarchy} does not appear to be a valid JSON file:") from error
+            assert isinstance(self.feature_hierarchy, anytree.node.nodemixin.NodeMixin), "Feature hierarchy does not appear to be a valid JSON file or an anytree node"
             feature_nodes = {}
             all_idx = set()
             # Parse and validate input hierarchy
@@ -348,9 +347,6 @@ class TemporalModelAnalyzer(ModelAnalyzer):
 
     def __init__(self, model, data, targets, **kwargs):
         super().__init__(model, data, targets, **kwargs)
-        if self.feature_hierarchy.name != constants.DUMMY_ROOT:
-            raise NotImplementedError("Hierarchical/feature group analysis is not currently supported for temporal models;"
-                                      " unset attribute 'feature_hierarchy'")
         self.analysis_type = constants.TEMPORAL
         # Temporal model analysis parameters
         self.window_search_algorithm = self.process_keyword_arg("window_search_algorithm", constants.EFFECT_SIZE,
