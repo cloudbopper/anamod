@@ -32,7 +32,10 @@ models. At a high level, ``anamod`` implements the following algorithms:
 * Given a learned temporal or sequence model, it identifies its important features, windows as well as its dependence on temporal ordering.
   More details may be found in the following paper::
 
-    [Under review]
+    Sood, Akshay, and Mark Craven. “Feature Importance Explanations for Temporal
+    Black-Box Models.” ArXiv:2102.11934 [Cs, Stat], February 23, 2021.
+    http://arxiv.org/abs/2102.11934.
+
 
 ``anamod`` supersedes the library ``mihifepe``, based on the first paper
 (https://github.com/Craven-Biostat-Lab/mihifepe).
@@ -139,7 +142,7 @@ Analyzing a synthetic temporal model::
     output_dir = "example_synthetic_temporal"
     num_features = 10
     synthesized_features, X, model = synmod.synthesize(output_dir=output_dir, num_instances=100, seed=100,
-                                                        num_features=10, fraction_relevant_features=0.5,
+                                                        num_features=num_features, fraction_relevant_features=0.5,
                                                         synthesis_type="temporal", sequence_length=20, model_type="regressor")
     y = model.predict(X, labels=True)
 
