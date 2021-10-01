@@ -26,10 +26,7 @@ class TimeExplainer(TemporalExplainer):
     """TIME explainer"""
     def __init__(self, predict, data, **kwargs):
         super().__init__(predict, data)
-        targets = kwargs["targets"]
-        output_dir = kwargs["output_dir"]
-        loss_function = kwargs["loss_function"]
-        self.analyzer = TemporalModelAnalyzer(predict, data, targets, output_dir=output_dir, loss_function=loss_function)
+        self.analyzer = TemporalModelAnalyzer(predict, data, **kwargs)
 
     def explain(self):
         features = self.analyzer.analyze()
@@ -103,10 +100,7 @@ class PermutationTestExplainer(TabularExplainer):
     """Permutation test explainer"""
     def __init__(self, predict, data, **kwargs):
         super().__init__(predict, data)
-        targets = kwargs["targets"]
-        output_dir = kwargs["output_dir"]
-        loss_function = kwargs["loss_function"]
-        self.analyzer = ModelAnalyzer(self.predict, self.data, targets, output_dir=output_dir, loss_function=loss_function)
+        self.analyzer = ModelAnalyzer(self.predict, self.data, **kwargs)
 
     def explain(self):
         features = self.analyzer.analyze()

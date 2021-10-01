@@ -79,16 +79,20 @@ def explain_model(args, synthesized_features, data, model, targets):
     mode = "regression" if args.model_type == REGRESSOR else "classification"  # For LIME
     loss_fn = "mse" if args.model_type == REGRESSOR else "cross entropy"  # For SAGE
     loss_function = QUADRATIC_LOSS if args.model_type == REGRESSOR else BINARY_CROSS_ENTROPY  # For anamod
-    # Tabular feature names
-    num_timesteps = data.shape[2]
-    feature_names_tabular = []
-    for feature in synthesized_features:
-        new_features = [f"{feature.name}_{tidx}" for tidx in range(num_timesteps)]
-        feature_names_tabular.extend(new_features)
-    if args.explainer == "perm-fdr":
-        assert args.base_explainer_dir, "Explainer 'perm-fdr' requires prior execution of explainer 'perm'"
+    feature_names = [feature.name for feature in synthesized_features]
+    if args.explainer != "time":
+        # Tabular feature names
+        num_timesteps = data.shape[2]
+        feature_names_tabular = []
+        for feature in synthesized_features:
+            new_features = [f"{feature.name}_{tidx}" for tidx in range(num_timesteps)]
+            feature_names_tabular.extend(new_features)
+        feature_names = feature_names_tabular
+        # Special cases
+        if args.explainer == "perm-fdr":
+            assert args.base_explainer_dir, "Explainer 'perm-fdr' requires prior execution of explainer 'perm'"
     kwargs = dict(model_type=args.model_type, mode=mode, loss_fn=loss_fn, targets=targets,
-                  feature_names=feature_names_tabular, loss_function=loss_function,
+                  feature_names=feature_names, loss_function=loss_function,
                   base_explainer_dir=args.base_explainer_dir, output_dir=args.output_dir,
                   num_samples=10, rng_seed=SEED)
     # Initialize explainer and explain model
