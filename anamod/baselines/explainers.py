@@ -1,5 +1,6 @@
 """Wrappers around different explainers"""
 from abc import ABC
+import time
 
 import cloudpickle
 import numpy as np
@@ -80,6 +81,44 @@ class OcclusionUniformExplainer(TemporalExplainer):
                     scores[fidx][tidx] += np.mean(np.abs(pred1 - pred2))
                 self.data[:, fidx, tidx] = back
                 scores[fidx][tidx] /= self.num_samples
+        return scores
+
+
+class FITExplainer(TemporalExplainer):
+    """Feature importance in time (FIT), Tonekaboni et al. (2020)"""
+    def __init__(self, predict, data, **kwargs):
+        super().__init__(predict, data)
+        targets = kwargs["targets"]
+        # Only import torch if needed
+        # pylint: disable = import-outside-toplevel
+        from torch.utils.data import DataLoader, TensorDataset
+        from torch import Tensor
+        from TSX.explainers import FITExplainer
+        from TSX.generator import JointFeatureGenerator
+        # Set up data
+        train_size = self.num_instances * 3 // 4
+        train_X, val_X = np.split(data, [train_size])
+        train_y, val_y = np.split(targets, [train_size])
+        batch_size = 100
+        train_dataset = TensorDataset(Tensor(train_X), Tensor(train_y))
+        val_dataset = TensorDataset(Tensor(val_X), Tensor(val_y))
+        test_dataset = TensorDataset(Tensor(data), Tensor(targets))
+        train_loader = DataLoader(train_dataset, batch_size=batch_size)
+        val_loader = DataLoader(val_dataset, batch_size=batch_size)
+        self.test_loader = DataLoader(test_dataset, batch_size=batch_size)
+        # Train generator
+        generator = JointFeatureGenerator(self.num_features, prediction_size=self.num_timesteps)
+        self.explainer = FITExplainer(predict, activation=lambda x: x)
+        self.explainer.fit_generator(generator, train_loader, val_loader)
+
+    def explain(self):
+        scores = np.zeros((self.num_features, self.num_timesteps))
+        i = 1
+        for X, y in self.test_loader:
+            print(f"{time.localtime()}: Processing instance {i} of {X.shape[0]}")
+            i += 1
+            score = self.explainer.attribute(X, y)
+            scores += np.mean(np.abs(score), axis=0)
         return scores
 
 

@@ -10,7 +10,7 @@ from synmod.constants import REGRESSOR
 
 from anamod.baselines.explainers import TimeExplainer, PermutationTestExplainer, PermutationTestExplainerFDRControl
 from anamod.baselines.explainers import LimeExplainer, SageExplainer, SageExplainerMeanImputer, SageExplainerZeroImputer
-from anamod.baselines.explainers import OcclusionZeroExplainer, OcclusionUniformExplainer, CXPlainExplainer
+from anamod.baselines.explainers import OcclusionZeroExplainer, OcclusionUniformExplainer, CXPlainExplainer, FITExplainer
 from anamod.core.constants import QUADRATIC_LOSS, BINARY_CROSS_ENTROPY, SEED
 from anamod.core.utils import get_logger
 from anamod.simulation.simulation import read_synthesized_inputs, read_intermediate_inputs
@@ -18,7 +18,7 @@ from anamod.simulation.simulation import read_synthesized_inputs, read_intermedi
 EXPLAINERS = {"time": TimeExplainer, "perm": PermutationTestExplainer, "perm-fdr": PermutationTestExplainerFDRControl,
               "lime": LimeExplainer, "sage": SageExplainer, "sage-mean": SageExplainerMeanImputer, "sage-zero": SageExplainerZeroImputer,
               "occlusion-zero": OcclusionZeroExplainer, "occlusion-uniform": OcclusionUniformExplainer,
-              "cxplain": CXPlainExplainer}
+              "cxplain": CXPlainExplainer, "fit": FITExplainer}
 TRUE_SCORES_FILENAME = "true_scores.npy"
 EXPLAINER_SCORES_FILENAME = "explainer_scores.npy"
 EXPLAINER_RUNTIME_FILENAME = "explainer_runtime.npy"
