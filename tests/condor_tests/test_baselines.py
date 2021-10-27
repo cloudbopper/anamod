@@ -10,7 +10,7 @@ from tests.utils import pre_test, write_logfile
 
 def check_metrics(data_regression, metrics_filename):
     """Verify metrics match gold files"""
-    with open(metrics_filename, "r") as metrics_file:
+    with open(metrics_filename, "r", encoding="utf-8") as metrics_file:
         reader = csv.DictReader(metrics_file)
         row = next(reader)
         data = {field: row[field] for field in reader.fieldnames if "Runtime" not in field}
