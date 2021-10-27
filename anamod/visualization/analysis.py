@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import anytree
 from anytree.exporter import DotExporter
-import matplotlib.patches as patches
+import matplotlib.patches as patches  # pylint: disable = consider-using-from-import
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
@@ -101,7 +101,7 @@ def render_tree(opts, tree):
     """Render tree in ASCII and graphviz"""
     with codecs.open(f"{opts.output_dir}/{constants.FEATURE_IMPORTANCE_HIERARCHY}.txt", "w", encoding="utf8") as txt_file:
         for pre, _, node in anytree.RenderTree(tree):
-            txt_file.write("%s%s: %s (%s: %s)\n" % (pre, node.name, node.description.title(), opts.effect_name, str(node.effect_size)))
+            txt_file.write(f"{pre}{node.name}: {node.description.title()} ({opts.effect_name}: {str(node.effect_size)})\n")
     graph_options = []  # Example: graph_options = ["dpi=300.0;", "style=filled;", "bgcolor=yellow;"]
     exporter = DotExporter(tree, options=graph_options, nodeattrfunc=lambda node: nodeattrfunc(opts, node))
     exporter.to_dotfile(f"{opts.output_dir}/{constants.FEATURE_IMPORTANCE_HIERARCHY}.dot")
@@ -139,7 +139,7 @@ def nodeattrfunc(opts, node):
     """Node attributes function"""
     label = node.name.upper()
     if not opts.minimal_labels and node.description:
-        label = "%s:\n%s" % (label, node.description)
+        label = f"{label}:\n{node.description}"
     words = label.split(" ")
     words_per_line = 3
     lines = []
@@ -148,7 +148,7 @@ def nodeattrfunc(opts, node):
         lines.append(line)
     label = "\n".join(lines)
     if not opts.minimal_labels and node.effect_size:
-        label = "%s\n%s: %0.3f" % (label, opts.effect_name, node.effect_size)
+        label = f"{label}\n{opts.effect_name}: {node.effect_size:0.3f}"
     shape = "rectangle" if opts.rectangle_leaves and node.was_leaf else "ellipse"
-    return "fillcolor=\"/%s/%d\" label=\"%s\" style=filled fontname=\"helvetica bold\" fontsize=15.0 fontcolor=%s shape = %s" \
-            % (opts.color_scheme, node.color, label, node.fontcolor, shape)
+    return (f"fillcolor=\"/{opts.color_scheme}/{node.color}\" label=\"{label}\" style=filled "
+            f"fontname=\"helvetica bold\" fontsize=15.0 fontcolor={node.fontcolor} shape = {shape}")

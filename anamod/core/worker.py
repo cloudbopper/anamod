@@ -44,7 +44,7 @@ def main():
     parser.add_argument("-window_search_algorithm", type=str)
     parser.add_argument("-window_effect_size_threshold", type=float)
     args = parser.parse_args()
-    args.logger = get_logger(__name__, "%s/worker_%d.log" % (args.output_dir, args.worker_idx))
+    args.logger = get_logger(__name__, f"{args.output_dir}/worker_{args.worker_idx}.log")
     pipeline(args)
 
 
@@ -216,7 +216,7 @@ def compute_importances(args, features, perturbed_losses, baseline_loss):
 def search_window(args, inputs, feature, baseline_loss, loss_fn):
     """Search temporal window of importance for given feature"""
     # pylint: disable = too-many-arguments, too-many-locals
-    args.logger.info("Begin searching for temporal window for feature %s" % feature.name)
+    args.logger.info(f"Begin searching for temporal window for feature {feature.name}")
     overall_effect_size_magnitude = np.abs(feature.overall_effect_size)
     T = inputs.data.shape[2]  # pylint: disable = invalid-name
     # Search left boundary of window by identifying the left inverted window
@@ -276,7 +276,7 @@ def search_window(args, inputs, feature, baseline_loss, loss_fn):
 def temporal_analysis(args, inputs, features, baseline_loss, loss_fn):
     """Perform temporal analysis of important features"""
     features = [feature for feature in features if feature.important]
-    args.logger.info("Identified important features: %s; proceeding with temporal analysis" % ",".join([feature.name for feature in features]))
+    args.logger.info(f"Identified important features: {','.join([feature.name for feature in features])}; proceeding with temporal analysis")
     for feature in features:
         # Test importance of feature ordering across whole sequence
         perturbed_loss = perturb_feature(args, inputs, feature, loss_fn, perturbation_type=constants.WITHIN_INSTANCE)

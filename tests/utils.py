@@ -17,15 +17,15 @@ def setup_logfile(caplog):
 
 def write_logfile(caplog, output_dir):
     """Write log file"""
-    log_filename = "{0}/test.log".format(output_dir)
-    with open(log_filename, "w") as log_file:
+    log_filename = f"{output_dir}/test.log"
+    with open(log_filename, "w", encoding="utf-8") as log_file:
         log_file.write(caplog.text)
     caplog.clear()
 
 
 def pre_test(func_name, tmpdir, caplog):
     """Pre-test setup"""
-    output_dir = "%s/output_dir_%s" % (tmpdir, func_name)
+    output_dir = f"{tmpdir}/output_dir_{func_name}"
     setup_logfile(caplog)
     return output_dir
 
@@ -34,10 +34,10 @@ def post_test(file_regression, caplog, output_dir):
     """Post-test verification"""
     write_logfile(caplog, output_dir)
     summary_filename = f"{output_dir}/{constants.SIMULATION_SUMMARY_FILENAME}"
-    with open(summary_filename, "r") as summary_file:
+    with open(summary_filename, "r", encoding="utf-8") as summary_file:
         summary = "".join(summary_file.readlines())
     file_regression.check(summary, extension="_summary.json")
     important_features_filename = f"{output_dir}/{constants.FEATURE_IMPORTANCE}.csv"
-    with open(important_features_filename, "r") as important_features_file:
+    with open(important_features_filename, "r", encoding="utf-8") as important_features_file:
         important_features = "".join(sorted(important_features_file.readlines()))
     file_regression.check(important_features, extension="_feature_importance.csv")

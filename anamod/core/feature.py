@@ -80,7 +80,7 @@ class Feature(anytree.Node):
     def uniquify(self, uniquifier):
         """Add uniquifying identifier to name"""
         assert uniquifier
-        self.name = "{0}->{1}".format(uniquifier, self.name)
+        self.name = f"{uniquifier}->{self.name}"
 
     @property
     def size(self):

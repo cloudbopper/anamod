@@ -38,9 +38,9 @@ def main():
     gold_dir = GOLDS[args.type]
     # Write test file
     condor_test_filename = os.path.join(test_dir, CONDOR_TEST_DIRECTORY, test_filename)
-    with open(condor_test_filename, "w") as condor_test_file:
+    with open(condor_test_filename, "w", encoding="utf-8") as condor_test_file:
         test_filename_abs = os.path.join(test_dir, test_filename)
-        with open(test_filename_abs, "r") as test_file:
+        with open(test_filename_abs, "r", encoding="utf-8") as test_file:
             for line in test_file:
                 for pattern, replacement in SUBSTITUTIONS.items():
                     line = re.sub(pattern, replacement, line)

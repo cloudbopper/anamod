@@ -87,21 +87,20 @@ def main():
     if args.evaluate_only:
         assert args.analysis_type != constants.HIERARCHICAL, "-evaluate_only not currently supported with hierarchical analysis"
     if not args.output_dir:
-        args.output_dir = ("sim_outputs_inst_%d_feat_%d_noise_%.3f_relfraction_%.3f_pert_%s_shufftrials_%d" %
-                           (args.num_instances, args.num_features, args.noise_multiplier,
-                            args.fraction_relevant_features, args.perturbation, args.num_permutations))
+        args.output_dir = (f"sim_outputs_inst_{args.num_instances}_feat_{args.num_features}_noise_{args.noise_multiplier:.3f}_"
+                           f"relfraction_{args.fraction_relevant_features:.3f}_pert_{args.perturbation}_shufftrials_{args.num_permutations}")
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     if not args.synthesis_dir:
         args.synthesis_dir = f"{args.output_dir}/synthesis"
     args.rng = np.random.default_rng(args.seed)
-    args.logger = utils.get_logger(__name__, "%s/simulation.log" % args.output_dir)
+    args.logger = utils.get_logger(__name__, f"{args.output_dir}/simulation.log")
     return pipeline(args, pass_args)
 
 
 def pipeline(args, pass_args):
     """Simulation pipeline"""
-    args.logger.info("Begin anamod simulation with args: %s" % args)
+    args.logger.info(f"Begin anamod simulation with args: {args}")
     synthesized_features, data, model_wrapper, targets = synthesize(args)
     analyzed_features = analyze(args, pass_args, synthesized_features, data, model_wrapper, targets)
     results, model_wrapper = evaluate(args, synthesized_features, model_wrapper, analyzed_features)
@@ -163,7 +162,7 @@ def analyze(args, pass_args, synthesized_features, data, model_wrapper, targets)
     hierarchy_root = None
     if args.hierarchy_filename:
         # Load hierarchy from file
-        with open(args.hierarchy_filename) as hierarchy_file:
+        with open(args.hierarchy_filename, encoding="utf-8") as hierarchy_file:
             hierarchy_root = JsonImporter().read(hierarchy_file)
     elif args.analysis_type == constants.HIERARCHICAL:
         # Generate hierarchy if required
@@ -219,8 +218,8 @@ def run_synmod(oargs):
         # Spawn condor job to synthesize data
         # Compute size requirements
         data_size = args.num_instances * args.num_features * args.sequence_length // (8 * (2 ** 30))  # Data size in GB
-        memory_requirement = "%dGB" % (1 + data_size)
-        disk_requirement = "%dGB" % (4 + data_size)
+        memory_requirement = f"{1 + data_size}GB"
+        disk_requirement = f"{4 + data_size}GB"
         # Set up command-line arguments
         args.sequences_independent_of_windows = args.window_independent
         cmd = "python3 -m synmod"
@@ -327,7 +326,7 @@ def gen_hierarchy(args, clustering_data):
                 node.min_child_vidx = min([child.min_child_vidx for child in node.children])
                 node.max_child_vidx = max([child.vidx for child in node.children])
                 node.num_base_features = sum([child.num_base_features for child in node.children])
-                node.name = "[%d-%d] (size: %d)" % (node.min_child_vidx, node.max_child_vidx, node.num_base_features)
+                node.name = f"[{node.min_child_vidx}-{node.max_child_vidx}] (size: {node.num_base_features})"
     return hierarchy_root, feature_id_map
 
 
@@ -405,11 +404,9 @@ def update_hierarchy_relevance(hierarchy_root, relevant_feature_map, features):
             coeff = relevant_feature_map.get(frozenset([idx]))
             if coeff:
                 node.poly_coeff = coeff
-                node.description = ("%s feature:\nPolynomial coefficient: %f\nBinomial probability: %f"
-                                    % (constants.RELEVANT, coeff, probs[idx]))
+                node.description = f"{constants.RELEVANT} feature:\nPolynomial coefficient: {coeff}\nBinomial probability: {probs[idx]}"
             elif idx in relevant_features:
-                node.description = ("%s feature\n(Interaction-only)\nBinomial probability: %f"
-                                    % (constants.RELEVANT, probs[idx]))
+                node.description = f"{constants.RELEVANT} feature\n(Interaction-only)\nBinomial probability: {probs[idx]}"
         else:
             for child in node.children:
                 if child.description != constants.IRRELEVANT:
@@ -439,7 +436,7 @@ def run_anamod(args, pass_args, data, model, targets, hierarchy=None):  # pylint
     if args.analysis_type == constants.HIERARCHICAL:
         options["perturbation"] = args.perturbation
         options["analyze_interactions"] = args.analyze_interactions
-    args.logger.info("Passing the following arguments to anamod.master without parsing: %s" % pass_args)
+    args.logger.info(f"Passing the following arguments to anamod.master without parsing: {pass_args}")
     pass_args = process_pass_args(pass_args)
     options = {**pass_args, **options}  # Merge dictionaries
     # Create analyzer
@@ -490,7 +487,7 @@ def write_summary(args, model_wrapper, results):
     summary = {constants.CONFIG: config, constants.MODEL: model_summary, constants.RESULTS: results}
     summary_filename = f"{args.output_dir}/{constants.SIMULATION_SUMMARY_FILENAME}"
     args.logger.info(f"Writing summary to {summary_filename}")
-    with open(summary_filename, "w") as summary_file:
+    with open(summary_filename, "w", encoding="utf-8") as summary_file:
         json.dump(summary, summary_file, indent=2)
     return summary
 
