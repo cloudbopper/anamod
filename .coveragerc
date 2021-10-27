@@ -1,0 +1,12 @@
+[report]
+exclude_lines =
+    .*[c|C]ondor.*
+
+[run]
+omit =
+    # significant obsolete code:
+    anamod/core/compute_p_values.py
+    # used only by condor:
+    anamod/core/model_loader.py
+    # visualization tools:
+    anamod/visualization/*
