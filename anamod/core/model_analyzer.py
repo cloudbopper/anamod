@@ -262,7 +262,7 @@ class ModelAnalyzer(ABC):
                 # JSON hierarchy - import to anytree
                 try:
                     importer = JsonImporter()
-                    with open(self.feature_hierarchy) as hierarchy_file:
+                    with open(self.feature_hierarchy, encoding="utf-8") as hierarchy_file:
                         self.feature_hierarchy = importer.read(hierarchy_file)
                 except JSONDecodeError as error:
                     raise ValueError(f"Feature hierarchy {self.feature_hierarchy} does not appear to be a valid JSON file:") from error

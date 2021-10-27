@@ -126,7 +126,7 @@ class CondorJobWrapper():
 
     def create_executable(self, package):
         """Create executable shell script"""
-        with open(self.filenames.exec_filename, "w") as exec_file:
+        with open(self.filenames.exec_filename, "w", encoding="utf-8") as exec_file:
             # Setup environment and inputs
             exec_file.write("#!/bin/sh\n")
             if not self.shared_filesystem:

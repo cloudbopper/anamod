@@ -12,7 +12,7 @@ def test_condor_cat(tmpdir, shared_fs, tracking):
     jobs = [None] * num_jobs
     for idx in range(num_jobs):
         filename = f"{tmpdir}/file{idx}.txt"
-        with open(filename, "w") as filep:
+        with open(filename, "w", encoding="utf-8") as filep:
             filep.write(f"{idx}")
         dirs[idx] = f"{tmpdir}/dir{idx}"
         if shared_fs:
@@ -26,6 +26,6 @@ def test_condor_cat(tmpdir, shared_fs, tracking):
     CondorJobWrapper.monitor(jobs)
     output = ""
     for directory in dirs:
-        with open(f"{directory}/newfile.txt", "r") as newfile:
+        with open(f"{directory}/newfile.txt", "r", encoding="utf-8") as newfile:
             output += newfile.read()
     assert output == "".join([f"{idx}" for idx in range(num_jobs)])

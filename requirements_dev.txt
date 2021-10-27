@@ -3,7 +3,7 @@ watchdog
 flake8
 doc8
 tox
-Sphinx
+Sphinx>=3
 sphinx-rtd-theme
 twine
 wheel

@@ -6,7 +6,7 @@
     "sequence_length": 20,
     "model_type": "Regressor",
     "num_permutations": 50,
-    "noise_multiplier": 0.23514008933704572,
+    "noise_multiplier": 0.2351400893,
     "sequences_independent_of_windows": false
   },
   "model": {

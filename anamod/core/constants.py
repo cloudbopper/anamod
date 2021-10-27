@@ -168,6 +168,6 @@ AUTO = "auto"
 AUTO_R2 = 0.9  # R2 to aim for when auto-selecting noise
 
 # Miscellaneous
-BASELINE = u"baseline"
+BASELINE = "baseline"
 SEED = 13997
 NEAR_ZERO = 1e-10  # To handle floating-point errors

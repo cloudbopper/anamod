@@ -54,7 +54,7 @@ class Trial():  # pylint: disable = too-many-instance-attributes
         """Set up simulations"""
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
-        self.logger = utils.get_logger(__name__, "%s/run_simulations.log" % self.output_dir)
+        self.logger = utils.get_logger(__name__, f"{self.output_dir}/run_simulations.log")
         self.config_filename = constants.CONFIG_HIERARCHICAL if self.analysis_type == constants.HIERARCHICAL else constants.CONFIG_TEMPORAL
         self.logger.info(f"Trial for seed {self.seed}: Begin running/analyzing simulations")
         self.config, self.test_param = self.load_config()
@@ -65,7 +65,7 @@ class Trial():  # pylint: disable = too-many-instance-attributes
 
     def load_config(self):
         """Load simulation configuration"""
-        config_filename = "%s/%s" % (os.path.dirname(__file__), self.config_filename)
+        config_filename = f"{os.path.dirname(__file__)}/{self.config_filename}"
         assert os.path.exists(config_filename)
         config = configparser.ConfigParser()
         config.read(config_filename)
@@ -77,8 +77,7 @@ class Trial():  # pylint: disable = too-many-instance-attributes
             if "," in value:
                 test_param = TestParam(option, [item.strip() for item in value.split(",")])
                 continue
-            sconfig += "-%s " % option
-            sconfig += "%s " % value
+            sconfig += f"-{option} {value} "
         return sconfig, test_param
 
     def parametrize_simulations(self):
@@ -163,11 +162,11 @@ class Trial():  # pylint: disable = too-many-instance-attributes
     def analyze_simulations(self):
         """Collate and analyze simulation results"""
         results_filename = f"{self.output_dir}/{constants.ALL_SIMULATIONS_SUMMARY}_{self.type}.json"
-        with open(results_filename, "w") as results_file:
+        with open(results_filename, "w", encoding="utf-8") as results_file:
             root = OrderedDict()
             for sim in self.simulations:
                 sim_results_filename = f"{sim.output_dir}/{constants.SIMULATION_SUMMARY_FILENAME}"
-                with open(sim_results_filename, "r") as sim_results_file:
+                with open(sim_results_filename, "r", encoding="utf-8") as sim_results_file:
                     data = json.load(sim_results_file)
                     data[constants.CONFIG]["output_dir"] = f"{os.path.basename(self.output_dir)}/{os.path.basename(sim.output_dir)}"
                     root[sim.param] = data
@@ -205,7 +204,7 @@ def parse_arguments(strargs):
         os.makedirs(args.output_dir)
     if args.reevaluate:
         args.trial_wait_period = 0  # Serial
-    args.logger = utils.get_logger(__name__, "%s/run_trials.log" % args.output_dir)
+    args.logger = utils.get_logger(__name__, f"{args.output_dir}/run_trials.log")
     return args
 
 
@@ -235,7 +234,7 @@ def gen_trials(args):
     """Generate multiple trials, each with multiple simulations"""
     trials = set()
     for seed in range(args.start_seed, args.start_seed + args.num_trials):
-        output_dir = "%s/trial_%s_%d" % (args.output_dir, args.type, seed)
+        output_dir = f"{args.output_dir}/trial_{args.type}_{seed}"
         trials.add(Trial(seed, args.type, args.analysis_type, output_dir, args.summarize_only,
                          args.reevaluate, args.max_concurrent_simulations, args.pass_args))
     return trials
@@ -294,7 +293,7 @@ def summarize_trials(args, trials):
                                        analysis_type=args.analysis_type, start_seed=args.start_seed, simulation_cmdline=some_trial.config))
     for tidx, trial in enumerate(trials):
         trial_results_filename = f"{trial.output_dir}/{constants.ALL_SIMULATIONS_SUMMARY}_{args.type}.json"
-        with open(trial_results_filename, "r") as trial_results_file:
+        with open(trial_results_filename, "r", encoding="utf-8") as trial_results_file:
             sim_data = json.load(trial_results_file, object_pairs_hook=OrderedDict)
             for param, sim in sim_data.items():  # Mapping from parameter values to corresponding simulation outputs
                 for category, category_data in sim.items():  # Mapping from simulation output category (config/model/results) to its data
@@ -310,7 +309,7 @@ def summarize_trials(args, trials):
                             value = np.mean(list(value.values())) if value else 0.
                         data[category][key][param][tidx] = value
     data_filename = f"{args.output_dir}/{constants.ALL_TRIALS_SUMMARY_FILENAME}"
-    with open(data_filename, "w") as data_file:
+    with open(data_filename, "w", encoding="utf-8") as data_file:
         json.dump(data, data_file, indent=2)
     return data
 

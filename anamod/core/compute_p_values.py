@@ -50,7 +50,7 @@ def compute_p_value(baseline, perturbed, test=constants.PAIRED_TTEST, alternativ
     perturbed = utils.round_value(perturbed, decimals=15)
     # Perform statistical test
     valid_tests = [constants.PAIRED_TTEST, constants.WILCOXON_TEST]
-    assert test in valid_tests, "Invalid test name %s" % test
+    assert test in valid_tests, f"Invalid test name {test}"
     if test == constants.PAIRED_TTEST:
         # Two-tailed paired t-test
         pvalue = ttest_rel(baseline, perturbed).pvalue

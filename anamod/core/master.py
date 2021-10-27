@@ -24,7 +24,7 @@ def main(args):
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     args.rng = np.random.default_rng(args.seed)
-    args.logger = utils.get_logger(__name__, "%s/anamod.log" % args.output_dir)
+    args.logger = utils.get_logger(__name__, f"{args.output_dir}/anamod.log")
     validate_args(args)
     return pipeline(args)
 
@@ -32,7 +32,7 @@ def main(args):
 def pipeline(args):
     """Master pipeline"""
     # TODO: 'args' is now an object. Change to reflect that and figure out way to print object attributes
-    args.logger.info("Begin anamod master pipeline with args: %s" % args)
+    args.logger.info(f"Begin anamod master pipeline with args: {args}")
     # Perturb features
     worker_pipeline = CondorPipeline(args) if args.condor else SerialPipeline(args)
     analyzed_features = worker_pipeline.run()
@@ -53,7 +53,7 @@ def write_outputs(args, features):
         attributes += ["ordering_important", "ordering_pvalue",
                        "window", "window_important", "window_importance_score", "window_pvalue",
                        "window_ordering_important", "window_ordering_pvalue"]
-    with open(csv_filename, "w", newline="") as csv_file:
+    with open(csv_filename, "w", encoding="utf-8", newline="") as csv_file:
         writer = csv.writer(csv_file, delimiter=",")
         writer.writerow(attributes)
         for feature in features:
