@@ -2,13 +2,25 @@
 anamod
 ========
 
-.. image:: https://img.shields.io/travis/cloudbopper/anamod.svg
-        :target: https://travis-ci.com/cloudbopper/anamod
+.. image:: https://app.travis-ci.com/cloudbopper/anamod.svg
+        :target: https://app.travis-ci.com/github/cloudbopper/anamod
         :alt: Build status
 
 .. image:: https://readthedocs.org/projects/anamod/badge/?version=latest
         :target: https://anamod.readthedocs.io/en/latest/?badge=latest
         :alt: Documentation Status
+
+.. image:: https://codecov.io/gh/cloudbopper/anamod/branch/master/graph/badge.svg?token=5XLhbjehGp
+      :target: https://codecov.io/gh/cloudbopper/anamod
+      :alt: Code Coverage
+
+.. image:: https://badge.fury.io/py/anamod.svg
+    :target: https://pypi.org/project/anamod/
+    :alt: PyPI - Package Version
+
+.. image:: https://img.shields.io/pypi/pyversions/anamod
+    :target: https://pypi.org/project/anamod/
+    :alt: PyPI - Python Version
 
 --------
 Overview
