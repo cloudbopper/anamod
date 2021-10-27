@@ -8,6 +8,9 @@ from anamod.core import model_loader
 from anamod.simulation import simulation
 from tests.utils import pre_test, post_test
 
+# TODO: change name to test_tabular; change arguments to use tabular instead of hierarchical,
+# since hierarchy is supported for both tabular and temporal models
+
 
 # pylint: disable = invalid-name, protected-access
 def test_condor_simulation_flat_hierarchy(file_regression, tmpdir, caplog, shared_fs):
