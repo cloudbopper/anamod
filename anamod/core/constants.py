@@ -7,7 +7,6 @@ HIERARCHICAL = "hierarchical"
 
 # Features
 NAME = "Name"
-DESCRIPTION = "Description"
 IMPORTANT = "Important"
 IMPORTANCE_SCORE = "Importance Score"
 WINDOW_IMPORTANT = "Window Important"
@@ -79,7 +78,7 @@ LOSSES = "losses"
 PREDICTIONS = "predictions"
 RECORD_IDS = "record_ids"
 TARGETS = "targets"
-STATIC = "static"
+TABULAR = "tabular"
 TEMPORAL = "temporal"
 DATA = "data"
 

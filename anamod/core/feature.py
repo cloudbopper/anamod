@@ -3,8 +3,6 @@ import anytree
 import numpy as np
 import xxhash
 
-from anamod.core import constants
-
 ATTRIBUTES = dict(
     # p-value attributes
     pvalue=1.,
@@ -54,7 +52,7 @@ class Feature(anytree.Node):
 
     def __init__(self, name, **kwargs):
         super().__init__(name, **kwargs)
-        self.description = kwargs.get(constants.DESCRIPTION, "")
+        self.description = kwargs.get("description", "")
         self.idx = kwargs.get("idx", [])
         self.perturbable = kwargs.get("perturbable", True)
         # TODO: (Verify) Could initialize the RNG right away, since cloudpickle should still be able to pickle it

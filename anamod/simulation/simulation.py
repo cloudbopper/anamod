@@ -27,6 +27,7 @@ from anamod.simulation import evaluation
 
 def main():
     """Main"""
+    # pylint: disable = too-many-statements
     parser = argparse.ArgumentParser("python anamod.simulation", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     # Required arguments
     required = parser.add_argument_group("Required parameters")
@@ -80,6 +81,7 @@ def main():
     temporal.add_argument("-model_type", default=REGRESSOR, choices=[CLASSIFIER, REGRESSOR])
     temporal.add_argument("-sequences_independent_of_windows", type=strtobool, dest="window_independent")
     temporal.add_argument("-standardize_features", type=strtobool, default=True)
+    temporal.add_argument("-feature_type_distribution", nargs=3, type=float, default=[0.25, 0.25, 0.50])
     temporal.set_defaults(window_independent=False)
 
     args, pass_args = parser.parse_known_args()
@@ -169,7 +171,7 @@ def analyze(args, pass_args, synthesized_features, data, model_wrapper, targets)
         hierarchy_root, _ = gen_hierarchy(args, data)
         if hierarchy_root:
             # Update hierarchy descriptions for future visualization
-            update_hierarchy_relevance(hierarchy_root, model_wrapper.ground_truth_model.relevant_feature_map, synthesized_features)
+            update_hierarchy_descriptions(hierarchy_root, model_wrapper.ground_truth_model.relevant_feature_map, synthesized_features)
     # Invoke feature importance algorithm
     analyzed_features = run_anamod(args, pass_args, data, model_wrapper, targets, hierarchy_root)
     return analyzed_features
@@ -227,7 +229,7 @@ def run_synmod(oargs):
         args.output_dir = os.path.abspath(args.output_dir) if args.shared_filesystem else os.path.basename(args.output_dir)
         for arg in ["output_dir", "num_features", "num_instances", "synthesis_type",
                     "fraction_relevant_features", "num_interactions", "include_interaction_only_features", "seed", "write_outputs",
-                    "sequence_length", "sequences_independent_of_windows", "model_type", "standardize_features"]:
+                    "sequence_length", "sequences_independent_of_windows", "model_type", "standardize_features", "feature_type_distribution"]:
             cmd += f" -{arg} {args.__getattribute__(arg)}"
         args.logger.info(f"Running cmd: {cmd}")
         # Launch and monitor job
@@ -248,7 +250,7 @@ def configure_synthesis_args(oargs):
     args.output_dir = args.synthesis_dir
     args.write_outputs = True
     if args.analysis_type == constants.HIERARCHICAL:
-        args.synthesis_type = constants.STATIC
+        args.synthesis_type = constants.TABULAR
     else:
         args.synthesis_type = constants.TEMPORAL
     if args.noise_multiplier != constants.AUTO:
@@ -385,13 +387,10 @@ def gen_hierarchy_from_clusters(args, clusters):
     return hierarchy_root
 
 
-def update_hierarchy_relevance(hierarchy_root, relevant_feature_map, features):
+def update_hierarchy_descriptions(hierarchy_root, relevant_feature_map, features):
     """
-    Add feature relevance information to nodes of hierarchy:
-    their probabilty of being enabled,
-    their polynomial coefficient
+    Add feature relevance information to nodes of hierarchy
     """
-    probs = [feature.prob for feature in features]
     relevant_features = set()
     for key in relevant_feature_map:
         relevant_features.update(key)
@@ -399,14 +398,11 @@ def update_hierarchy_relevance(hierarchy_root, relevant_feature_map, features):
         node.description = constants.IRRELEVANT
         if node.is_leaf:
             idx = node.idx[0]
-            node.poly_coeff = 0.0
-            node.bin_prob = probs[idx]
             coeff = relevant_feature_map.get(frozenset([idx]))
             if coeff:
-                node.poly_coeff = coeff
-                node.description = f"{constants.RELEVANT} feature:\nPolynomial coefficient: {coeff}\nBinomial probability: {probs[idx]}"
+                node.description = f"{constants.RELEVANT} feature:\nPolynomial coefficient: {coeff}\nSummary: {features[idx].summary()}"
             elif idx in relevant_features:
-                node.description = f"{constants.RELEVANT} feature\n(Interaction-only)\nBinomial probability: {probs[idx]}"
+                node.description = f"{constants.RELEVANT} feature\n(Interaction-only)\nSummary: {features[idx].summary()}"
         else:
             for child in node.children:
                 if child.description != constants.IRRELEVANT:
