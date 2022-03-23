@@ -2,9 +2,8 @@
 
 language: python
 python:
+  - 3.9
   - 3.8
-  - 3.7
-  - 3.6
 
 before_install:
  - sudo apt-get install -y graphviz
@@ -31,4 +30,4 @@ deploy:
   on:
     tags: true
     repo: cloudbopper/anamod
-    python: 3.6
+    python: 3.8
